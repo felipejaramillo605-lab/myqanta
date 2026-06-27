@@ -138,7 +138,7 @@ export const analyzeStatement = createServerFn({ method: "POST" })
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const { generateText, Output } = await import("ai");
+    const { generateObject } = await import("ai");
     const gateway = createLovableAiGatewayProvider(key);
 
     const system = `You are a financial analyst. Classify each bank-statement line into an EBITDA bucket.
@@ -153,14 +153,12 @@ Buckets:
 Amount sign convention: income positive, expense negative.
 Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language.`;
 
-    const { experimental_output } = await generateText({
+    const { object: parsed } = await generateObject({
       model: gateway("google/gemini-2.5-flash"),
-      experimental_output: Output.object({ schema: ExtractionSchema }),
+      schema: ExtractionSchema,
       system,
       prompt: `Parse this bank statement and extract every transaction.\n\n${data.text}`,
     });
-
-    const parsed = experimental_output as z.infer<typeof ExtractionSchema>;
 
     const { data: stmt, error: stmtErr } = await context.supabase
       .from("finance_statements")
