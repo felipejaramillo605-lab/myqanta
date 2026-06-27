@@ -10,9 +10,11 @@ import {
   deleteProduct,
   listMovements,
   listProducts,
+  listLowStock,
   scanInvoice,
   upsertProduct,
 } from "@/lib/inventory.functions";
+import { LowStockAlerts } from "@/components/low-stock-alerts";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
     await Promise.all([
       context.queryClient.ensureQueryData({ queryKey: ["inv", "products"], queryFn: () => listProducts() }),
       context.queryClient.ensureQueryData({ queryKey: ["inv", "movs"], queryFn: () => listMovements() }),
+      context.queryClient.ensureQueryData({ queryKey: ["inv", "low"], queryFn: () => listLowStock() }),
     ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
@@ -74,6 +77,8 @@ function Inventory() {
         <Stat icon={<AlertTriangle className="size-4 text-destructive" />} label={t("inv.low_stock")} value={lowStock.toString()} />
         <Stat icon={<ScanLine className="size-4 text-primary" />} label={lang === "es" ? "IA Gemini" : "Gemini AI"} value="OCR" />
       </div>
+
+      <LowStockAlerts />
 
       <Tabs defaultValue="products">
         <TabsList>
