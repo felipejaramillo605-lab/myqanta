@@ -19,7 +19,7 @@ export const listLowStock = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("inv_products")
-      .select("id,name,sku,unit,stock,min_stock,category")
+      .select("id,name,sku,unit,stock,min_stock,category,cost")
       .gt("min_stock", 0)
       .order("name");
     if (error) throw new Error(error.message);
