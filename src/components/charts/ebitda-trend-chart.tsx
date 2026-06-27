@@ -65,7 +65,7 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
                   borderRadius: 12,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => fmtShort(v)}
+                formatter={(v) => fmtShort(Number(v))}
               />
               <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#gRev)" strokeWidth={2} name={t("dash.kpi.revenue")} />
               <Area type="monotone" dataKey="costs" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.1)" strokeWidth={2} name={t("dash.kpi.costs")} />
