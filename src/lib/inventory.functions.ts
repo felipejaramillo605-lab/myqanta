@@ -14,6 +14,18 @@ export const listProducts = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const listLowStock = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("inv_products")
+      .select("id,name,sku,unit,stock,min_stock,category")
+      .gt("min_stock", 0)
+      .order("name");
+    if (error) throw new Error(error.message);
+    return (data ?? []).filter((p) => Number(p.stock) <= Number(p.min_stock));
+  });
+
 const ProductInput = z.object({
   id: z.string().uuid().optional(),
   sku: z.string().optional().nullable(),
