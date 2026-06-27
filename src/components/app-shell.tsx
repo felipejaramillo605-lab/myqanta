@@ -17,6 +17,8 @@ import {
   Sun,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { NotificationBell } from "@/components/notification-bell";
+import { AssistantPanel } from "@/components/assistant-panel";
 
 const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", key: "nav.dashboard", icon: LayoutDashboard },
@@ -106,6 +108,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="sm" className="flex-1 justify-start font-mono text-xs" onClick={() => setLang(lang === "es" ? "en" : "es")}>
               {lang.toUpperCase()}
             </Button>
+            <NotificationBell />
+            <AssistantPanel />
             <Button variant="ghost" size="icon" onClick={toggleMode} aria-label="toggle mode">
               {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
@@ -125,6 +129,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="font-mono text-base">{t("app.name")}</span>
         </Link>
         <div className="flex items-center gap-1">
+          <NotificationBell />
+          <AssistantPanel />
           <Button variant="ghost" size="icon" onClick={toggleMode}>
             {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
