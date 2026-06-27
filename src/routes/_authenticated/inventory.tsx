@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight } from "lucide-react";
+import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown } from "lucide-react";
 
 import {
   createMovement,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/inventory.functions";
 import { LowStockAlerts } from "@/components/low-stock-alerts";
 import { StockHistoryChart } from "@/components/charts/stock-history-chart";
+import { downloadCsv } from "@/lib/export-utils";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,12 @@ function Inventory() {
           <p className="mt-1 text-sm text-muted-foreground">{t("inv.sub")}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="ghost" size="sm" disabled={products.length === 0} onClick={() => downloadCsv(
+            `qanta-products-${new Date().toISOString().slice(0,10)}.csv`,
+            products.map((p) => ({ sku: p.sku ?? "", name: p.name, category: p.category ?? "", unit: p.unit, stock: Number(p.stock), min_stock: Number(p.min_stock), cost: Number(p.cost), price: Number(p.price) })),
+          )}>
+            <FileDown className="size-4" />{t("export.csv")}
+          </Button>
           <ScanDialog scan={scanFn} onApplied={refresh} />
           <MovementDialog products={products} onSubmit={(v) => movFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />
           <ProductDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />

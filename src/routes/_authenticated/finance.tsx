@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText } from "lucide-react";
 
 import {
   analyzeStatement,
@@ -12,7 +12,10 @@ import {
   getKpis,
   getEbitdaSeries,
   listTransactions,
+  monthlyClosingSummary,
 } from "@/lib/finance.functions";
+import { downloadCsv } from "@/lib/export-utils";
+import { generateEbitdaReportPdf } from "@/lib/pdf-report";
 import { EbitdaTrendChart } from "@/components/charts/ebitda-trend-chart";
 import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
 import { useI18n } from "@/lib/i18n";
@@ -72,6 +75,7 @@ function Finance() {
   const createFn = useServerFn(createTransaction);
   const delFn = useServerFn(deleteTransaction);
   const analyzeFn = useServerFn(analyzeStatement);
+  const closingFn = useServerFn(monthlyClosingSummary);
 
   const { data: kpis } = useSuspenseQuery({ queryKey: ["finance","kpis"], queryFn: () => kpisFn({ data: {} }) });
   const { data: txs } = useSuspenseQuery({ queryKey: ["finance","tx"], queryFn: () => txFn() });
@@ -92,6 +96,34 @@ function Finance() {
 
   const margin = kpis.current.revenue > 0 ? (kpis.current.ebitda / kpis.current.revenue) * 100 : 0;
 
+  const closingMut = useMutation({
+    mutationFn: () => closingFn({ data: { lang } }),
+    onSuccess: (res) => {
+      toast.success(t("export.closing_ready"));
+      generateEbitdaReportPdf({
+        month: res.month.slice(0, 7),
+        current: res.current,
+        previous: res.previous,
+        byBucket: res.byBucket,
+        transactions: txs as never,
+        summary: res.summary,
+        lang,
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const exportCsv = () => {
+    const rows = txs.map((r) => ({
+      date: r.occurred_on,
+      description: r.description,
+      bucket: r.bucket,
+      amount: Number(r.amount),
+      currency: r.currency,
+    }));
+    downloadCsv(`qanta-transactions-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -101,6 +133,13 @@ function Finance() {
           <p className="mt-1 text-sm text-muted-foreground">{t("fin.sub")}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={exportCsv} disabled={txs.length === 0}>
+            <FileDown className="size-4" />{t("export.csv")}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => closingMut.mutate()} disabled={closingMut.isPending}>
+            <FileText className="size-4" />
+            {closingMut.isPending ? t("export.closing_run") : t("export.closing")}
+          </Button>
           <AnalyzeDialog analyze={analyzeFn} onApplied={refresh} />
           <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />
         </div>
