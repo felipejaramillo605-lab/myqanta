@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -63,7 +63,7 @@ export function PurchaseOrderDialog({
   const [rows, setRows] = useState<Row[]>(initial);
 
   // Reset rows when dialog re-opens with different products
-  useMemo(() => setRows(initial), [initial]);
+  useEffect(() => setRows(initial), [initial]);
 
   const total = rows.reduce((s, r) => s + r.quantity * r.unit_price, 0);
 
