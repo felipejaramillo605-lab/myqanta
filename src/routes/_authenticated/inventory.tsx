@@ -15,6 +15,7 @@ import {
   upsertProduct,
 } from "@/lib/inventory.functions";
 import { LowStockAlerts } from "@/components/low-stock-alerts";
+import { StockHistoryChart } from "@/components/charts/stock-history-chart";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ function Inventory() {
 
   const { data: products } = useSuspenseQuery({ queryKey: ["inv", "products"], queryFn: () => productsFn() });
   const { data: movements } = useSuspenseQuery({ queryKey: ["inv", "movs"], queryFn: () => movsFn() });
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["inv"] });
 
@@ -79,6 +81,31 @@ function Inventory() {
       </div>
 
       <LowStockAlerts />
+
+      {products.length > 0 && (
+        <section className="glass rounded-2xl p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {t("chart.stock_history")}
+            </div>
+            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder={t("chart.select_product")} />
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedProduct && (
+            <div className="mt-3">
+              <StockHistoryChart productId={selectedProduct} days={90} />
+            </div>
+          )}
+        </section>
+      )}
 
       <Tabs defaultValue="products">
         <TabsList>

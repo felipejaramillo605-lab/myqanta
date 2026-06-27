@@ -10,8 +10,11 @@ import {
   createTransaction,
   deleteTransaction,
   getKpis,
+  getEbitdaSeries,
   listTransactions,
 } from "@/lib/finance.functions";
+import { EbitdaTrendChart } from "@/components/charts/ebitda-trend-chart";
+import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/finance")({
     await Promise.all([
       context.queryClient.ensureQueryData({ queryKey: ["finance","kpis"], queryFn: () => getKpis({ data: {} }) }),
       context.queryClient.ensureQueryData({ queryKey: ["finance","tx"], queryFn: () => listTransactions() }),
+      context.queryClient.ensureQueryData({ queryKey: ["finance","series",12], queryFn: () => getEbitdaSeries({ data: { months: 12 } }) }),
     ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
@@ -107,6 +111,13 @@ function Finance() {
         <KpiCard label={t("dash.kpi.costs")} value={fmt(kpis.current.costs)} delta={kpis.deltas.costs} />
         <KpiCard label={t("dash.kpi.ebitda")} value={fmt(kpis.current.ebitda)} delta={kpis.deltas.ebitda} positive />
         <KpiCard label={t("dash.kpi.net")} value={fmt(kpis.current.net)} delta={kpis.deltas.net} positive />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <EbitdaTrendChart months={12} />
+        </div>
+        <EbitdaBucketDonut byBucket={kpis.byBucket} />
       </div>
 
       <section className="glass rounded-2xl p-5">

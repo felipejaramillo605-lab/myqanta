@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
 
 type Status = "todo" | "doing" | "done" | "archived";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -234,6 +235,7 @@ function HabitsPanel() {
       {data.habits.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">{t("pro.empty.habits")}</div>
       ) : (
+      <>
         <div className="grid gap-3">
           {data.habits.map((h) => {
             const set = logsByHabit.get(h.id) ?? new Set<string>();
@@ -260,6 +262,8 @@ function HabitsPanel() {
             );
           })}
         </div>
+        <HabitYearHeatmap />
+      </>
       )}
     </div>
   );
