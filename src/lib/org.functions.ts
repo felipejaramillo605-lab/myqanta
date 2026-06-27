@@ -29,7 +29,7 @@ export const createOrganization = createServerFn({ method: "POST" })
     const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || `org-${Date.now()}`;
     const { data: org, error } = await context.supabase
       .from("organizations")
-      .insert({ name: data.name, slug: `${slug}-${Math.random().toString(36).slice(2, 6)}`, owner_id: context.userId })
+      .insert({ name: data.name, slug: `${slug}-${Math.random().toString(36).slice(2, 6)}`, created_by: context.userId })
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -126,7 +126,7 @@ export const listInvites = createServerFn({ method: "GET" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("organization_invites")
-      .select("id, email, role, token, expires_at, accepted_at, created_at")
+      .select("id, invited_email, role, token, expires_at, accepted_at, revoked_at, created_at")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -150,7 +150,7 @@ export const createInvite = createServerFn({ method: "POST" })
       .from("organization_invites")
       .insert({
         org_id: orgId,
-        email: data.email || null,
+        invited_email: data.email || null,
         role: data.role,
         token,
         invited_by: context.userId,
@@ -176,23 +176,14 @@ export const revokeInvite = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const lookupInvite = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ token: z.string().min(8) }).parse(d))
-  .handler(async ({ data }) => {
-    const { supabase } = await import("@/integrations/supabase/client");
-    const { data: row, error } = await supabase.rpc("lookup_invite", { p_token: data.token });
-    if (error) throw new Error(error.message);
-    return row;
-  });
-
 export const acceptInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ token: z.string().min(8) }).parse(d))
   .handler(async ({ context, data }) => {
-    const { data: orgId, error } = await context.supabase.rpc("accept_invite", { p_token: data.token });
+    const { data: orgId, error } = await (context.supabase.rpc as any)("accept_invite", { _token: data.token });
     if (error) throw new Error(error.message);
     if (orgId) {
-      await context.supabase.from("profiles").update({ active_org_id: orgId }).eq("id", context.userId);
+      await context.supabase.from("profiles").update({ active_org_id: orgId as string }).eq("id", context.userId);
     }
-    return { org_id: orgId };
+    return { org_id: orgId as string | null };
   });
