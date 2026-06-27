@@ -1,14 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { listLowStock } from "@/lib/inventory.functions";
 import { useI18n } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
+import { PurchaseOrderDialog, type POProduct } from "@/components/purchase-order-dialog";
 
 export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
   const fn = useServerFn(listLowStock);
   const { data } = useSuspenseQuery({ queryKey: ["inv", "low"], queryFn: () => fn() });
+  const [poProducts, setPoProducts] = useState<POProduct[] | null>(null);
 
   if (data.length === 0) {
     return (
@@ -25,15 +29,29 @@ export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
   const items = compact ? data.slice(0, 5) : data;
 
   return (
+    <>
     <section className="glass rounded-2xl border border-destructive/40 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-destructive">
           <AlertTriangle className="size-4" />
           {t("inv.alerts.title")}
         </div>
-        <span className="font-mono text-xs text-destructive">
-          {data.length} {t("inv.alerts.count")}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs text-destructive">
+            {data.length} {t("inv.alerts.count")}
+          </span>
+          {!compact && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => setPoProducts(data as POProduct[])}
+            >
+              <ShoppingCart className="size-3.5" />
+              {t("inv.alerts.reorder_all")}
+            </Button>
+          )}
+        </div>
       </div>
       <ul className="mt-3 divide-y divide-border/30">
         {items.map((p) => {
@@ -62,6 +80,16 @@ export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
                 >
                   {stock} {p.unit} · {below ? t("inv.alerts.below") : t("inv.alerts.at")}
                 </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1.5 px-2 text-xs"
+                  onClick={() => setPoProducts([p as POProduct])}
+                  title={t("inv.alerts.reorder")}
+                >
+                  <ShoppingCart className="size-3.5" />
+                  <span className="hidden sm:inline">{t("inv.alerts.reorder")}</span>
+                </Button>
               </div>
             </li>
           );
@@ -75,5 +103,13 @@ export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
         </div>
       )}
     </section>
+    {poProducts && (
+      <PurchaseOrderDialog
+        open={!!poProducts}
+        onOpenChange={(v) => !v && setPoProducts(null)}
+        products={poProducts}
+      />
+    )}
+    </>
   );
 }
