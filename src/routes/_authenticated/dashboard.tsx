@@ -1,12 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowDownRight, ArrowUpRight, Calendar, Flame, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getKpis } from "@/lib/finance.functions";
 import { listLowStock } from "@/lib/inventory.functions";
 import { LowStockAlerts } from "@/components/low-stock-alerts";
+import { EbitdaTrendChart } from "@/components/charts/ebitda-trend-chart";
+import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
+import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
+import { getEbitdaSeries } from "@/lib/finance.functions";
+import { getHabitsHeatmap } from "@/lib/productivity.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Qanta — Panel" }] }),
@@ -19,6 +24,14 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       context.queryClient.ensureQueryData({
         queryKey: ["inv","low"],
         queryFn: () => listLowStock(),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["finance","series",12],
+        queryFn: () => getEbitdaSeries({ data: { months: 12 } }),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["pro","heatmap"],
+        queryFn: () => getHabitsHeatmap(),
       }),
     ]);
   },
@@ -54,7 +67,7 @@ function fmt(n: number) {
 }
 
 function Dashboard() {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const { user } = useAuth();
   const kpisFn = useServerFn(getKpis);
   const { data: kpis } = useSuspenseQuery({ queryKey: ["finance","kpis"], queryFn: () => kpisFn({ data: {} }) });
@@ -82,53 +95,13 @@ function Dashboard() {
         <div className="lg:col-span-3">
           <LowStockAlerts compact />
         </div>
-        <section className="glass col-span-1 rounded-2xl p-5 lg:col-span-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="size-4 text-primary" />
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              {t("dash.cashflow")}
-            </h2>
-          </div>
-          <div className="mt-6 grid h-48 place-items-center rounded-xl bg-muted/40 font-mono text-xs text-muted-foreground">
-            {t("dash.coming")}
-          </div>
-        </section>
-
-        <section className="glass rounded-2xl p-5">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-4 text-primary" />
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              {t("dash.agenda")}
-            </h2>
-          </div>
-          <div className="mt-6 grid h-48 place-items-center rounded-xl bg-muted/40 font-mono text-xs text-muted-foreground">
-            {t("dash.coming")}
-          </div>
-        </section>
-
-        <section className="glass col-span-1 rounded-2xl p-5 lg:col-span-3">
-          <div className="flex items-center gap-2">
-            <Flame className="size-4 text-primary" />
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              {t("dash.habits")}
-            </h2>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-              <div
-                key={d}
-                className="grid size-12 place-items-center rounded-xl border border-border/60 bg-card/40 font-mono text-xs text-muted-foreground"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 font-mono text-xs text-muted-foreground">
-            {lang === "es"
-              ? "Tu sistema de rachas se activará en la fase de Productividad."
-              : "Streak system unlocks in the Productivity phase."}
-          </p>
-        </section>
+        <div className="lg:col-span-2">
+          <EbitdaTrendChart months={12} />
+        </div>
+        <EbitdaBucketDonut byBucket={kpis.byBucket} />
+        <div className="lg:col-span-3">
+          <HabitYearHeatmap />
+        </div>
       </div>
     </div>
   );
