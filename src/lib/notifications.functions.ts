@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { resolveActiveOrgId } from "./org-helpers";
 
 export type Notification = {
   id: string;
@@ -14,6 +15,7 @@ export type Notification = {
 export const listNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const in48h = new Date(now.getTime() + 48 * 3600 * 1000).toISOString();
@@ -22,11 +24,13 @@ export const listNotifications = createServerFn({ method: "GET" })
       context.supabase
         .from("inv_products")
         .select("id,name,stock,min_stock,unit")
+        .eq("org_id", orgId)
         .gt("min_stock", 0)
         .order("name"),
       context.supabase
         .from("tasks")
         .select("id,title,due_date,status")
+        .eq("org_id", orgId)
         .neq("status", "done")
         .neq("status", "archived")
         .not("due_date", "is", null)
@@ -34,6 +38,7 @@ export const listNotifications = createServerFn({ method: "GET" })
       context.supabase
         .from("events")
         .select("id,title,starts_at,location")
+        .eq("org_id", orgId)
         .gte("starts_at", now.toISOString())
         .lt("starts_at", in48h)
         .order("starts_at"),
