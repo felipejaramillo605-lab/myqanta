@@ -1,14 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { resolveActiveOrgId } from "./org-helpers";
 
 // ===== Products =====
 export const listProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("inv_products")
       .select("*")
+      .eq("org_id", orgId)
       .order("name");
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -17,9 +20,11 @@ export const listProducts = createServerFn({ method: "GET" })
 export const listLowStock = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("inv_products")
       .select("id,name,sku,unit,stock,min_stock,category,cost")
+      .eq("org_id", orgId)
       .gt("min_stock", 0)
       .order("name");
     if (error) throw new Error(error.message);
@@ -43,7 +48,8 @@ export const upsertProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ProductInput.parse(d))
   .handler(async ({ context, data }) => {
-    const row = { ...data, user_id: context.userId };
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const row = { ...data, user_id: context.userId, org_id: orgId };
     const { data: out, error } = await context.supabase
       .from("inv_products")
       .upsert(row)
@@ -83,11 +89,13 @@ export const createMovement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MovementInput.parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const total = data.quantity * data.unit_price;
     const { data: mov, error } = await context.supabase
       .from("inv_movements")
       .insert({
         user_id: context.userId,
+        org_id: orgId,
         product_id: data.product_id,
         kind: data.kind,
         quantity: data.quantity,
@@ -127,12 +135,14 @@ export const createPurchaseOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PurchaseOrderInput.parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const now = new Date().toISOString();
     let created = 0;
     for (const item of data.items) {
       const total = item.quantity * item.unit_price;
       const { error } = await context.supabase.from("inv_movements").insert({
         user_id: context.userId,
+        org_id: orgId,
         product_id: item.product_id,
         kind: "purchase",
         quantity: item.quantity,
@@ -157,9 +167,11 @@ export const createPurchaseOrder = createServerFn({ method: "POST" })
 export const listMovements = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("inv_movements")
       .select("*, inv_products(name,sku,unit)")
+      .eq("org_id", orgId)
       .order("occurred_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
@@ -173,15 +185,17 @@ export const getStockHistory = createServerFn({ method: "GET" })
     z.object({ product_id: z.string().uuid(), days: z.number().int().min(7).max(365).default(90) }).parse(d),
   )
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - (data.days - 1));
     const fromStr = from.toISOString().slice(0, 10);
 
     const [{ data: prod }, { data: movs }] = await Promise.all([
-      context.supabase.from("inv_products").select("id,name,unit,stock,min_stock").eq("id", data.product_id).single(),
+      context.supabase.from("inv_products").select("id,name,unit,stock,min_stock").eq("id", data.product_id).eq("org_id", orgId).single(),
       context.supabase
         .from("inv_movements")
         .select("kind,quantity,occurred_at")
+        .eq("org_id", orgId)
         .eq("product_id", data.product_id)
         .order("occurred_at", { ascending: true }),
     ]);
@@ -248,6 +262,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const { generateObject } = await import("ai");
@@ -281,6 +296,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
       .from("inv_invoices")
       .insert({
         user_id: context.userId,
+        org_id: orgId,
         invoice_number: parsed.invoice_number ?? null,
         invoice_date: parsed.invoice_date ?? null,
         subtotal: parsed.subtotal,
@@ -298,7 +314,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
     if (data.commit && parsed.items.length) {
       // Get all current products once
       const { data: prods } = await context.supabase
-        .from("inv_products").select("id,name,sku,stock");
+        .from("inv_products").select("id,name,sku,stock").eq("org_id", orgId);
       const byKey = new Map<string, { id: string; stock: number }>();
       for (const p of prods ?? []) {
         byKey.set(p.name.toLowerCase(), { id: p.id, stock: Number(p.stock) });
@@ -314,6 +330,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
             .from("inv_products")
             .insert({
               user_id: context.userId,
+              org_id: orgId,
               name: item.description,
               sku: item.sku ?? null,
               cost: item.unit_price,
@@ -329,6 +346,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
         const qty = item.quantity || 1;
         await context.supabase.from("inv_movements").insert({
           user_id: context.userId,
+          org_id: orgId,
           product_id: prodId,
           kind: "purchase",
           quantity: qty,
@@ -339,7 +357,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
         });
         // Update stock
         const { data: cur } = await context.supabase
-          .from("inv_products").select("stock").eq("id", prodId).single();
+          .from("inv_products").select("stock").eq("id", prodId).eq("org_id", orgId).single();
         await context.supabase
           .from("inv_products")
           .update({ stock: Number(cur?.stock ?? 0) + qty })

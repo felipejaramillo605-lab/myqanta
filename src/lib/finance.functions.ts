@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { resolveActiveOrgId } from "./org-helpers";
 
 const BUCKETS = [
   "revenue",
@@ -19,9 +20,11 @@ const BucketEnum = z.enum(BUCKETS);
 export const listTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("finance_transactions")
       .select("*")
+      .eq("org_id", orgId)
       .order("occurred_on", { ascending: false })
       .limit(500);
     if (error) throw new Error(error.message);
@@ -38,10 +41,11 @@ export const getKpis = createServerFn({ method: "GET" })
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: rows, error } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,occurred_on")
+      .eq("org_id", orgId)
       .gte("occurred_on", prevStart)
       .lt("occurred_on", end);
     if (error) throw new Error(error.message);
@@ -87,9 +91,11 @@ export const getEbitdaSeries = createServerFn({ method: "GET" })
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - (data.months - 1), 1);
     const startStr = start.toISOString().slice(0, 10);
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: rows, error } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,occurred_on")
+      .eq("org_id", orgId)
       .gte("occurred_on", startStr);
     if (error) throw new Error(error.message);
 
@@ -133,10 +139,11 @@ export const monthlyClosingSummary = createServerFn({ method: "POST" })
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: rows } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,description,occurred_on")
+      .eq("org_id", orgId)
       .gte("occurred_on", prevStart)
       .lt("occurred_on", end);
 
@@ -197,9 +204,10 @@ export const createTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TxInput.parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { error, data: row } = await context.supabase
       .from("finance_transactions")
-      .insert({ ...data, user_id: context.userId, source: "manual" })
+      .insert({ ...data, user_id: context.userId, org_id: orgId, source: "manual" })
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -244,6 +252,7 @@ export const analyzeStatement = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const { generateObject } = await import("ai");
@@ -272,6 +281,7 @@ Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language
       .from("finance_statements")
       .insert({
         user_id: context.userId,
+        org_id: orgId,
         source_name: data.source_name,
         period_start: parsed.period_start ?? null,
         period_end: parsed.period_end ?? null,
@@ -288,6 +298,7 @@ Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language
     if (data.commit && parsed.transactions.length) {
       const rows = parsed.transactions.map((t) => ({
         user_id: context.userId,
+        org_id: orgId,
         statement_id: stmt.id,
         occurred_on: t.occurred_on,
         description: t.description,

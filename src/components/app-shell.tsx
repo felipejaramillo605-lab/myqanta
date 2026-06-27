@@ -15,10 +15,12 @@ import {
   LogOut,
   Moon,
   Sun,
+  Users,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
+import { OrgSwitcher } from "@/components/org-switcher";
 
 const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", key: "nav.dashboard", icon: LayoutDashboard },
@@ -76,6 +78,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          <Link
+            to={"/settings/team" as never}
+            className={
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+              (path.startsWith("/settings/team")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+            }
+          >
+            <Users className="size-4" />
+            {t("nav.team")}
+          </Link>
           {isAdmin && (
             <Link
               to="/admin/theme"
@@ -93,6 +107,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-border/50 p-3">
+          <div className="mb-2">
+            <OrgSwitcher />
+          </div>
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
             <div className="grid size-8 place-items-center rounded-full bg-secondary text-sm font-medium uppercase">
               {initials}

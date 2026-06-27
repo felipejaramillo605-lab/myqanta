@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { generateText } from "ai";
+import { resolveActiveOrgId } from "./org-helpers";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -20,7 +21,7 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
-
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     // Build live context
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
@@ -28,19 +29,22 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
       context.supabase
         .from("finance_transactions")
         .select("amount,bucket,description,occurred_on")
+        .eq("org_id", orgId)
         .gte("occurred_on", monthStart)
         .order("occurred_on", { ascending: false })
         .limit(50),
-      context.supabase.from("inv_products").select("name,stock,min_stock,unit,cost,price").limit(100),
+      context.supabase.from("inv_products").select("name,stock,min_stock,unit,cost,price").eq("org_id", orgId).limit(100),
       context.supabase
         .from("tasks")
         .select("title,status,priority,due_date")
+        .eq("org_id", orgId)
         .neq("status", "archived")
         .order("due_date", { ascending: true, nullsFirst: false })
         .limit(30),
       context.supabase
         .from("events")
         .select("title,starts_at,location")
+        .eq("org_id", orgId)
         .gte("starts_at", now.toISOString())
         .order("starts_at")
         .limit(15),
