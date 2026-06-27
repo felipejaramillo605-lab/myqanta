@@ -167,3 +167,19 @@ export const deleteEvent = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ===== Habit yearly heatmap =====
+export const getHabitsHeatmap = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const from = new Date();
+    from.setUTCDate(from.getUTCDate() - 364);
+    const fromStr = from.toISOString().slice(0, 10);
+    const [{ data: habits, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
+      context.supabase.from("habits").select("id,name,color").eq("archived", false).order("created_at"),
+      context.supabase.from("habit_logs").select("habit_id,logged_on").gte("logged_on", fromStr),
+    ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+    return { habits: habits ?? [], logs: logs ?? [], from: fromStr };
+  });

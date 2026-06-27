@@ -166,6 +166,56 @@ export const listMovements = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Stock history reconstructed from current stock and movements (backwards walk)
+export const getStockHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ product_id: z.string().uuid(), days: z.number().int().min(7).max(365).default(90) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const from = new Date();
+    from.setUTCDate(from.getUTCDate() - (data.days - 1));
+    const fromStr = from.toISOString().slice(0, 10);
+
+    const [{ data: prod }, { data: movs }] = await Promise.all([
+      context.supabase.from("inv_products").select("id,name,unit,stock,min_stock").eq("id", data.product_id).single(),
+      context.supabase
+        .from("inv_movements")
+        .select("kind,quantity,occurred_at")
+        .eq("product_id", data.product_id)
+        .order("occurred_at", { ascending: true }),
+    ]);
+    if (!prod) throw new Error("Product not found");
+
+    // Build cumulative stock per day forward from oldest known point
+    const todayStock = Number(prod.stock);
+    const allDeltas: { date: string; delta: number }[] = (movs ?? []).map((m) => {
+      let d = Number(m.quantity);
+      if (m.kind === "sale") d = -d;
+      if (m.kind === "transfer") d = 0;
+      return { date: m.occurred_at.slice(0, 10), delta: d };
+    });
+    const totalApplied = allDeltas.reduce((s, x) => s + x.delta, 0);
+    let running = todayStock - totalApplied; // starting stock before any recorded movement
+
+    const dailyDelta = new Map<string, number>();
+    for (const x of allDeltas) dailyDelta.set(x.date, (dailyDelta.get(x.date) ?? 0) + x.delta);
+
+    // Walk from earliest movement (or `from`) to today
+    const earliest = allDeltas[0]?.date && allDeltas[0].date < fromStr ? allDeltas[0].date : fromStr;
+    const out: { date: string; stock: number }[] = [];
+    const cursor = new Date(earliest + "T00:00:00Z");
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    while (cursor <= today) {
+      const key = cursor.toISOString().slice(0, 10);
+      running += dailyDelta.get(key) ?? 0;
+      if (key >= fromStr) out.push({ date: key, stock: running });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    return { product: prod, series: out };
+  });
+
 // ===== AI invoice scan =====
 const InvoiceItem = z.object({
   description: z.string(),

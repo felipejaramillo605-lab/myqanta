@@ -77,6 +77,48 @@ export const getKpis = createServerFn({ method: "GET" })
     };
   });
 
+// 12-month EBITDA time series
+export const getEbitdaSeries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ months: z.number().int().min(3).max(36).default(12) }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - (data.months - 1), 1);
+    const startStr = start.toISOString().slice(0, 10);
+    const { data: rows, error } = await context.supabase
+      .from("finance_transactions")
+      .select("amount,bucket,occurred_on")
+      .gte("occurred_on", startStr);
+    if (error) throw new Error(error.message);
+
+    const buckets = ["revenue", "cogs", "opex", "depreciation", "amortization", "interest", "tax", "other_income", "other_expense"] as const;
+    const months: { key: string; label: string; agg: Record<string, number> }[] = [];
+    for (let i = 0; i < data.months; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const agg: Record<string, number> = {};
+      for (const b of buckets) agg[b] = 0;
+      months.push({ key, label: key, agg });
+    }
+    const idx = new Map(months.map((m, i) => [m.key, i]));
+    for (const r of rows ?? []) {
+      const key = r.occurred_on.slice(0, 7);
+      const i = idx.get(key);
+      if (i === undefined) continue;
+      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + Number(r.amount);
+    }
+    return months.map((m) => {
+      const a = m.agg;
+      const revenue = a.revenue;
+      const costs = a.cogs + a.opex;
+      const ebitda = revenue - costs;
+      const net = ebitda - a.depreciation - a.amortization - a.interest - a.tax + a.other_income - a.other_expense;
+      return { month: m.label, revenue, costs, ebitda, net };
+    });
+  });
+
 const TxInput = z.object({
   occurred_on: z.string(),
   description: z.string().min(1),
