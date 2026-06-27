@@ -180,7 +180,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
         tax: parsed.tax,
         total: parsed.total,
         currency: parsed.currency || "EUR",
-        raw_ai_json: parsed as unknown as Record<string, unknown>,
+        raw_ai_json: JSON.parse(JSON.stringify(parsed)),
         status: data.commit ? "applied" : "preview",
       })
       .select()
