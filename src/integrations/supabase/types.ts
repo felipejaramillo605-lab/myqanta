@@ -14,6 +14,155 @@ export type Database = {
   }
   public: {
     Tables: {
+      finance_accounts: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          kind: string
+          name: string
+          opening_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          kind?: string
+          name: string
+          opening_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          kind?: string
+          name?: string
+          opening_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_statements: {
+        Row: {
+          account_id: string | null
+          ai_summary: string | null
+          created_at: string
+          id: string
+          period_end: string | null
+          period_start: string | null
+          raw_text: string | null
+          source_name: string
+          status: string
+          transactions_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          ai_summary?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          raw_text?: string | null
+          source_name: string
+          status?: string
+          transactions_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          ai_summary?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          raw_text?: string | null
+          source_name?: string
+          status?: string
+          transactions_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_statements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_transactions: {
+        Row: {
+          account_id: string | null
+          ai_confidence: number | null
+          amount: number
+          bucket: Database["public"]["Enums"]["finance_bucket"]
+          created_at: string
+          currency: string
+          description: string
+          id: string
+          occurred_on: string
+          source: string
+          statement_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          ai_confidence?: number | null
+          amount: number
+          bucket: Database["public"]["Enums"]["finance_bucket"]
+          created_at?: string
+          currency?: string
+          description: string
+          id?: string
+          occurred_on: string
+          source?: string
+          statement_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          ai_confidence?: number | null
+          amount?: number
+          bucket?: Database["public"]["Enums"]["finance_bucket"]
+          created_at?: string
+          currency?: string
+          description?: string
+          id?: string
+          occurred_on?: string
+          source?: string
+          statement_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_transactions_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "finance_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -143,6 +292,16 @@ export type Database = {
     }
     Enums: {
       app_role: "user" | "admin_manager"
+      finance_bucket:
+        | "revenue"
+        | "cogs"
+        | "opex"
+        | "depreciation"
+        | "amortization"
+        | "interest"
+        | "tax"
+        | "other_income"
+        | "other_expense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -271,6 +430,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["user", "admin_manager"],
+      finance_bucket: [
+        "revenue",
+        "cogs",
+        "opex",
+        "depreciation",
+        "amortization",
+        "interest",
+        "tax",
+        "other_income",
+        "other_expense",
+      ],
     },
   },
 } as const
