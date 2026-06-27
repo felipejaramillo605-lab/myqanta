@@ -77,6 +77,114 @@ export const getKpis = createServerFn({ method: "GET" })
     };
   });
 
+// 12-month EBITDA time series
+export const getEbitdaSeries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ months: z.number().int().min(3).max(36).default(12) }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - (data.months - 1), 1);
+    const startStr = start.toISOString().slice(0, 10);
+    const { data: rows, error } = await context.supabase
+      .from("finance_transactions")
+      .select("amount,bucket,occurred_on")
+      .gte("occurred_on", startStr);
+    if (error) throw new Error(error.message);
+
+    const buckets = ["revenue", "cogs", "opex", "depreciation", "amortization", "interest", "tax", "other_income", "other_expense"] as const;
+    const months: { key: string; label: string; agg: Record<string, number> }[] = [];
+    for (let i = 0; i < data.months; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const agg: Record<string, number> = {};
+      for (const b of buckets) agg[b] = 0;
+      months.push({ key, label: key, agg });
+    }
+    const idx = new Map(months.map((m, i) => [m.key, i]));
+    for (const r of rows ?? []) {
+      const key = r.occurred_on.slice(0, 7);
+      const i = idx.get(key);
+      if (i === undefined) continue;
+      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + Number(r.amount);
+    }
+    return months.map((m) => {
+      const a = m.agg;
+      const revenue = a.revenue;
+      const costs = a.cogs + a.opex;
+      const ebitda = revenue - costs;
+      const net = ebitda - a.depreciation - a.amortization - a.interest - a.tax + a.other_income - a.other_expense;
+      return { month: m.label, revenue, costs, ebitda, net };
+    });
+  });
+
+// Monthly closing report — AI executive summary
+export const monthlyClosingSummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ month: z.string().optional(), lang: z.enum(["es", "en"]).default("en") }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+
+    const now = data.month ? new Date(data.month + "-01") : new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+
+    const { data: rows } = await context.supabase
+      .from("finance_transactions")
+      .select("amount,bucket,description,occurred_on")
+      .gte("occurred_on", prevStart)
+      .lt("occurred_on", end);
+
+    const empty = { revenue: 0, cogs: 0, opex: 0, depreciation: 0, amortization: 0, interest: 0, tax: 0, other_income: 0, other_expense: 0 } as Record<string, number>;
+    const cur = { ...empty };
+    const prev = { ...empty };
+    for (const r of rows ?? []) {
+      const target = r.occurred_on >= start ? cur : prev;
+      target[r.bucket] = (target[r.bucket] ?? 0) + Number(r.amount);
+    }
+    const stats = (b: Record<string, number>) => {
+      const revenue = b.revenue;
+      const costs = b.cogs + b.opex;
+      const ebitda = revenue - costs;
+      const net = ebitda - b.depreciation - b.amortization - b.interest - b.tax + b.other_income - b.other_expense;
+      return { revenue, costs, ebitda, net, margin: revenue ? (ebitda / revenue) * 100 : 0 };
+    };
+
+    const c = stats(cur);
+    const p = stats(prev);
+
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    const lang = data.lang === "es" ? "Spanish" : "English";
+    const prompt = `You are a senior financial controller. Write a concise executive summary (3-5 sentences, no bullet points) in ${lang} for month ${start}.
+
+Current month KPIs:
+- Revenue: ${c.revenue.toFixed(2)}
+- Costs (COGS + OpEx): ${c.costs.toFixed(2)}
+- EBITDA: ${c.ebitda.toFixed(2)} (margin ${c.margin.toFixed(1)}%)
+- Net income: ${c.net.toFixed(2)}
+
+Previous month KPIs:
+- Revenue: ${p.revenue.toFixed(2)}
+- Costs: ${p.costs.toFixed(2)}
+- EBITDA: ${p.ebitda.toFixed(2)} (margin ${p.margin.toFixed(1)}%)
+- Net: ${p.net.toFixed(2)}
+
+Bucket breakdown (current month): ${JSON.stringify(cur)}
+
+Focus on EBITDA evolution, margin, and the largest cost drivers. Be specific with numbers but human and direct.`;
+
+    const { text } = await generateText({ model: gateway("google/gemini-2.5-flash"), prompt });
+    return { month: start, summary: text, current: c, previous: p, byBucket: cur };
+  });
+
 const TxInput = z.object({
   occurred_on: z.string(),
   description: z.string().min(1),
