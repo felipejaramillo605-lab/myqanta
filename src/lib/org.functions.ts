@@ -75,11 +75,25 @@ export const listMembers = createServerFn({ method: "GET" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: members, error } = await context.supabase
       .from("organization_members")
-      .select("user_id, role, created_at, profiles(full_name, email)")
+      .select("user_id, role, created_at")
       .eq("org_id", orgId)
       .order("created_at");
     if (error) throw new Error(error.message);
-    return { orgId, members: members ?? [] };
+    const ids = (members ?? []).map((m) => m.user_id);
+    let profilesById = new Map<string, { full_name: string | null }>();
+    if (ids.length) {
+      const { data: profs } = await context.supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      profilesById = new Map((profs ?? []).map((p) => [p.id, { full_name: p.full_name }]));
+    }
+    const enriched = (members ?? []).map((m) => ({
+      ...m,
+      full_name: profilesById.get(m.user_id)?.full_name ?? null,
+      is_me: m.user_id === context.userId,
+    }));
+    return { orgId, members: enriched };
   });
 
 export const updateMemberRole = createServerFn({ method: "POST" })
