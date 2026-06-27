@@ -882,6 +882,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invite: { Args: { _token: string }; Returns: string }
       can_write_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
@@ -905,6 +906,18 @@ export type Database = {
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
+      }
+      lookup_invite: {
+        Args: { _token: string }
+        Returns: {
+          accepted_at: string
+          expires_at: string
+          invited_email: string
+          org_id: string
+          org_name: string
+          revoked_at: string
+          role: Database["public"]["Enums"]["org_role"]
+        }[]
       }
     }
     Enums: {
