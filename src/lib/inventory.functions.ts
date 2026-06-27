@@ -109,6 +109,51 @@ export const createMovement = createServerFn({ method: "POST" })
     return mov;
   });
 
+// ===== Purchase order (batch reorder from low-stock alerts) =====
+const PurchaseOrderInput = z.object({
+  items: z
+    .array(
+      z.object({
+        product_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        unit_price: z.number().min(0).default(0),
+      }),
+    )
+    .min(1),
+  notes: z.string().optional().nullable(),
+});
+
+export const createPurchaseOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PurchaseOrderInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const now = new Date().toISOString();
+    let created = 0;
+    for (const item of data.items) {
+      const total = item.quantity * item.unit_price;
+      const { error } = await context.supabase.from("inv_movements").insert({
+        user_id: context.userId,
+        product_id: item.product_id,
+        kind: "purchase",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total,
+        occurred_at: now,
+        notes: data.notes ?? "Reorder from low-stock alert",
+      });
+      if (error) throw new Error(error.message);
+
+      const { data: cur } = await context.supabase
+        .from("inv_products").select("stock").eq("id", item.product_id).single();
+      await context.supabase
+        .from("inv_products")
+        .update({ stock: Number(cur?.stock ?? 0) + item.quantity })
+        .eq("id", item.product_id);
+      created++;
+    }
+    return { created };
+  });
+
 export const listMovements = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
