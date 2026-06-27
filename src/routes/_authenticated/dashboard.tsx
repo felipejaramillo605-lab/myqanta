@@ -5,14 +5,22 @@ import { ArrowDownRight, ArrowUpRight, Calendar, Flame, TrendingUp } from "lucid
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getKpis } from "@/lib/finance.functions";
+import { listLowStock } from "@/lib/inventory.functions";
+import { LowStockAlerts } from "@/components/low-stock-alerts";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Qanta — Panel" }] }),
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData({
-      queryKey: ["finance","kpis"],
-      queryFn: () => getKpis({ data: {} }),
-    });
+    await Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["finance","kpis"],
+        queryFn: () => getKpis({ data: {} }),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["inv","low"],
+        queryFn: () => listLowStock(),
+      }),
+    ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">404</div>,
@@ -71,6 +79,9 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-3">
+          <LowStockAlerts compact />
+        </div>
         <section className="glass col-span-1 rounded-2xl p-5 lg:col-span-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="size-4 text-primary" />
