@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { resolveActiveOrgId } from "./org-helpers";
 
 // ===== Tasks =====
 const TaskStatus = z.enum(["todo", "doing", "done", "archived"]);
@@ -9,9 +10,11 @@ const TaskPriority = z.enum(["low", "medium", "high", "urgent"]);
 export const listTasks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("tasks")
       .select("*")
+      .eq("org_id", orgId)
       .neq("status", "archived")
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false });
@@ -33,9 +36,11 @@ export const upsertTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TaskInput.parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const payload = {
       ...data,
       user_id: context.userId,
+      org_id: orgId,
       completed_at: data.status === "done" ? new Date().toISOString() : null,
     };
     const { data: out, error } = await context.supabase
@@ -69,11 +74,12 @@ export const deleteTask = createServerFn({ method: "POST" })
 export const listHabits = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const today = new Date().toISOString().slice(0, 10);
     const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const [{ data: habits, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
-      context.supabase.from("habits").select("*").eq("archived", false).order("created_at"),
-      context.supabase.from("habit_logs").select("*").gte("logged_on", fromDate),
+      context.supabase.from("habits").select("*").eq("org_id", orgId).eq("archived", false).order("created_at"),
+      context.supabase.from("habit_logs").select("*").eq("org_id", orgId).gte("logged_on", fromDate),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
@@ -91,8 +97,9 @@ export const createHabit = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: out, error } = await context.supabase
-      .from("habits").insert({ ...data, user_id: context.userId }).select().single();
+      .from("habits").insert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
     return out;
   });
@@ -101,6 +108,7 @@ export const toggleHabitToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ habit_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const today = new Date().toISOString().slice(0, 10);
     const { data: existing } = await context.supabase
       .from("habit_logs").select("id").eq("habit_id", data.habit_id).eq("logged_on", today).maybeSingle();
@@ -109,7 +117,7 @@ export const toggleHabitToday = createServerFn({ method: "POST" })
       return { done: false };
     }
     await context.supabase.from("habit_logs").insert({
-      user_id: context.userId, habit_id: data.habit_id, logged_on: today, count: 1,
+      user_id: context.userId, org_id: orgId, habit_id: data.habit_id, logged_on: today, count: 1,
     });
     return { done: true };
   });
@@ -130,7 +138,8 @@ export const listEvents = createServerFn({ method: "GET" })
     z.object({ from: z.string().optional(), to: z.string().optional() }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    let q = context.supabase.from("events").select("*").order("starts_at");
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    let q = context.supabase.from("events").select("*").eq("org_id", orgId).order("starts_at");
     if (data.from) q = q.gte("starts_at", data.from);
     if (data.to) q = q.lt("starts_at", data.to);
     const { data: out, error } = await q;
@@ -153,8 +162,9 @@ export const upsertEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EventInput.parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: out, error } = await context.supabase
-      .from("events").upsert({ ...data, user_id: context.userId }).select().single();
+      .from("events").upsert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
     return out;
   });
@@ -172,12 +182,13 @@ export const deleteEvent = createServerFn({ method: "POST" })
 export const getHabitsHeatmap = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - 364);
     const fromStr = from.toISOString().slice(0, 10);
     const [{ data: habits, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
-      context.supabase.from("habits").select("id,name,color").eq("archived", false).order("created_at"),
-      context.supabase.from("habit_logs").select("habit_id,logged_on").gte("logged_on", fromStr),
+      context.supabase.from("habits").select("id,name,color").eq("org_id", orgId).eq("archived", false).order("created_at"),
+      context.supabase.from("habit_logs").select("habit_id,logged_on").eq("org_id", orgId).gte("logged_on", fromStr),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
