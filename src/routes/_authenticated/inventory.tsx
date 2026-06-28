@@ -242,36 +242,36 @@ function ProductDialog({ onSubmit }: { onSubmit: (v: { name: string; sku?: strin
       <DialogContent className="glass max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("inv.add_product")}</DialogTitle>
-          <DialogDescription>{t("form.help.product")}</DialogDescription>
+          <DialogDescription>{t("inv.scan.hint")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("inv.field.name")} hint={t("form.help.product.name")} className="sm:col-span-2">
+          <Field label={t("inv.field.name")} hint={t("form.help.product_name")} className="sm:col-span-2">
             <Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.sku")} hint={t("form.help.product.sku")}>
+          <Field label={t("inv.field.sku")} hint={t("form.help.sku")}>
             <Input value={f.sku} onChange={(e) => setF({ ...f, sku: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.category")} hint={t("form.help.product.category")}>
+          <Field label={t("inv.field.category")} hint={t("form.help.category")}>
             <Select value={f.category} onValueChange={(v) => setF({ ...f, category: v })}>
-              <SelectTrigger><SelectValue placeholder={t("cat.placeholder")} /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("cat.summary.uncategorized")} /></SelectTrigger>
               <SelectContent>
                 {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(("cat." + c) as never)}</SelectItem>)}
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t("inv.field.unit")} hint={t("form.help.product.unit")}>
+          <Field label={t("inv.field.unit")} hint={t("form.help.unit")}>
             <Input value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.cost")} hint={t("form.help.product.cost")}>
+          <Field label={t("inv.field.cost")} hint={t("form.help.cost")}>
             <Input type="number" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.price")} hint={t("form.help.product.price")}>
+          <Field label={t("inv.field.price")} hint={t("form.help.price")}>
             <Input type="number" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.stock")} hint={t("form.help.product.stock")}>
+          <Field label={t("inv.field.stock")} hint={t("form.help.stock")}>
             <Input type="number" value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} />
           </Field>
-          <Field label={t("inv.field.min")} hint={t("form.help.product.min")}>
+          <Field label={t("inv.field.min")} hint={t("form.help.min")}>
             <Input type="number" value={f.min_stock} onChange={(e) => setF({ ...f, min_stock: e.target.value })} />
           </Field>
         </div>
