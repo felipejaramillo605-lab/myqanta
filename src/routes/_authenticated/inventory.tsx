@@ -293,18 +293,33 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
   const [dataUrl, setDataUrl] = useState<string>("");
   const [mime, setMime] = useState<string>("");
   const [preview, setPreview] = useState<ScanResult | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
     setMime(file.type);
+    setErrorKey(null);
+    setPreview(null);
     const reader = new FileReader();
     reader.onload = () => setDataUrl(reader.result as string);
     reader.readAsDataURL(file);
   };
 
+  const mapError = (msg: string): string => {
+    switch (msg) {
+      case "SCAN_PARSE_FAILED": return "inv.scan.err.parse";
+      case "SCAN_TOO_LARGE": return "inv.scan.err.too_large";
+      case "SCAN_UNSUPPORTED_FILE": return "inv.scan.err.unsupported";
+      case "SCAN_RATE_LIMITED": return "inv.scan.err.rate";
+      case "SCAN_NO_CREDITS": return "inv.scan.err.credits";
+      default: return "inv.scan.err.generic";
+    }
+  };
+
   const run = useMutation({
     mutationFn: (commit: boolean) => scan({ data: { image_data_url: dataUrl, mime, commit } }),
     onSuccess: (res, commit) => {
+      setErrorKey(null);
       if (commit) {
         toast.success(`${res.created} ${t("inv.created_movs")}`);
         setOpen(false); setPreview(null); setDataUrl(""); setMime("");
@@ -314,11 +329,16 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
         toast.success(`${res.parsed.items.length} ${t("inv.detected_items")}`);
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const key = mapError(e.message);
+      setErrorKey(key);
+      // Keep the file selected so the user can retry without re-uploading.
+      toast.error(t(key as Parameters<typeof t>[0]));
+    },
   });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setDataUrl(""); } }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setDataUrl(""); setMime(""); setErrorKey(null); } }}>
       <DialogTrigger asChild><Button variant="outline"><ScanLine className="size-4" />{t("inv.scan")}</Button></DialogTrigger>
       <DialogContent className="glass max-w-2xl">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><ScanLine className="size-4 text-primary" />{t("inv.scan")}</DialogTitle></DialogHeader>
@@ -330,6 +350,31 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
           </Button>
           {dataUrl && mime.startsWith("image/") && (
             <img src={dataUrl} alt="invoice" className="max-h-64 rounded-lg border border-border/50 object-contain" />
+          )}
+          {errorKey && (
+            <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
+              <div className="flex items-start gap-2 text-destructive">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>{t(errorKey as Parameters<typeof t>[0])}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={run.isPending || !dataUrl}
+                  onClick={() => { setErrorKey(null); run.mutate(false); }}
+                >
+                  {t("inv.scan.retry")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setErrorKey(null); setDataUrl(""); setMime(""); inputRef.current?.click(); }}
+                >
+                  {t("inv.scan.change_file")}
+                </Button>
+              </div>
+            </div>
           )}
           {preview && (
             <div className="max-h-64 overflow-auto rounded-lg border border-border/50 bg-card/40 p-3">
