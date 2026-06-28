@@ -1,0 +1,20 @@
+{
+  "name": "Qanta — ERP personal y empresarial",
+  "short_name": "Qanta",
+  "description": "Finanzas (EBITDA), inventario, hábitos y agenda con IA.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nueva transacción", "short_name": "Transacción", "url": "/finance" },
+    { "name": "Escanear factura", "short_name": "Escanear", "url": "/inventory" },
+    { "name": "Nueva tarea", "short_name": "Tarea", "url": "/habits" }
+  ]
+}
