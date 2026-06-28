@@ -2,7 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { listMyOrgs } from "@/lib/org.functions";
 import type { OrgRole } from "@/lib/permissions";
 
-const RANK: Record<OrgRole, number> = { owner: 4, admin: 3, member: 2, viewer: 1 };
+export const ROLE_RANK: Record<OrgRole, number> = { owner: 4, admin: 3, member: 2, viewer: 1 };
+
+/** Pure helper: derives the boolean permission flags for a role. Exported for tests. */
+export function derivePermissions(role: OrgRole | undefined) {
+  const rank = role ? ROLE_RANK[role] : 0;
+  return {
+    role,
+    isOwner: role === "owner",
+    isAdmin: rank >= ROLE_RANK.admin,
+    canWrite: rank >= ROLE_RANK.member,
+    canManage: rank >= ROLE_RANK.admin,
+    isViewer: role === "viewer",
+    atLeast: (min: OrgRole) => rank >= ROLE_RANK[min],
+  };
+}
 
 export function usePermissions() {
   const { data, isLoading } = useQuery({
@@ -11,16 +25,5 @@ export function usePermissions() {
   });
   const active = data?.orgs.find((o) => o.id === data?.activeOrgId);
   const role = (active?.role as OrgRole | undefined) ?? undefined;
-  const rank = role ? RANK[role] : 0;
-  return {
-    loading: isLoading,
-    role,
-    isOwner: role === "owner",
-    isAdmin: rank >= RANK.admin,
-    canWrite: rank >= RANK.member,
-    canManage: rank >= RANK.admin,
-    isViewer: role === "viewer",
-    /** Returns true if the user meets the minimum role. */
-    atLeast: (min: OrgRole) => rank >= RANK[min],
-  };
+  return { loading: isLoading, ...derivePermissions(role) };
 }
