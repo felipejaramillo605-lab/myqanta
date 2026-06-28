@@ -523,3 +523,156 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
 
     return { ok: true as const, invoice: inv, parsed, created };
   });
+
+// ===== Apply hand-edited invoice items (after preview) =====
+const ApplyInvoiceInput = z.object({
+  supplier_name: z.string().optional().nullable(),
+  invoice_number: z.string().optional().nullable(),
+  invoice_date: z.string().optional().nullable(),
+  currency: z.string().default("EUR"),
+  subtotal: z.number().default(0),
+  tax: z.number().default(0),
+  total: z.number().default(0),
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        sku: z.string().optional().nullable(),
+        quantity: z.number().positive().default(1),
+        unit_price: z.number().min(0).default(0),
+        total: z.number().min(0).default(0),
+        expense_category: z.string().optional().nullable(),
+      }),
+    )
+    .min(1),
+});
+
+export const applyInvoiceItems = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ApplyInvoiceInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+
+    const { data: inv, error } = await context.supabase
+      .from("inv_invoices")
+      .insert({
+        user_id: context.userId,
+        org_id: orgId,
+        invoice_number: data.invoice_number ?? null,
+        invoice_date: data.invoice_date ?? null,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        currency: data.currency || "EUR",
+        raw_ai_json: JSON.parse(JSON.stringify({ edited: true, ...data })),
+        status: "applied",
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+
+    const { data: prods } = await context.supabase
+      .from("inv_products").select("id,name,sku,stock").eq("org_id", orgId);
+    const byKey = new Map<string, { id: string; stock: number }>();
+    for (const p of prods ?? []) {
+      byKey.set(p.name.toLowerCase(), { id: p.id, stock: Number(p.stock) });
+      if (p.sku) byKey.set(p.sku.toLowerCase(), { id: p.id, stock: Number(p.stock) });
+    }
+
+    let created = 0;
+    for (const item of data.items) {
+      let prodId: string | null = null;
+      const lookup = byKey.get((item.sku ?? "").toLowerCase()) || byKey.get(item.description.toLowerCase());
+      if (lookup) prodId = lookup.id;
+      else {
+        const { data: np } = await context.supabase
+          .from("inv_products")
+          .insert({
+            user_id: context.userId,
+            org_id: orgId,
+            name: item.description,
+            sku: item.sku ?? null,
+            cost: item.unit_price,
+            price: item.unit_price,
+            stock: 0,
+            category: item.expense_category ?? null,
+          })
+          .select("id,stock")
+          .single();
+        if (np) prodId = np.id;
+      }
+      if (!prodId) continue;
+
+      const qty = item.quantity || 1;
+      const total = item.total || qty * item.unit_price;
+      const category = item.expense_category ?? suggestCategory(item.description);
+      await context.supabase.from("inv_movements").insert({
+        user_id: context.userId,
+        org_id: orgId,
+        product_id: prodId,
+        kind: "purchase",
+        quantity: qty,
+        unit_price: item.unit_price,
+        total,
+        source_invoice_id: inv.id,
+        notes: `Invoice ${data.invoice_number ?? ""}`.trim(),
+        expense_category: category,
+      });
+      const { data: cur } = await context.supabase
+        .from("inv_products").select("stock").eq("id", prodId).eq("org_id", orgId).single();
+      await context.supabase
+        .from("inv_products")
+        .update({ stock: Number(cur?.stock ?? 0) + qty })
+        .eq("id", prodId);
+      created++;
+    }
+    return { ok: true as const, invoice: inv, created };
+  });
+
+// ===== Spending summary by expense category =====
+export const getCategorySummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ days: z.number().int().min(7).max(365).default(90) }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const from = new Date();
+    from.setUTCDate(from.getUTCDate() - data.days);
+    const fromIso = from.toISOString();
+    const [{ data: movs }, { data: txs }] = await Promise.all([
+      context.supabase
+        .from("inv_movements")
+        .select("total,expense_category,occurred_at,kind")
+        .eq("org_id", orgId)
+        .eq("kind", "purchase")
+        .gte("occurred_at", fromIso),
+      context.supabase
+        .from("finance_transactions")
+        .select("amount,expense_category,occurred_on")
+        .eq("org_id", orgId)
+        .gte("occurred_on", fromIso.slice(0, 10)),
+    ]);
+
+    const totals = new Map<string, { total: number; count: number }>();
+    const bump = (cat: string | null, amount: number) => {
+      const key = cat && (EXPENSE_CATEGORIES as readonly string[]).includes(cat) ? cat : "otros_gastos";
+      const cur = totals.get(key) ?? { total: 0, count: 0 };
+      cur.total += amount;
+      cur.count += 1;
+      totals.set(key, cur);
+    };
+    for (const m of movs ?? []) bump(m.expense_category, Math.abs(Number(m.total)));
+    for (const t of txs ?? []) {
+      const amt = Number(t.amount);
+      if (amt < 0) bump(t.expense_category, Math.abs(amt));
+    }
+
+    const items = (EXPENSE_CATEGORIES as readonly string[]).map((cat) => ({
+      category: cat,
+      total: totals.get(cat)?.total ?? 0,
+      count: totals.get(cat)?.count ?? 0,
+    }));
+    const grand = items.reduce((s, x) => s + x.total, 0);
+    return { items, total: grand, days: data.days };
+  });
