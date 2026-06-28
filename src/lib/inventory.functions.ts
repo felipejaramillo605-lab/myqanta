@@ -381,6 +381,13 @@ export const scanInvoice = createServerFn({ method: "POST" })
     const { generateText } = aiMod;
     const gateway = createLovableAiGatewayProvider(key);
 
+    const sepHint =
+      data.decimal_separator === "comma"
+        ? "The source document uses COMMA as decimal separator and dot as thousand separator (e.g. 1.234,56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
+        : data.decimal_separator === "dot"
+          ? "The source document uses DOT as decimal separator and comma as thousand separator (e.g. 1,234.56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
+          : "Detect the decimal separator (comma or dot) from context and convert every numeric value to a plain decimal with a dot as decimal separator.";
+
     const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image and return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
 {
   "supplier_name": string|null,
@@ -393,7 +400,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
   "items": [{ "description": string, "sku": string|null, "quantity": number, "unit_price": number, "total": number }],
   "summary": string
 }
-Rules: numbers must be plain numbers (no currency symbols, no thousands separators). "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
+Rules: numbers must be plain numbers (no currency symbols, no thousands separators). ${sepHint} "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
 
     const isPdf = data.mime === "application/pdf";
     const userContent = isPdf
