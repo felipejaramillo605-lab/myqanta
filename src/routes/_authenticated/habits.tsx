@@ -157,8 +157,16 @@ function TaskDialog({ onSubmit }: { onSubmit: (v: { title: string; description?:
       <DialogContent className="glass">
         <DialogHeader><DialogTitle>{t("pro.add_task")}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
-          <Input placeholder={t("pro.task.title")} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
-          <Textarea placeholder={t("pro.task.desc")} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
+          <div>
+            <Label className="text-xs font-medium">{t("pro.task.title")}</Label>
+            <Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.task_title")}</p>
+          </div>
+          <div>
+            <Label className="text-xs font-medium">{t("pro.task.desc")}</Label>
+            <Textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.task_desc")}</p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Select value={f.priority} onValueChange={(v) => setF({ ...f, priority: v as Priority })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -166,7 +174,10 @@ function TaskDialog({ onSubmit }: { onSubmit: (v: { title: string; description?:
                 {(["low","medium","high","urgent"] as Priority[]).map((p) => <SelectItem key={p} value={p}>{t(("pro.priority." + p) as never)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Input type="date" value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} />
+            <div>
+              <Input type="date" value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} />
+              <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.task_due")}</p>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -230,8 +241,16 @@ function HabitsPanel() {
           <DialogContent className="glass">
             <DialogHeader><DialogTitle>{t("pro.add_habit")}</DialogTitle></DialogHeader>
             <div className="grid gap-3">
-              <Input placeholder={t("pro.habit.name")} value={name} onChange={(e) => setName(e.target.value)} />
-              <Input type="number" min="1" placeholder={t("pro.habit.target")} value={target} onChange={(e) => setTarget(e.target.value)} />
+              <div>
+                <Label className="text-xs font-medium">{t("pro.habit.name")}</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_name")}</p>
+              </div>
+              <div>
+                <Label className="text-xs font-medium">{t("pro.habit.target")}</Label>
+                <Input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} />
+                <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_target")}</p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
