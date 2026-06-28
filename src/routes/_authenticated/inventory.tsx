@@ -23,7 +23,7 @@ import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -286,13 +286,14 @@ function MovementDialog({ products, onSubmit }: { products: { id: string; name: 
 }
 
 type ScanResult = Awaited<ReturnType<typeof scanInvoice>>;
+type ScanSuccess = Extract<ScanResult, { ok: true }>;
 
 function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: string; mime: string; commit: boolean } }) => Promise<ScanResult>; onApplied: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [dataUrl, setDataUrl] = useState<string>("");
   const [mime, setMime] = useState<string>("");
-  const [preview, setPreview] = useState<ScanResult | null>(null);
+  const [preview, setPreview] = useState<ScanSuccess | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -319,6 +320,12 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
   const run = useMutation({
     mutationFn: (commit: boolean) => scan({ data: { image_data_url: dataUrl, mime, commit } }),
     onSuccess: (res, commit) => {
+      if (!res.ok) {
+        const key = mapError(res.error);
+        setErrorKey(key);
+        toast.error(t(key as Parameters<typeof t>[0]));
+        return;
+      }
       setErrorKey(null);
       if (commit) {
         toast.success(`${res.created} ${t("inv.created_movs")}`);
@@ -341,8 +348,10 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setDataUrl(""); setMime(""); setErrorKey(null); } }}>
       <DialogTrigger asChild><Button variant="outline"><ScanLine className="size-4" />{t("inv.scan")}</Button></DialogTrigger>
       <DialogContent className="glass max-w-2xl">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><ScanLine className="size-4 text-primary" />{t("inv.scan")}</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground">{t("inv.scan.hint")}</p>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><ScanLine className="size-4 text-primary" />{t("inv.scan")}</DialogTitle>
+          <DialogDescription>{t("inv.scan.hint")}</DialogDescription>
+        </DialogHeader>
         <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         <div className="grid gap-3">
           <Button variant="outline" onClick={() => inputRef.current?.click()}>

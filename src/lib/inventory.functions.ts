@@ -252,6 +252,125 @@ const InvoiceSchema = z.object({
   summary: z.string().default(""),
 });
 
+type ScanErrorCode =
+  | "SCAN_PARSE_FAILED"
+  | "SCAN_TOO_LARGE"
+  | "SCAN_UNSUPPORTED_FILE"
+  | "SCAN_RATE_LIMITED"
+  | "SCAN_NO_CREDITS"
+  | "SCAN_FAILED";
+
+function scanError(error: ScanErrorCode) {
+  return { ok: false as const, error };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function firstDefined(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) return record[key];
+  }
+  return undefined;
+}
+
+function textOrNull(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed && trimmed.toLowerCase() !== "null" ? trimmed : null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return null;
+}
+
+function textOrEmpty(value: unknown): string {
+  return textOrNull(value) ?? "";
+}
+
+function numberOrZero(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return 0;
+  let cleaned = value
+    .replace(/[^0-9,.-]/g, "")
+    .replace(/(?!^)-/g, "")
+    .trim();
+  if (!cleaned) return 0;
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  if (lastComma !== -1 && lastDot !== -1) {
+    cleaned = lastComma > lastDot ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
+  } else if (lastComma !== -1) {
+    cleaned = cleaned.replace(",", ".");
+  }
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function extractJsonObject(raw: string): unknown | null {
+  const withoutFences = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  const start = withoutFences.indexOf("{");
+  const end = withoutFences.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  const jsonText = withoutFences
+    .slice(start, end + 1)
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/,\s*([}\]])/g, "$1");
+  try {
+    return JSON.parse(jsonText);
+  } catch (error) {
+    console.warn("Invoice scan JSON parse failed", error);
+    return null;
+  }
+}
+
+function normalizeInvoice(value: unknown): z.infer<typeof InvoiceSchema> | null {
+  const root = asRecord(value);
+  const itemSource = firstDefined(root, ["items", "line_items", "lines", "productos", "concepts", "details"]);
+  const rawItems = Array.isArray(itemSource) ? itemSource : [];
+  const items = rawItems
+    .map((entry) => {
+      const item = asRecord(entry);
+      const quantity = numberOrZero(firstDefined(item, ["quantity", "qty", "cantidad", "units", "unidades"])) || 1;
+      const unitPrice = numberOrZero(firstDefined(item, ["unit_price", "unitPrice", "price", "precio", "cost", "unit_cost"]));
+      const total = numberOrZero(firstDefined(item, ["total", "amount", "importe", "line_total"])) || quantity * unitPrice;
+      return {
+        description: textOrEmpty(firstDefined(item, ["description", "name", "product", "producto", "concept", "concepto", "detalle"])),
+        sku: textOrNull(firstDefined(item, ["sku", "code", "codigo", "reference", "referencia"])),
+        quantity,
+        unit_price: unitPrice,
+        total,
+      };
+    })
+    .filter((item) => item.description || item.total > 0);
+
+  const subtotal = numberOrZero(firstDefined(root, ["subtotal", "sub_total", "base", "base_imponible"]));
+  const tax = numberOrZero(firstDefined(root, ["tax", "vat", "iva", "itbis", "sales_tax"]));
+  const itemsTotal = items.reduce((sum, item) => sum + item.total, 0);
+  const total = numberOrZero(firstDefined(root, ["total", "grand_total", "amount", "importe_total"])) || subtotal + tax || itemsTotal;
+  const normalized = {
+    supplier_name: textOrNull(firstDefined(root, ["supplier_name", "supplier", "vendor", "merchant", "proveedor", "empresa"])),
+    invoice_number: textOrNull(firstDefined(root, ["invoice_number", "invoiceNo", "number", "numero", "ncf", "receipt_number"])),
+    invoice_date: textOrNull(firstDefined(root, ["invoice_date", "date", "fecha", "issued_at"])),
+    currency: textOrEmpty(firstDefined(root, ["currency", "moneda"])) || "EUR",
+    subtotal: subtotal || Math.max(total - tax, 0),
+    tax,
+    total,
+    items,
+    summary: textOrEmpty(firstDefined(root, ["summary", "resumen", "description"])) || "Invoice scanned successfully.",
+  };
+  const safe = InvoiceSchema.safeParse(normalized);
+  if (!safe.success) {
+    console.warn("Invoice scan schema normalization failed", safe.error.flatten());
+    return null;
+  }
+  return safe.data;
+}
+
 const ScanInput = z.object({
   image_data_url: z.string().startsWith("data:"),
   mime: z.string(),
@@ -301,7 +420,7 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
     // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
     const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);
     if (approxBytes > 8 * 1024 * 1024) {
-      throw new Error("SCAN_TOO_LARGE");
+      return scanError("SCAN_TOO_LARGE");
     }
 
     let parsed: z.infer<typeof InvoiceSchema>;
@@ -312,40 +431,24 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
         messages: [{ role: "user", content: userContent }],
       });
       const raw = (res.text ?? "").trim();
-      let cleaned = raw
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
-      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-        const s = cleaned.indexOf("{");
-        const e = cleaned.lastIndexOf("}");
-        if (s !== -1 && e > s) cleaned = cleaned.slice(s, e + 1);
-      }
-      let json: unknown;
-      try {
-        json = JSON.parse(cleaned);
-      } catch {
-        throw new Error("SCAN_PARSE_FAILED");
-      }
-      const safe = InvoiceSchema.safeParse(json);
-      if (!safe.success) throw new Error("SCAN_PARSE_FAILED");
-      parsed = safe.data;
+      const json = extractJsonObject(raw);
+      const normalized = normalizeInvoice(json);
+      if (!normalized) return scanError("SCAN_PARSE_FAILED");
+      parsed = normalized;
     } catch (err: unknown) {
       const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
       const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
       const msg = String(e?.message ?? "");
-      if (msg === "SCAN_PARSE_FAILED") throw err;
       if (status === 429 || /rate.?limit/i.test(msg)) {
-        throw new Error("SCAN_RATE_LIMITED");
+        return scanError("SCAN_RATE_LIMITED");
       }
       if (status === 402 || /credit|payment.required/i.test(msg)) {
-        throw new Error("SCAN_NO_CREDITS");
+        return scanError("SCAN_NO_CREDITS");
       }
       if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) {
-        throw new Error("SCAN_UNSUPPORTED_FILE");
+        return scanError("SCAN_UNSUPPORTED_FILE");
       }
-      throw new Error("SCAN_FAILED");
+      return scanError("SCAN_FAILED");
     }
 
     const { data: inv, error } = await context.supabase
@@ -422,5 +525,5 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
       }
     }
 
-    return { invoice: inv, parsed, created };
+    return { ok: true as const, invoice: inv, parsed, created };
   });
