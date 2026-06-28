@@ -3,17 +3,20 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown } from "lucide-react";
+import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown, PieChart } from "lucide-react";
 
 import {
+  applyInvoiceItems,
   createMovement,
   deleteProduct,
+  getCategorySummary,
   listMovements,
   listProducts,
   listLowStock,
   scanInvoice,
   upsertProduct,
 } from "@/lib/inventory.functions";
+import { EXPENSE_CATEGORIES, suggestCategory, type DecimalSeparator } from "@/lib/categories";
 import { LowStockAlerts } from "@/components/low-stock-alerts";
 import { StockHistoryChart } from "@/components/charts/stock-history-chart";
 import { downloadCsv } from "@/lib/export-utils";
@@ -22,7 +25,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
       context.queryClient.ensureQueryData({ queryKey: ["inv", "products"], queryFn: () => listProducts() }),
       context.queryClient.ensureQueryData({ queryKey: ["inv", "movs"], queryFn: () => listMovements() }),
       context.queryClient.ensureQueryData({ queryKey: ["inv", "low"], queryFn: () => listLowStock() }),
+      context.queryClient.ensureQueryData({ queryKey: ["inv", "cats"], queryFn: () => getCategorySummary({ data: { days: 90 } }) }),
     ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
@@ -53,9 +57,12 @@ function Inventory() {
   const delFn = useServerFn(deleteProduct);
   const movFn = useServerFn(createMovement);
   const scanFn = useServerFn(scanInvoice);
+  const applyFn = useServerFn(applyInvoiceItems);
+  const catFn = useServerFn(getCategorySummary);
 
   const { data: products } = useSuspenseQuery({ queryKey: ["inv", "products"], queryFn: () => productsFn() });
   const { data: movements } = useSuspenseQuery({ queryKey: ["inv", "movs"], queryFn: () => movsFn() });
+  const { data: catSummary } = useSuspenseQuery({ queryKey: ["inv", "cats"], queryFn: () => catFn({ data: { days: 90 } }) });
   const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["inv"] });
@@ -77,7 +84,7 @@ function Inventory() {
           )}>
             <FileDown className="size-4" />{t("export.csv")}
           </Button>
-          {canWrite && <ScanDialog scan={scanFn} onApplied={refresh} />}
+          {canWrite && <ScanDialog scan={scanFn} apply={applyFn} onApplied={refresh} />}
           {canWrite && <MovementDialog products={products} onSubmit={(v) => movFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
           {canWrite && <ProductDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
         </div>
@@ -93,6 +100,8 @@ function Inventory() {
       </div>
 
       <LowStockAlerts />
+
+      <CategorySummary data={catSummary} />
 
       {products.length > 0 && (
         <section className="glass rounded-2xl p-4">
