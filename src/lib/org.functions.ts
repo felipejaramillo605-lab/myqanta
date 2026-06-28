@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
+import { assertOrgRole, assertOrgRoleFor } from "./permissions";
 
 const OrgRole = z.enum(["owner", "admin", "member", "viewer"]);
 
@@ -61,6 +62,7 @@ export const renameOrganization = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ org_id: z.string().uuid(), name: z.string().min(1).max(120) }).parse(d))
   .handler(async ({ context, data }) => {
+    await assertOrgRoleFor(context.supabase, context.userId, data.org_id, "admin");
     const { error } = await context.supabase
       .from("organizations")
       .update({ name: data.name })
@@ -103,6 +105,14 @@ export const updateMemberRole = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
+    // Only owners can grant the owner role
+    if (data.role === "owner") {
+      await assertOrgRole(context.supabase, context.userId, orgId, "owner");
+    }
+    if (data.user_id === context.userId) {
+      throw new Error("You can't change your own role");
+    }
     const { error } = await context.supabase
       .from("organization_members")
       .update({ role: data.role })
@@ -117,6 +127,10 @@ export const removeMember = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ user_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
+    if (data.user_id === context.userId) {
+      throw new Error("You can't remove yourself; transfer ownership first");
+    }
     const { error } = await context.supabase
       .from("organization_members")
       .delete()
@@ -138,6 +152,7 @@ export const listInvites = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
     const { data, error } = await context.supabase
       .from("organization_invites")
       .select("id, invited_email, role, token, expires_at, accepted_at, revoked_at, created_at")
@@ -158,6 +173,10 @@ export const createInvite = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
+    if (data.role === "owner") {
+      await assertOrgRole(context.supabase, context.userId, orgId, "owner");
+    }
     const token = makeToken();
     const expires = new Date(Date.now() + data.ttl_days * 86400 * 1000).toISOString();
     const { data: row, error } = await context.supabase
@@ -181,6 +200,7 @@ export const revokeInvite = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
     const { error } = await context.supabase
       .from("organization_invites")
       .delete()

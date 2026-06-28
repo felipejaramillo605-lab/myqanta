@@ -19,6 +19,8 @@ import { generateEbitdaReportPdf } from "@/lib/pdf-report";
 import { EbitdaTrendChart } from "@/components/charts/ebitda-trend-chart";
 import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
 import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/use-permissions";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,6 +71,7 @@ function KpiCard({ label, value, delta, positive }: { label: string; value: stri
 function Finance() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const { canWrite } = usePermissions();
 
   const kpisFn = useServerFn(getKpis);
   const txFn = useServerFn(listTransactions);
@@ -140,10 +143,12 @@ function Finance() {
             <FileText className="size-4" />
             {closingMut.isPending ? t("export.closing_run") : t("export.closing")}
           </Button>
-          <AnalyzeDialog analyze={analyzeFn} onApplied={refresh} />
-          <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />
+          {canWrite && <AnalyzeDialog analyze={analyzeFn} onApplied={refresh} />}
+          {canWrite && <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />}
         </div>
       </header>
+
+      <ReadOnlyBanner />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard label={t("dash.kpi.revenue")} value={fmt(kpis.current.revenue)} delta={kpis.deltas.revenue} positive />
@@ -192,7 +197,7 @@ function Finance() {
                   <td className="px-4 py-2">{r.description}</td>
                   <td className="px-4 py-2"><span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider">{t(("fin.bucket." + r.bucket) as never)}</span></td>
                   <td className={"px-4 py-2 text-right font-mono " + (Number(r.amount) >= 0 ? "text-primary" : "text-destructive")}>{fmt(Number(r.amount), r.currency)}</td>
-                  <td className="px-2"><Button variant="ghost" size="icon" onClick={() => delMut.mutate(r.id)}><Trash2 className="size-4" /></Button></td>
+                  <td className="px-2">{canWrite && <Button variant="ghost" size="icon" onClick={() => delMut.mutate(r.id)}><Trash2 className="size-4" /></Button>}</td>
                 </tr>
               ))}
             </tbody>

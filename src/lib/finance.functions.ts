@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
+import { resolveOrgWithRole } from "./permissions";
 
 const BUCKETS = [
   "revenue",
@@ -204,7 +205,7 @@ export const createTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TxInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error, data: row } = await context.supabase
       .from("finance_transactions")
       .insert({ ...data, user_id: context.userId, org_id: orgId, source: "manual" })
@@ -218,6 +219,7 @@ export const deleteTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error } = await context.supabase.from("finance_transactions").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -252,7 +254,10 @@ export const analyzeStatement = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    // Anyone (incl. viewers) can preview the analysis; writes require member+
+    const orgId = data.commit
+      ? await resolveOrgWithRole(context.supabase, context.userId, "member")
+      : await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const { generateObject } = await import("ai");

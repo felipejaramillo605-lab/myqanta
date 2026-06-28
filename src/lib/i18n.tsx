@@ -233,6 +233,9 @@ const dict = {
     "invite.invalid_title": "Invitación no válida",
     "invite.invalid_desc": "Este enlace ha expirado, ha sido revocado o ya fue utilizado.",
     "invite.go_home": "Volver al inicio",
+    "perm.viewer_banner": "Solo lectura. No puedes modificar datos en esta organización.",
+    "perm.no_write": "Tu rol no permite esta acción.",
+    "perm.required_admin": "Requiere rol de Administrador o Propietario.",
   },
   en: {
     "app.name": "Qanta",
@@ -463,6 +466,9 @@ const dict = {
     "invite.invalid_title": "Invalid invitation",
     "invite.invalid_desc": "This link has expired, was revoked or has already been used.",
     "invite.go_home": "Back home",
+    "perm.viewer_banner": "Read-only. You cannot modify data in this organization.",
+    "perm.no_write": "Your role doesn't allow this action.",
+    "perm.required_admin": "Requires Admin or Owner role.",
   },
 } as const;
 
