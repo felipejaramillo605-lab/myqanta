@@ -17,7 +17,7 @@
 - **C. Compras/Inventario** (`/inventory`): productos, movimientos auto-stock, OCR de facturas con Gemini, alertas de mínimo, órdenes de compra prellenadas.
 - **D. Productividad/Agenda** (`/habits`, `/agenda`): Kanban de tareas, hábitos con racha + heatmap 7 días, timeline de eventos.
 
-## Fase 2 propuesta — Inteligencia, reportes y colaboración
+## Fase 2 — Inteligencia, reportes y colaboración (completa)
 
 ### 2.1 Visualizaciones avanzadas
 - Gráficos en Dashboard y Finanzas con `recharts`: serie temporal de EBITDA por mes (12 últimos), waterfall ingresos → EBITDA → neto, donut por bucket.
@@ -38,9 +38,9 @@
 - Centro de notificaciones in-app (bandeja persistente): stock bajo, tareas vencidas, eventos próximos.
 - Chatbot lateral "Qanta AI" con contexto del usuario (resumen financiero, tareas, stock) usando Gemini con tools para crear tareas / transacciones por lenguaje natural.
 
-### 2.5 PWA + móvil
-- Manifest + service worker (instalable, offline básico para lectura del dashboard).
-- Atajos: "Nueva transacción", "Escanear factura", "Nueva tarea".
+### 2.5 PWA + móvil — completo
+- `public/manifest.webmanifest` + `public/sw.js` (network-first navegaciones, app shell cache, bypass de `_serverFn`/`api`).
+- Registro de SW en `__root.tsx` (sólo en producción), íconos 192/512, meta `theme-color`, atajos a Finanzas / Inventario / Hábitos.
 
 ## Orden sugerido de ejecución
 
