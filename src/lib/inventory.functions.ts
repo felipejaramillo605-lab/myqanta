@@ -269,7 +269,8 @@ export const scanInvoice = createServerFn({ method: "POST" })
       : await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const { generateObject } = await import("ai");
+    const aiMod = await import("ai");
+    const { generateObject, NoObjectGeneratedError } = aiMod;
     const gateway = createLovableAiGatewayProvider(key);
 
     const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image.
@@ -289,12 +290,42 @@ export const scanInvoice = createServerFn({ method: "POST" })
           { type: "image" as const, image: data.image_data_url },
         ];
 
-    const { object: parsed } = await generateObject({
-      model: gateway("google/gemini-2.5-flash"),
-      schema: InvoiceSchema,
-      system,
-      messages: [{ role: "user", content: userContent }],
-    });
+    // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
+    const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);
+    if (approxBytes > 8 * 1024 * 1024) {
+      throw new Error("SCAN_TOO_LARGE");
+    }
+
+    let parsed: z.infer<typeof InvoiceSchema>;
+    try {
+      const res = await generateObject({
+        model: gateway("google/gemini-2.5-flash"),
+        schema: InvoiceSchema,
+        system,
+        messages: [{ role: "user", content: userContent }],
+      });
+      parsed = res.object;
+    } catch (err: unknown) {
+      const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
+      const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
+      const msg = String(e?.message ?? "");
+      if (status === 429 || /rate.?limit/i.test(msg)) {
+        throw new Error("SCAN_RATE_LIMITED");
+      }
+      if (status === 402 || /credit|payment.required/i.test(msg)) {
+        throw new Error("SCAN_NO_CREDITS");
+      }
+      if (
+        (NoObjectGeneratedError && NoObjectGeneratedError.isInstance?.(err)) ||
+        /no object generated|did not match schema|invalid json|json.*parse|validation/i.test(msg)
+      ) {
+        throw new Error("SCAN_PARSE_FAILED");
+      }
+      if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) {
+        throw new Error("SCAN_UNSUPPORTED_FILE");
+      }
+      throw new Error("SCAN_FAILED");
+    }
 
     const { data: inv, error } = await context.supabase
       .from("inv_invoices")
