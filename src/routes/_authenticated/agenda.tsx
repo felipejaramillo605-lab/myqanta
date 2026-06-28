@@ -115,17 +115,29 @@ function EventDialog({ onSubmit }: { onSubmit: (v: { title: string; description?
       <DialogContent className="glass">
         <DialogHeader><DialogTitle>{t("ag.add")}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
-          <Input placeholder={t("ag.field.title")} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
-          <Textarea placeholder={t("pro.task.desc")} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
-          <Input placeholder={t("ag.field.location")} value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} />
+          <div>
+            <Label className="text-xs font-medium">{t("ag.field.title")}</Label>
+            <Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.event_title")}</p>
+          </div>
+          <div>
+            <Label className="text-xs font-medium">{t("pro.task.desc")}</Label>
+            <Textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs font-medium">{t("ag.field.location")}</Label>
+            <Input value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} />
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.event_location")}</p>
+          </div>
           <div className="flex items-center gap-2">
             <Switch id="allday" checked={f.allDay} onCheckedChange={(v) => setF({ ...f, allDay: v })} />
             <Label htmlFor="allday" className="text-sm">{t("ag.field.all_day")}</Label>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs">{t("ag.field.start")}</Label><Input type="datetime-local" value={f.starts} onChange={(e) => setF({ ...f, starts: e.target.value })} /></div>
-            <div><Label className="text-xs">{t("ag.field.end")}</Label><Input type="datetime-local" value={f.ends} onChange={(e) => setF({ ...f, ends: e.target.value })} /></div>
+            <div><Label className="text-xs font-medium">{t("ag.field.start")}</Label><Input type="datetime-local" value={f.starts} onChange={(e) => setF({ ...f, starts: e.target.value })} /></div>
+            <div><Label className="text-xs font-medium">{t("ag.field.end")}</Label><Input type="datetime-local" value={f.ends} onChange={(e) => setF({ ...f, ends: e.target.value })} /></div>
           </div>
+          <p className="text-[10px] text-muted-foreground">{t("form.help.event_time")}</p>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
