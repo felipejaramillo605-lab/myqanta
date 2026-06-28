@@ -330,7 +330,8 @@ function MovementDialog({ products, onSubmit }: { products: { id: string; name: 
 
 type ScanResult = Awaited<ReturnType<typeof scanInvoice>>;
 type ScanSuccess = Extract<ScanResult, { ok: true }>;
-type ApplyFn = typeof applyInvoiceItems;
+type ApplyData = { supplier_name: string | null; invoice_number: string | null; invoice_date: string | null; currency: string; subtotal: number; tax: number; total: number; items: { description: string; sku: string | null; quantity: number; unit_price: number; total: number; expense_category: string }[] };
+type ApplyFn = (a: { data: ApplyData }) => Promise<{ ok: true; created: number; invoice: unknown }>;
 type EditableItem = { description: string; sku: string; quantity: number; unit_price: number; total: number; expense_category: string };
 
 function ScanDialog({ scan, apply, onApplied }: { scan: (a: { data: { image_data_url: string; mime: string; commit: boolean; decimal_separator?: DecimalSeparator } }) => Promise<ScanResult>; apply: ApplyFn; onApplied: () => void }) {
