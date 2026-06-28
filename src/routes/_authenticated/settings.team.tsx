@@ -33,11 +33,14 @@ function TeamPage() {
   const qc = useQueryClient();
   const orgsQ = useQuery({ queryKey: ["my-orgs"], queryFn: () => listMyOrgs() });
   const membersQ = useQuery({ queryKey: ["org-members"], queryFn: () => listMembers() });
-  const invitesQ = useQuery({ queryKey: ["org-invites"], queryFn: () => listInvites() });
-
   const activeOrg = orgsQ.data?.orgs.find((o) => o.id === orgsQ.data?.activeOrgId);
   const myRole = activeOrg?.role;
   const canManage = myRole === "owner" || myRole === "admin";
+  const invitesQ = useQuery({
+    queryKey: ["org-invites", activeOrg?.id],
+    queryFn: () => listInvites(),
+    enabled: !!activeOrg && canManage,
+  });
 
   const [newOrgName, setNewOrgName] = useState("");
   const [renameValue, setRenameValue] = useState("");
