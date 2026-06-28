@@ -292,23 +292,8 @@ function textOrEmpty(value: unknown): string {
   return textOrNull(value) ?? "";
 }
 
-function numberOrZero(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return 0;
-  let cleaned = value
-    .replace(/[^0-9,.-]/g, "")
-    .replace(/(?!^)-/g, "")
-    .trim();
-  if (!cleaned) return 0;
-  const lastComma = cleaned.lastIndexOf(",");
-  const lastDot = cleaned.lastIndexOf(".");
-  if (lastComma !== -1 && lastDot !== -1) {
-    cleaned = lastComma > lastDot ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
-  } else if (lastComma !== -1) {
-    cleaned = cleaned.replace(",", ".");
-  }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
+function numberOrZero(value: unknown, sep: DecimalSeparator = "auto"): number {
+  return parseNumberWithSeparator(value, sep);
 }
 
 function extractJsonObject(raw: string): unknown | null {
@@ -331,16 +316,16 @@ function extractJsonObject(raw: string): unknown | null {
   }
 }
 
-function normalizeInvoice(value: unknown): z.infer<typeof InvoiceSchema> | null {
+function normalizeInvoice(value: unknown, sep: DecimalSeparator = "auto"): z.infer<typeof InvoiceSchema> | null {
   const root = asRecord(value);
   const itemSource = firstDefined(root, ["items", "line_items", "lines", "productos", "concepts", "details"]);
   const rawItems = Array.isArray(itemSource) ? itemSource : [];
   const items = rawItems
     .map((entry) => {
       const item = asRecord(entry);
-      const quantity = numberOrZero(firstDefined(item, ["quantity", "qty", "cantidad", "units", "unidades"])) || 1;
-      const unitPrice = numberOrZero(firstDefined(item, ["unit_price", "unitPrice", "price", "precio", "cost", "unit_cost"]));
-      const total = numberOrZero(firstDefined(item, ["total", "amount", "importe", "line_total"])) || quantity * unitPrice;
+      const quantity = numberOrZero(firstDefined(item, ["quantity", "qty", "cantidad", "units", "unidades"]), sep) || 1;
+      const unitPrice = numberOrZero(firstDefined(item, ["unit_price", "unitPrice", "price", "precio", "cost", "unit_cost"]), sep);
+      const total = numberOrZero(firstDefined(item, ["total", "amount", "importe", "line_total"]), sep) || quantity * unitPrice;
       return {
         description: textOrEmpty(firstDefined(item, ["description", "name", "product", "producto", "concept", "concepto", "detalle"])),
         sku: textOrNull(firstDefined(item, ["sku", "code", "codigo", "reference", "referencia"])),
@@ -351,10 +336,10 @@ function normalizeInvoice(value: unknown): z.infer<typeof InvoiceSchema> | null 
     })
     .filter((item) => item.description || item.total > 0);
 
-  const subtotal = numberOrZero(firstDefined(root, ["subtotal", "sub_total", "base", "base_imponible"]));
-  const tax = numberOrZero(firstDefined(root, ["tax", "vat", "iva", "itbis", "sales_tax"]));
+  const subtotal = numberOrZero(firstDefined(root, ["subtotal", "sub_total", "base", "base_imponible"]), sep);
+  const tax = numberOrZero(firstDefined(root, ["tax", "vat", "iva", "itbis", "sales_tax"]), sep);
   const itemsTotal = items.reduce((sum, item) => sum + item.total, 0);
-  const total = numberOrZero(firstDefined(root, ["total", "grand_total", "amount", "importe_total"])) || subtotal + tax || itemsTotal;
+  const total = numberOrZero(firstDefined(root, ["total", "grand_total", "amount", "importe_total"]), sep) || subtotal + tax || itemsTotal;
   const normalized = {
     supplier_name: textOrNull(firstDefined(root, ["supplier_name", "supplier", "vendor", "merchant", "proveedor", "empresa"])),
     invoice_number: textOrNull(firstDefined(root, ["invoice_number", "invoiceNo", "number", "numero", "ncf", "receipt_number"])),
@@ -436,7 +421,7 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
       });
       const raw = (res.text ?? "").trim();
       const json = extractJsonObject(raw);
-      const normalized = normalizeInvoice(json);
+      const normalized = normalizeInvoice(json, data.decimal_separator);
       if (!normalized) return scanError("SCAN_PARSE_FAILED");
       parsed = normalized;
     } catch (err: unknown) {
