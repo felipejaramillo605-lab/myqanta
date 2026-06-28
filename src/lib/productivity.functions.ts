@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
+import { resolveOrgWithRole } from "./permissions";
 
 // ===== Tasks =====
 const TaskStatus = z.enum(["todo", "doing", "done", "archived"]);
@@ -36,7 +37,7 @@ export const upsertTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TaskInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const payload = {
       ...data,
       user_id: context.userId,
@@ -53,6 +54,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), status: TaskStatus }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error } = await context.supabase
       .from("tasks")
       .update({ status: data.status, completed_at: data.status === "done" ? new Date().toISOString() : null })
@@ -65,6 +67,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -97,7 +100,7 @@ export const createHabit = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data: out, error } = await context.supabase
       .from("habits").insert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
@@ -108,7 +111,7 @@ export const toggleHabitToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ habit_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const today = new Date().toISOString().slice(0, 10);
     const { data: existing } = await context.supabase
       .from("habit_logs").select("id").eq("habit_id", data.habit_id).eq("logged_on", today).maybeSingle();
@@ -126,6 +129,7 @@ export const deleteHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error } = await context.supabase.from("habits").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -162,7 +166,7 @@ export const upsertEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EventInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data: out, error } = await context.supabase
       .from("events").upsert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
@@ -173,6 +177,7 @@ export const deleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { error } = await context.supabase.from("events").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
