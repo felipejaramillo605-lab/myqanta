@@ -45,7 +45,9 @@ async function fetchTheme(): Promise<ThemeSettings | null> {
 function applyThemeVars(s: ThemeSettings, mode: Mode) {
   const root = document.documentElement;
   const bg = mode === "dark" ? s.background_dark : s.background_light;
-  const fg = mode === "dark" ? s.foreground_light : s.foreground_dark;
+  // NOTE: column naming follows "*_dark = value used in dark mode".
+  // foreground_dark is the light/white text used over the dark background.
+  const fg = mode === "dark" ? s.foreground_dark : s.foreground_light;
   root.style.setProperty("--primary", s.primary_color);
   root.style.setProperty("--accent", s.accent_color);
   root.style.setProperty("--secondary", s.secondary_color);
