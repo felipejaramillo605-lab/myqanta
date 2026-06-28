@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole } from "./permissions";
+import { EXPENSE_CATEGORIES, parseNumberWithSeparator, suggestCategory, type DecimalSeparator } from "./categories";
 
 // ===== Products =====
 export const listProducts = createServerFn({ method: "GET" })
@@ -78,6 +79,7 @@ const MovementInput = z.object({
   unit_price: z.number().default(0),
   notes: z.string().optional().nullable(),
   occurred_at: z.string().optional(),
+  expense_category: z.string().optional().nullable(),
 });
 
 function stockDelta(kind: string, qty: number) {
@@ -105,6 +107,7 @@ export const createMovement = createServerFn({ method: "POST" })
         total,
         occurred_at: data.occurred_at ?? new Date().toISOString(),
         notes: data.notes ?? null,
+        expense_category: data.expense_category ?? null,
       })
       .select()
       .single();
@@ -375,6 +378,7 @@ const ScanInput = z.object({
   image_data_url: z.string().startsWith("data:"),
   mime: z.string(),
   commit: z.boolean().default(false),
+  decimal_separator: z.enum(["auto", "comma", "dot"]).default("auto"),
 });
 
 export const scanInvoice = createServerFn({ method: "POST" })
