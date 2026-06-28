@@ -183,6 +183,7 @@ export type Database = {
           created_at: string
           currency: string
           description: string
+          expense_category: string | null
           id: string
           occurred_on: string
           org_id: string
@@ -199,6 +200,7 @@ export type Database = {
           created_at?: string
           currency?: string
           description: string
+          expense_category?: string | null
           id?: string
           occurred_on: string
           org_id: string
@@ -215,6 +217,7 @@ export type Database = {
           created_at?: string
           currency?: string
           description?: string
+          expense_category?: string | null
           id?: string
           occurred_on?: string
           org_id?: string
@@ -414,6 +417,7 @@ export type Database = {
       inv_movements: {
         Row: {
           created_at: string
+          expense_category: string | null
           id: string
           kind: Database["public"]["Enums"]["inv_movement_kind"]
           notes: string | null
@@ -429,6 +433,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expense_category?: string | null
           id?: string
           kind: Database["public"]["Enums"]["inv_movement_kind"]
           notes?: string | null
@@ -444,6 +449,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expense_category?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["inv_movement_kind"]
           notes?: string | null
