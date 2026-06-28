@@ -16,18 +16,21 @@ type Spec = { file: string; fn: string; min: "member" | "admin" | "owner" };
 const MEMBER_WRITES: Spec[] = [
   // Finance
   { file: "lib/finance.functions.ts", fn: "createTransaction", min: "member" },
-  { file: "lib/finance.functions.ts", fn: "commitStatement", min: "member" },
+  { file: "lib/finance.functions.ts", fn: "deleteTransaction", min: "member" },
+  { file: "lib/finance.functions.ts", fn: "analyzeStatement", min: "member" },
   // Inventory
   { file: "lib/inventory.functions.ts", fn: "upsertProduct", min: "member" },
   { file: "lib/inventory.functions.ts", fn: "deleteProduct", min: "member" },
   { file: "lib/inventory.functions.ts", fn: "createMovement", min: "member" },
   { file: "lib/inventory.functions.ts", fn: "createPurchaseOrder", min: "member" },
-  { file: "lib/inventory.functions.ts", fn: "commitInvoice", min: "member" },
+  { file: "lib/inventory.functions.ts", fn: "scanInvoice", min: "member" },
   // Productivity
   { file: "lib/productivity.functions.ts", fn: "upsertTask", min: "member" },
+  { file: "lib/productivity.functions.ts", fn: "setTaskStatus", min: "member" },
   { file: "lib/productivity.functions.ts", fn: "deleteTask", min: "member" },
   { file: "lib/productivity.functions.ts", fn: "createHabit", min: "member" },
-  { file: "lib/productivity.functions.ts", fn: "toggleHabit", min: "member" },
+  { file: "lib/productivity.functions.ts", fn: "toggleHabitToday", min: "member" },
+  { file: "lib/productivity.functions.ts", fn: "deleteHabit", min: "member" },
   { file: "lib/productivity.functions.ts", fn: "upsertEvent", min: "member" },
   { file: "lib/productivity.functions.ts", fn: "deleteEvent", min: "member" },
 ];
