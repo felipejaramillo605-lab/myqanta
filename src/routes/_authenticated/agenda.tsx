@@ -7,6 +7,8 @@ import { Plus, Trash2, MapPin, Calendar as CalendarIcon } from "lucide-react";
 
 import { deleteEvent, listEvents, upsertEvent } from "@/lib/productivity.functions";
 import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/use-permissions";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 function Agenda() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const { canWrite } = usePermissions();
   const fn = useServerFn(listEvents);
   const upsertFn = useServerFn(upsertEvent);
   const delFn = useServerFn(deleteEvent);
@@ -46,8 +49,10 @@ function Agenda() {
           <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{t("ag.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("ag.sub")}</p>
         </div>
-        <EventDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />
+        {canWrite && <EventDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
       </header>
+
+      <ReadOnlyBanner />
 
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("ag.upcoming")}</h2>
@@ -72,7 +77,7 @@ function Agenda() {
                   </div>
                   {e.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{e.description}</p>}
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: e.id } }).then(refresh)}><Trash2 className="size-4" /></Button>
+                {canWrite && <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: e.id } }).then(refresh)}><Trash2 className="size-4" /></Button>}
               </div>
             ))}
           </div>

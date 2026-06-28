@@ -5,11 +5,13 @@ import { AlertTriangle, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { listLowStock } from "@/lib/inventory.functions";
 import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/use-permissions";
 import { Button } from "@/components/ui/button";
 import { PurchaseOrderDialog, type POProduct } from "@/components/purchase-order-dialog";
 
 export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
+  const { canWrite } = usePermissions();
   const fn = useServerFn(listLowStock);
   const { data } = useSuspenseQuery({ queryKey: ["inv", "low"], queryFn: () => fn() });
   const [poProducts, setPoProducts] = useState<POProduct[] | null>(null);
@@ -40,7 +42,7 @@ export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
           <span className="font-mono text-xs text-destructive">
             {data.length} {t("inv.alerts.count")}
           </span>
-          {!compact && (
+          {!compact && canWrite && (
             <Button
               size="sm"
               variant="outline"
@@ -80,16 +82,18 @@ export function LowStockAlerts({ compact = false }: { compact?: boolean }) {
                 >
                   {stock} {p.unit} · {below ? t("inv.alerts.below") : t("inv.alerts.at")}
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1.5 px-2 text-xs"
-                  onClick={() => setPoProducts([p as POProduct])}
-                  title={t("inv.alerts.reorder")}
-                >
-                  <ShoppingCart className="size-3.5" />
-                  <span className="hidden sm:inline">{t("inv.alerts.reorder")}</span>
-                </Button>
+                {canWrite && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() => setPoProducts([p as POProduct])}
+                    title={t("inv.alerts.reorder")}
+                  >
+                    <ShoppingCart className="size-3.5" />
+                    <span className="hidden sm:inline">{t("inv.alerts.reorder")}</span>
+                  </Button>
+                )}
               </div>
             </li>
           );

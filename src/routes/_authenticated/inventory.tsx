@@ -18,6 +18,8 @@ import { LowStockAlerts } from "@/components/low-stock-alerts";
 import { StockHistoryChart } from "@/components/charts/stock-history-chart";
 import { downloadCsv } from "@/lib/export-utils";
 import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/use-permissions";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +46,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
 function Inventory() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const { canWrite } = usePermissions();
   const productsFn = useServerFn(listProducts);
   const movsFn = useServerFn(listMovements);
   const upsertFn = useServerFn(upsertProduct);
@@ -74,11 +77,13 @@ function Inventory() {
           )}>
             <FileDown className="size-4" />{t("export.csv")}
           </Button>
-          <ScanDialog scan={scanFn} onApplied={refresh} />
-          <MovementDialog products={products} onSubmit={(v) => movFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />
-          <ProductDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />
+          {canWrite && <ScanDialog scan={scanFn} onApplied={refresh} />}
+          {canWrite && <MovementDialog products={products} onSubmit={(v) => movFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
+          {canWrite && <ProductDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
         </div>
       </header>
+
+      <ReadOnlyBanner />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat icon={<Package className="size-4" />} label={t("inv.products")} value={products.length.toString()} />
@@ -147,9 +152,11 @@ function Inventory() {
                         <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">{Number(p.cost).toFixed(2)}</td>
                         <td className="px-4 py-2 text-right font-mono">{Number(p.price).toFixed(2)}</td>
                         <td className="px-2">
-                          <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: p.id } }).then(refresh)}>
-                            <Trash2 className="size-4" />
-                          </Button>
+                          {canWrite && (
+                            <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: p.id } }).then(refresh)}>
+                              <Trash2 className="size-4" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );

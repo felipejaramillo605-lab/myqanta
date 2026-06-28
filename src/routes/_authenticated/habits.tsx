@@ -10,6 +10,8 @@ import {
   setTaskStatus, toggleHabitToday, upsertTask,
 } from "@/lib/productivity.functions";
 import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/use-permissions";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +46,8 @@ function Productivity() {
         <p className="mt-1 text-sm text-muted-foreground">{t("pro.sub")}</p>
       </header>
 
+      <ReadOnlyBanner />
+
       <Tabs defaultValue="tasks">
         <TabsList>
           <TabsTrigger value="tasks">{t("pro.tasks")}</TabsTrigger>
@@ -59,6 +63,7 @@ function Productivity() {
 function TasksPanel() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const { canWrite } = usePermissions();
   const fn = useServerFn(listTasks);
   const upsertFn = useServerFn(upsertTask);
   const statusFn = useServerFn(setTaskStatus);
@@ -76,7 +81,7 @@ function TasksPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <TaskDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />
+        {canWrite && <TaskDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
       </div>
       {tasks.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">{t("pro.empty.tasks")}</div>
@@ -102,13 +107,15 @@ function TasksPanel() {
                             {tk.due_date && <span className="font-mono text-muted-foreground">{new Date(tk.due_date).toLocaleDateString()}</span>}
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="opacity-0 transition group-hover:opacity-100" onClick={() => delFn({ data: { id: tk.id } }).then(refresh)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {canWrite && (
+                          <Button variant="ghost" size="icon" className="opacity-0 transition group-hover:opacity-100" onClick={() => delFn({ data: { id: tk.id } }).then(refresh)}>
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                       <div className="mt-3 flex gap-1">
                         {cols.map((cc) => (
-                          <Button key={cc.key} variant={tk.status === cc.key ? "secondary" : "ghost"} size="sm" className="h-7 flex-1 text-[10px]"
+                          <Button key={cc.key} variant={tk.status === cc.key ? "secondary" : "ghost"} size="sm" className="h-7 flex-1 text-[10px]" disabled={!canWrite}
                             onClick={() => statusFn({ data: { id: tk.id, status: cc.key } }).then(refresh)}>
                             {cc.key === "todo" && <Circle className="size-3" />}
                             {cc.key === "doing" && <Loader2 className="size-3" />}
@@ -177,6 +184,7 @@ function TaskDialog({ onSubmit }: { onSubmit: (v: { title: string; description?:
 function HabitsPanel() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const { canWrite } = usePermissions();
   const fn = useServerFn(listHabits);
   const createFn = useServerFn(createHabit);
   const toggleFn = useServerFn(toggleHabitToday);
@@ -217,7 +225,7 @@ function HabitsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
+        {canWrite && <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="size-4" />{t("pro.add_habit")}</Button></DialogTrigger>
           <DialogContent className="glass">
             <DialogHeader><DialogTitle>{t("pro.add_habit")}</DialogTitle></DialogHeader>
@@ -230,7 +238,7 @@ function HabitsPanel() {
               <Button disabled={!name || createMut.isPending} onClick={() => createMut.mutate()}>{t("fin.save")}</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
       {data.habits.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">{t("pro.empty.habits")}</div>
@@ -243,7 +251,7 @@ function HabitsPanel() {
             const s = streak(set);
             return (
               <div key={h.id} className="glass flex items-center gap-4 rounded-2xl p-4">
-                <Button variant={doneToday ? "default" : "outline"} size="icon" className="size-12 rounded-full" onClick={() => toggleFn({ data: { habit_id: h.id } }).then(refresh)}>
+                <Button variant={doneToday ? "default" : "outline"} size="icon" className="size-12 rounded-full" disabled={!canWrite} onClick={() => toggleFn({ data: { habit_id: h.id } }).then(refresh)}>
                   {doneToday ? <Check className="size-5" /> : <Circle className="size-5" />}
                 </Button>
                 <div className="min-w-0 flex-1">
@@ -257,7 +265,7 @@ function HabitsPanel() {
                     ))}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: h.id } }).then(refresh)}><Trash2 className="size-4" /></Button>
+                {canWrite && <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: h.id } }).then(refresh)}><Trash2 className="size-4" /></Button>}
               </div>
             );
           })}
