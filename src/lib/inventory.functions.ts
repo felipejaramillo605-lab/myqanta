@@ -234,22 +234,22 @@ export const getStockHistory = createServerFn({ method: "GET" })
 
 // ===== AI invoice scan =====
 const InvoiceItem = z.object({
-  description: z.string(),
+  description: z.string().default(""),
   sku: z.string().optional().nullable(),
-  quantity: z.number().default(1),
-  unit_price: z.number().default(0),
-  total: z.number().default(0),
+  quantity: z.coerce.number().default(1),
+  unit_price: z.coerce.number().default(0),
+  total: z.coerce.number().default(0),
 });
 const InvoiceSchema = z.object({
   supplier_name: z.string().optional().nullable(),
   invoice_number: z.string().optional().nullable(),
   invoice_date: z.string().optional().nullable(),
   currency: z.string().default("EUR"),
-  subtotal: z.number().default(0),
-  tax: z.number().default(0),
-  total: z.number().default(0),
-  items: z.array(InvoiceItem),
-  summary: z.string(),
+  subtotal: z.coerce.number().default(0),
+  tax: z.coerce.number().default(0),
+  total: z.coerce.number().default(0),
+  items: z.array(InvoiceItem).default([]),
+  summary: z.string().default(""),
 });
 
 const ScanInput = z.object({
@@ -270,14 +270,22 @@ export const scanInvoice = createServerFn({ method: "POST" })
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const aiMod = await import("ai");
-    const { generateObject, NoObjectGeneratedError } = aiMod;
+    const { generateText } = aiMod;
     const gateway = createLovableAiGatewayProvider(key);
 
-    const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image.
-- Dates must be YYYY-MM-DD when possible.
-- Quantities and prices are numbers (no currency symbols).
-- "total" per line = quantity * unit_price.
-- summary: 1-2 sentences in the document's language.`;
+    const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image and return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
+{
+  "supplier_name": string|null,
+  "invoice_number": string|null,
+  "invoice_date": "YYYY-MM-DD"|null,
+  "currency": string,
+  "subtotal": number,
+  "tax": number,
+  "total": number,
+  "items": [{ "description": string, "sku": string|null, "quantity": number, "unit_price": number, "total": number }],
+  "summary": string
+}
+Rules: numbers must be plain numbers (no currency symbols, no thousands separators). "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
 
     const isPdf = data.mime === "application/pdf";
     const userContent = isPdf
@@ -298,28 +306,41 @@ export const scanInvoice = createServerFn({ method: "POST" })
 
     let parsed: z.infer<typeof InvoiceSchema>;
     try {
-      const res = await generateObject({
+      const res = await generateText({
         model: gateway("google/gemini-2.5-flash"),
-        schema: InvoiceSchema,
         system,
         messages: [{ role: "user", content: userContent }],
       });
-      parsed = res.object;
+      const raw = (res.text ?? "").trim();
+      let cleaned = raw
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```\s*$/i, "")
+        .trim();
+      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+        const s = cleaned.indexOf("{");
+        const e = cleaned.lastIndexOf("}");
+        if (s !== -1 && e > s) cleaned = cleaned.slice(s, e + 1);
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(cleaned);
+      } catch {
+        throw new Error("SCAN_PARSE_FAILED");
+      }
+      const safe = InvoiceSchema.safeParse(json);
+      if (!safe.success) throw new Error("SCAN_PARSE_FAILED");
+      parsed = safe.data;
     } catch (err: unknown) {
       const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
       const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
       const msg = String(e?.message ?? "");
+      if (msg === "SCAN_PARSE_FAILED") throw err;
       if (status === 429 || /rate.?limit/i.test(msg)) {
         throw new Error("SCAN_RATE_LIMITED");
       }
       if (status === 402 || /credit|payment.required/i.test(msg)) {
         throw new Error("SCAN_NO_CREDITS");
-      }
-      if (
-        (NoObjectGeneratedError && NoObjectGeneratedError.isInstance?.(err)) ||
-        /no object generated|did not match schema|invalid json|json.*parse|validation/i.test(msg)
-      ) {
-        throw new Error("SCAN_PARSE_FAILED");
       }
       if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) {
         throw new Error("SCAN_UNSUPPORTED_FILE");
