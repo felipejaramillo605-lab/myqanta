@@ -420,7 +420,7 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
     // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
     const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);
     if (approxBytes > 8 * 1024 * 1024) {
-      throw new Error("SCAN_TOO_LARGE");
+      return scanError("SCAN_TOO_LARGE");
     }
 
     let parsed: z.infer<typeof InvoiceSchema>;
