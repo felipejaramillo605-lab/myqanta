@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole } from "./permissions";
+import { EXPENSE_CATEGORIES, parseNumberWithSeparator, suggestCategory, type DecimalSeparator } from "./categories";
 
 // ===== Products =====
 export const listProducts = createServerFn({ method: "GET" })
@@ -78,6 +79,7 @@ const MovementInput = z.object({
   unit_price: z.number().default(0),
   notes: z.string().optional().nullable(),
   occurred_at: z.string().optional(),
+  expense_category: z.string().optional().nullable(),
 });
 
 function stockDelta(kind: string, qty: number) {
@@ -105,6 +107,7 @@ export const createMovement = createServerFn({ method: "POST" })
         total,
         occurred_at: data.occurred_at ?? new Date().toISOString(),
         notes: data.notes ?? null,
+        expense_category: data.expense_category ?? null,
       })
       .select()
       .single();
@@ -289,23 +292,8 @@ function textOrEmpty(value: unknown): string {
   return textOrNull(value) ?? "";
 }
 
-function numberOrZero(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return 0;
-  let cleaned = value
-    .replace(/[^0-9,.-]/g, "")
-    .replace(/(?!^)-/g, "")
-    .trim();
-  if (!cleaned) return 0;
-  const lastComma = cleaned.lastIndexOf(",");
-  const lastDot = cleaned.lastIndexOf(".");
-  if (lastComma !== -1 && lastDot !== -1) {
-    cleaned = lastComma > lastDot ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
-  } else if (lastComma !== -1) {
-    cleaned = cleaned.replace(",", ".");
-  }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
+function numberOrZero(value: unknown, sep: DecimalSeparator = "auto"): number {
+  return parseNumberWithSeparator(value, sep);
 }
 
 function extractJsonObject(raw: string): unknown | null {
@@ -328,16 +316,16 @@ function extractJsonObject(raw: string): unknown | null {
   }
 }
 
-function normalizeInvoice(value: unknown): z.infer<typeof InvoiceSchema> | null {
+function normalizeInvoice(value: unknown, sep: DecimalSeparator = "auto"): z.infer<typeof InvoiceSchema> | null {
   const root = asRecord(value);
   const itemSource = firstDefined(root, ["items", "line_items", "lines", "productos", "concepts", "details"]);
   const rawItems = Array.isArray(itemSource) ? itemSource : [];
   const items = rawItems
     .map((entry) => {
       const item = asRecord(entry);
-      const quantity = numberOrZero(firstDefined(item, ["quantity", "qty", "cantidad", "units", "unidades"])) || 1;
-      const unitPrice = numberOrZero(firstDefined(item, ["unit_price", "unitPrice", "price", "precio", "cost", "unit_cost"]));
-      const total = numberOrZero(firstDefined(item, ["total", "amount", "importe", "line_total"])) || quantity * unitPrice;
+      const quantity = numberOrZero(firstDefined(item, ["quantity", "qty", "cantidad", "units", "unidades"]), sep) || 1;
+      const unitPrice = numberOrZero(firstDefined(item, ["unit_price", "unitPrice", "price", "precio", "cost", "unit_cost"]), sep);
+      const total = numberOrZero(firstDefined(item, ["total", "amount", "importe", "line_total"]), sep) || quantity * unitPrice;
       return {
         description: textOrEmpty(firstDefined(item, ["description", "name", "product", "producto", "concept", "concepto", "detalle"])),
         sku: textOrNull(firstDefined(item, ["sku", "code", "codigo", "reference", "referencia"])),
@@ -348,10 +336,10 @@ function normalizeInvoice(value: unknown): z.infer<typeof InvoiceSchema> | null 
     })
     .filter((item) => item.description || item.total > 0);
 
-  const subtotal = numberOrZero(firstDefined(root, ["subtotal", "sub_total", "base", "base_imponible"]));
-  const tax = numberOrZero(firstDefined(root, ["tax", "vat", "iva", "itbis", "sales_tax"]));
+  const subtotal = numberOrZero(firstDefined(root, ["subtotal", "sub_total", "base", "base_imponible"]), sep);
+  const tax = numberOrZero(firstDefined(root, ["tax", "vat", "iva", "itbis", "sales_tax"]), sep);
   const itemsTotal = items.reduce((sum, item) => sum + item.total, 0);
-  const total = numberOrZero(firstDefined(root, ["total", "grand_total", "amount", "importe_total"])) || subtotal + tax || itemsTotal;
+  const total = numberOrZero(firstDefined(root, ["total", "grand_total", "amount", "importe_total"]), sep) || subtotal + tax || itemsTotal;
   const normalized = {
     supplier_name: textOrNull(firstDefined(root, ["supplier_name", "supplier", "vendor", "merchant", "proveedor", "empresa"])),
     invoice_number: textOrNull(firstDefined(root, ["invoice_number", "invoiceNo", "number", "numero", "ncf", "receipt_number"])),
@@ -375,6 +363,7 @@ const ScanInput = z.object({
   image_data_url: z.string().startsWith("data:"),
   mime: z.string(),
   commit: z.boolean().default(false),
+  decimal_separator: z.enum(["auto", "comma", "dot"]).default("auto"),
 });
 
 export const scanInvoice = createServerFn({ method: "POST" })
@@ -392,6 +381,13 @@ export const scanInvoice = createServerFn({ method: "POST" })
     const { generateText } = aiMod;
     const gateway = createLovableAiGatewayProvider(key);
 
+    const sepHint =
+      data.decimal_separator === "comma"
+        ? "The source document uses COMMA as decimal separator and dot as thousand separator (e.g. 1.234,56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
+        : data.decimal_separator === "dot"
+          ? "The source document uses DOT as decimal separator and comma as thousand separator (e.g. 1,234.56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
+          : "Detect the decimal separator (comma or dot) from context and convert every numeric value to a plain decimal with a dot as decimal separator.";
+
     const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image and return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
 {
   "supplier_name": string|null,
@@ -404,7 +400,7 @@ export const scanInvoice = createServerFn({ method: "POST" })
   "items": [{ "description": string, "sku": string|null, "quantity": number, "unit_price": number, "total": number }],
   "summary": string
 }
-Rules: numbers must be plain numbers (no currency symbols, no thousands separators). "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
+Rules: numbers must be plain numbers (no currency symbols, no thousands separators). ${sepHint} "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
 
     const isPdf = data.mime === "application/pdf";
     const userContent = isPdf
@@ -432,7 +428,7 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
       });
       const raw = (res.text ?? "").trim();
       const json = extractJsonObject(raw);
-      const normalized = normalizeInvoice(json);
+      const normalized = normalizeInvoice(json, data.decimal_separator);
       if (!normalized) return scanError("SCAN_PARSE_FAILED");
       parsed = normalized;
     } catch (err: unknown) {
@@ -526,4 +522,157 @@ Rules: numbers must be plain numbers (no currency symbols, no thousands separato
     }
 
     return { ok: true as const, invoice: inv, parsed, created };
+  });
+
+// ===== Apply hand-edited invoice items (after preview) =====
+const ApplyInvoiceInput = z.object({
+  supplier_name: z.string().optional().nullable(),
+  invoice_number: z.string().optional().nullable(),
+  invoice_date: z.string().optional().nullable(),
+  currency: z.string().default("EUR"),
+  subtotal: z.number().default(0),
+  tax: z.number().default(0),
+  total: z.number().default(0),
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        sku: z.string().optional().nullable(),
+        quantity: z.number().positive().default(1),
+        unit_price: z.number().min(0).default(0),
+        total: z.number().min(0).default(0),
+        expense_category: z.string().optional().nullable(),
+      }),
+    )
+    .min(1),
+});
+
+export const applyInvoiceItems = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ApplyInvoiceInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+
+    const { data: inv, error } = await context.supabase
+      .from("inv_invoices")
+      .insert({
+        user_id: context.userId,
+        org_id: orgId,
+        invoice_number: data.invoice_number ?? null,
+        invoice_date: data.invoice_date ?? null,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        currency: data.currency || "EUR",
+        raw_ai_json: JSON.parse(JSON.stringify({ edited: true, ...data })),
+        status: "applied",
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+
+    const { data: prods } = await context.supabase
+      .from("inv_products").select("id,name,sku,stock").eq("org_id", orgId);
+    const byKey = new Map<string, { id: string; stock: number }>();
+    for (const p of prods ?? []) {
+      byKey.set(p.name.toLowerCase(), { id: p.id, stock: Number(p.stock) });
+      if (p.sku) byKey.set(p.sku.toLowerCase(), { id: p.id, stock: Number(p.stock) });
+    }
+
+    let created = 0;
+    for (const item of data.items) {
+      let prodId: string | null = null;
+      const lookup = byKey.get((item.sku ?? "").toLowerCase()) || byKey.get(item.description.toLowerCase());
+      if (lookup) prodId = lookup.id;
+      else {
+        const { data: np } = await context.supabase
+          .from("inv_products")
+          .insert({
+            user_id: context.userId,
+            org_id: orgId,
+            name: item.description,
+            sku: item.sku ?? null,
+            cost: item.unit_price,
+            price: item.unit_price,
+            stock: 0,
+            category: item.expense_category ?? null,
+          })
+          .select("id,stock")
+          .single();
+        if (np) prodId = np.id;
+      }
+      if (!prodId) continue;
+
+      const qty = item.quantity || 1;
+      const total = item.total || qty * item.unit_price;
+      const category = item.expense_category ?? suggestCategory(item.description);
+      await context.supabase.from("inv_movements").insert({
+        user_id: context.userId,
+        org_id: orgId,
+        product_id: prodId,
+        kind: "purchase",
+        quantity: qty,
+        unit_price: item.unit_price,
+        total,
+        source_invoice_id: inv.id,
+        notes: `Invoice ${data.invoice_number ?? ""}`.trim(),
+        expense_category: category,
+      });
+      const { data: cur } = await context.supabase
+        .from("inv_products").select("stock").eq("id", prodId).eq("org_id", orgId).single();
+      await context.supabase
+        .from("inv_products")
+        .update({ stock: Number(cur?.stock ?? 0) + qty })
+        .eq("id", prodId);
+      created++;
+    }
+    return { ok: true as const, invoice: inv, created };
+  });
+
+// ===== Spending summary by expense category =====
+export const getCategorySummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ days: z.number().int().min(7).max(365).default(90) }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const from = new Date();
+    from.setUTCDate(from.getUTCDate() - data.days);
+    const fromIso = from.toISOString();
+    const [{ data: movs }, { data: txs }] = await Promise.all([
+      context.supabase
+        .from("inv_movements")
+        .select("total,expense_category,occurred_at,kind")
+        .eq("org_id", orgId)
+        .eq("kind", "purchase")
+        .gte("occurred_at", fromIso),
+      context.supabase
+        .from("finance_transactions")
+        .select("amount,expense_category,occurred_on")
+        .eq("org_id", orgId)
+        .gte("occurred_on", fromIso.slice(0, 10)),
+    ]);
+
+    const totals = new Map<string, { total: number; count: number }>();
+    const bump = (cat: string | null, amount: number) => {
+      const key = cat && (EXPENSE_CATEGORIES as readonly string[]).includes(cat) ? cat : "otros_gastos";
+      const cur = totals.get(key) ?? { total: 0, count: 0 };
+      cur.total += amount;
+      cur.count += 1;
+      totals.set(key, cur);
+    };
+    for (const m of movs ?? []) bump(m.expense_category, Math.abs(Number(m.total)));
+    for (const t of txs ?? []) {
+      const amt = Number(t.amount);
+      if (amt < 0) bump(t.expense_category, Math.abs(amt));
+    }
+
+    const items = (EXPENSE_CATEGORIES as readonly string[]).map((cat) => ({
+      category: cat,
+      total: totals.get(cat)?.total ?? 0,
+      count: totals.get(cat)?.count ?? 0,
+    }));
+    const grand = items.reduce((s, x) => s + x.total, 0);
+    return { items, total: grand, days: data.days };
   });

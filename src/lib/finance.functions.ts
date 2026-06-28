@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole } from "./permissions";
+import { parseNumberWithSeparator } from "./categories";
 
 const BUCKETS = [
   "revenue",
@@ -199,6 +200,7 @@ const TxInput = z.object({
   amount: z.number(),
   bucket: BucketEnum,
   currency: z.string().default("USD"),
+  expense_category: z.string().optional().nullable(),
 });
 
 export const createTransaction = createServerFn({ method: "POST" })
@@ -231,6 +233,7 @@ const AnalyzeInput = z.object({
   text: z.string().min(20),
   currency: z.string().default("USD"),
   commit: z.boolean().default(false),
+  decimal_separator: z.enum(["auto", "comma", "dot"]).default("auto"),
 });
 
 const ExtractedTx = z.object({
@@ -273,7 +276,13 @@ Buckets:
 - tax: taxes paid
 - other_income, other_expense: anything else
 Amount sign convention: income positive, expense negative.
-Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language.`;
+Dates must be YYYY-MM-DD. ${
+  data.decimal_separator === "comma"
+    ? "The statement uses COMMA as decimal separator and dot as thousand separator (e.g. 1.234,56 = 1234.56). Convert numbers to plain decimals with dot separator."
+    : data.decimal_separator === "dot"
+      ? "The statement uses DOT as decimal separator and comma as thousand separator (e.g. 1,234.56 = 1234.56). Convert numbers to plain decimals with dot separator."
+      : "Detect the decimal separator (comma or dot) and convert numbers to plain decimals with dot separator."
+} Output a concise summary in the user's likely language.`;
 
     const { object: parsed } = await generateObject({
       model: gateway("google/gemini-2.5-flash"),
@@ -281,6 +290,15 @@ Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language
       system,
       prompt: `Parse this bank statement and extract every transaction.\n\n${data.text}`,
     });
+
+    // Re-parse amounts respecting the decimal-separator hint as a safety net.
+    if (data.decimal_separator !== "auto") {
+      for (const t of parsed.transactions) {
+        if (typeof t.amount === "string") {
+          t.amount = parseNumberWithSeparator(t.amount, data.decimal_separator);
+        }
+      }
+    }
 
     const { data: stmt, error: stmtErr } = await context.supabase
       .from("finance_statements")
@@ -326,4 +344,44 @@ Dates must be YYYY-MM-DD. Output a concise summary in the user's likely language
       transactions: parsed.transactions,
       inserted,
     };
+  });
+
+// ===== Apply hand-edited statement transactions (after preview) =====
+const ApplyExtractedInput = z.object({
+  source_name: z.string().min(1),
+  currency: z.string().default("USD"),
+  transactions: z
+    .array(
+      z.object({
+        occurred_on: z.string(),
+        description: z.string().min(1),
+        amount: z.number(),
+        bucket: BucketEnum,
+        expense_category: z.string().optional().nullable(),
+      }),
+    )
+    .min(1),
+});
+
+export const applyExtractedTransactions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ApplyExtractedInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const rows = data.transactions.map((t) => ({
+      user_id: context.userId,
+      org_id: orgId,
+      occurred_on: t.occurred_on,
+      description: t.description,
+      amount: t.amount,
+      bucket: t.bucket,
+      currency: data.currency,
+      expense_category: t.expense_category ?? null,
+      source: "ai_statement_edited",
+    }));
+    const { error, count } = await context.supabase
+      .from("finance_transactions")
+      .insert(rows, { count: "exact" });
+    if (error) throw new Error(error.message);
+    return { inserted: count ?? rows.length };
   });
