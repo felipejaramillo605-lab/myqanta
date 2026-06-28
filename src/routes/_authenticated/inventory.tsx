@@ -330,20 +330,26 @@ function MovementDialog({ products, onSubmit }: { products: { id: string; name: 
 
 type ScanResult = Awaited<ReturnType<typeof scanInvoice>>;
 type ScanSuccess = Extract<ScanResult, { ok: true }>;
+type ApplyFn = typeof applyInvoiceItems;
+type EditableItem = { description: string; sku: string; quantity: number; unit_price: number; total: number; expense_category: string };
 
-function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: string; mime: string; commit: boolean } }) => Promise<ScanResult>; onApplied: () => void }) {
+function ScanDialog({ scan, apply, onApplied }: { scan: (a: { data: { image_data_url: string; mime: string; commit: boolean; decimal_separator?: DecimalSeparator } }) => Promise<ScanResult>; apply: ApplyFn; onApplied: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [dataUrl, setDataUrl] = useState<string>("");
   const [mime, setMime] = useState<string>("");
   const [preview, setPreview] = useState<ScanSuccess | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [sep, setSep] = useState<DecimalSeparator>("auto");
+  const [items, setItems] = useState<EditableItem[]>([]);
+  const [meta, setMeta] = useState({ supplier: "", number: "", date: "", currency: "EUR", subtotal: 0, tax: 0, total: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
     setMime(file.type);
     setErrorKey(null);
     setPreview(null);
+    setItems([]);
     const reader = new FileReader();
     reader.onload = () => setDataUrl(reader.result as string);
     reader.readAsDataURL(file);
@@ -361,8 +367,8 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
   };
 
   const run = useMutation({
-    mutationFn: (commit: boolean) => scan({ data: { image_data_url: dataUrl, mime, commit } }),
-    onSuccess: (res, commit) => {
+    mutationFn: () => scan({ data: { image_data_url: dataUrl, mime, commit: false, decimal_separator: sep } }),
+    onSuccess: (res) => {
       if (!res.ok) {
         const key = mapError(res.error);
         setErrorKey(key);
@@ -370,38 +376,93 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
         return;
       }
       setErrorKey(null);
-      if (commit) {
-        toast.success(`${res.created} ${t("inv.created_movs")}`);
-        setOpen(false); setPreview(null); setDataUrl(""); setMime("");
-        onApplied();
-      } else {
-        setPreview(res);
-        toast.success(`${res.parsed.items.length} ${t("inv.detected_items")}`);
-      }
+      setPreview(res);
+      setMeta({
+        supplier: res.parsed.supplier_name ?? "",
+        number: res.parsed.invoice_number ?? "",
+        date: res.parsed.invoice_date ?? "",
+        currency: res.parsed.currency ?? "EUR",
+        subtotal: res.parsed.subtotal ?? 0,
+        tax: res.parsed.tax ?? 0,
+        total: res.parsed.total ?? 0,
+      });
+      setItems(res.parsed.items.map((it) => ({
+        description: it.description,
+        sku: it.sku ?? "",
+        quantity: it.quantity || 1,
+        unit_price: it.unit_price || 0,
+        total: it.total || (it.quantity || 1) * (it.unit_price || 0),
+        expense_category: suggestCategory(it.description),
+      })));
+      toast.success(`${res.parsed.items.length} ${t("inv.detected_items")}`);
     },
     onError: (e: Error) => {
       const key = mapError(e.message);
       setErrorKey(key);
-      // Keep the file selected so the user can retry without re-uploading.
       toast.error(t(key as Parameters<typeof t>[0]));
     },
   });
 
+  const applyMut = useMutation({
+    mutationFn: () => apply({ data: {
+      supplier_name: meta.supplier || null,
+      invoice_number: meta.number || null,
+      invoice_date: meta.date || null,
+      currency: meta.currency || "EUR",
+      subtotal: meta.subtotal,
+      tax: meta.tax,
+      total: meta.total,
+      items: items.map((it) => ({
+        description: it.description,
+        sku: it.sku || null,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        total: it.total,
+        expense_category: it.expense_category,
+      })),
+    }}),
+    onSuccess: (res) => {
+      toast.success(`${res.created} ${t("inv.created_movs")}`);
+      setOpen(false); setPreview(null); setDataUrl(""); setMime(""); setItems([]);
+      onApplied();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateItem = (i: number, patch: Partial<EditableItem>) => {
+    setItems((prev) => prev.map((it, idx) => {
+      if (idx !== i) return it;
+      const next = { ...it, ...patch };
+      if (patch.quantity !== undefined || patch.unit_price !== undefined) next.total = next.quantity * next.unit_price;
+      return next;
+    }));
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setDataUrl(""); setMime(""); setErrorKey(null); } }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setDataUrl(""); setMime(""); setErrorKey(null); setItems([]); } }}>
       <DialogTrigger asChild><Button variant="outline"><ScanLine className="size-4" />{t("inv.scan")}</Button></DialogTrigger>
-      <DialogContent className="glass max-w-2xl">
+      <DialogContent className="glass max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><ScanLine className="size-4 text-primary" />{t("inv.scan")}</DialogTitle>
           <DialogDescription>{t("inv.scan.hint")}</DialogDescription>
         </DialogHeader>
         <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         <div className="grid gap-3">
+          <Field label={t("dec.label")} hint={t("dec.hint")}>
+            <Select value={sep} onValueChange={(v) => setSep(v as DecimalSeparator)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">{t("dec.auto")}</SelectItem>
+                <SelectItem value="comma">{t("dec.comma")}</SelectItem>
+                <SelectItem value="dot">{t("dec.dot")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Button variant="outline" onClick={() => inputRef.current?.click()}>
             {dataUrl ? (mime.startsWith("image/") ? "📷 " : "📄 ") + (mime || "file") : t("inv.scan")}
           </Button>
           {dataUrl && mime.startsWith("image/") && (
-            <img src={dataUrl} alt="invoice" className="max-h-64 rounded-lg border border-border/50 object-contain" />
+            <img src={dataUrl} alt="invoice" className="max-h-48 rounded-lg border border-border/50 object-contain" />
           )}
           {errorKey && (
             <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
@@ -410,59 +471,105 @@ function ScanDialog({ scan, onApplied }: { scan: (a: { data: { image_data_url: s
                 <span>{t(errorKey as Parameters<typeof t>[0])}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={run.isPending || !dataUrl}
-                  onClick={() => { setErrorKey(null); run.mutate(false); }}
-                >
+                <Button size="sm" variant="outline" disabled={run.isPending || !dataUrl} onClick={() => { setErrorKey(null); run.mutate(); }}>
                   {t("inv.scan.retry")}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => { setErrorKey(null); setDataUrl(""); setMime(""); inputRef.current?.click(); }}
-                >
+                <Button size="sm" variant="ghost" onClick={() => { setErrorKey(null); setDataUrl(""); setMime(""); inputRef.current?.click(); }}>
                   {t("inv.scan.change_file")}
                 </Button>
               </div>
             </div>
           )}
           {preview && (
-            <div className="max-h-64 overflow-auto rounded-lg border border-border/50 bg-card/40 p-3">
-              <p className="mb-2 text-xs text-muted-foreground">{preview.parsed.summary}</p>
-              <div className="mb-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                {preview.parsed.invoice_number && <span>#{preview.parsed.invoice_number}</span>}
-                {preview.parsed.invoice_date && <span>{preview.parsed.invoice_date}</span>}
-                <span className="ml-auto font-mono">Total: {preview.parsed.total.toFixed(2)} {preview.parsed.currency}</span>
+            <div className="rounded-lg border border-border/50 bg-card/40 p-3">
+              <p className="mb-3 text-xs text-muted-foreground">{t("edit.preview.hint")}</p>
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Field label={t("inv.field.sku")}><Input value={meta.number} onChange={(e) => setMeta({ ...meta, number: e.target.value })} /></Field>
+                <Field label={t("form.help.tx_date")}><Input type="date" value={meta.date} onChange={(e) => setMeta({ ...meta, date: e.target.value })} /></Field>
+                <Field label={"Currency"}><Input value={meta.currency} onChange={(e) => setMeta({ ...meta, currency: e.target.value })} /></Field>
+                <Field label={"Total"}><Input type="number" value={meta.total} onChange={(e) => setMeta({ ...meta, total: Number(e.target.value) })} /></Field>
               </div>
-              <table className="w-full text-xs">
-                <tbody>
-                  {preview.parsed.items.map((it, i) => (
-                    <tr key={i} className="border-b border-border/30 last:border-0">
-                      <td className="py-1">{it.description}</td>
-                      <td className="py-1 text-right font-mono text-muted-foreground">×{it.quantity}</td>
-                      <td className="py-1 text-right font-mono">{(it.total || it.quantity * it.unit_price).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-2">
+                {items.map((it, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 rounded-md border border-border/30 p-2">
+                    <Input className="col-span-12 sm:col-span-4" value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} placeholder={t("inv.field.name")} />
+                    <Input className="col-span-4 sm:col-span-2" type="number" value={it.quantity} onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })} placeholder="Qty" />
+                    <Input className="col-span-4 sm:col-span-2" type="number" value={it.unit_price} onChange={(e) => updateItem(i, { unit_price: Number(e.target.value) })} placeholder={t("inv.field.price")} />
+                    <Select value={it.expense_category} onValueChange={(v) => updateItem(i, { expense_category: v })}>
+                      <SelectTrigger className="col-span-3 sm:col-span-3"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(("cat." + c) as never)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="ghost" size="icon" className="col-span-1" onClick={() => setItems((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev, { description: "", sku: "", quantity: 1, unit_price: 0, total: 0, expense_category: "otros_gastos" }])}>
+                  <Plus className="size-4" />{t("edit.add_row")}
+                </Button>
+              </div>
             </div>
           )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
           {!preview ? (
-            <Button disabled={run.isPending || !dataUrl} onClick={() => run.mutate(false)}>
+            <Button disabled={run.isPending || !dataUrl} onClick={() => run.mutate()}>
               {run.isPending ? t("inv.scanning") : t("inv.scan.run")}
             </Button>
           ) : (
-            <Button disabled={run.isPending} onClick={() => run.mutate(true)}>
-              {run.isPending ? t("inv.scanning") : `${t("inv.scan.apply")} (${preview.parsed.items.length})`}
+            <Button disabled={applyMut.isPending || items.length === 0} onClick={() => applyMut.mutate()}>
+              {applyMut.isPending ? t("inv.scanning") : `${t("edit.apply")} (${items.length})`}
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CategorySummary({ data }: { data: { items: { category: string; total: number; count: number }[]; total: number; days: number } }) {
+  const { t } = useI18n();
+  if (!data || data.total === 0) {
+    return (
+      <section className="glass rounded-2xl p-5">
+        <header className="mb-2 flex items-center gap-2">
+          <PieChart className="size-4 text-primary" />
+          <h2 className="font-semibold tracking-tight">{t("cat.summary.title")}</h2>
+        </header>
+        <p className="text-xs text-muted-foreground">{t("cat.summary.empty")}</p>
+      </section>
+    );
+  }
+  const sorted = [...data.items].sort((a, b) => b.total - a.total);
+  return (
+    <section className="glass rounded-2xl p-5">
+      <header className="mb-4 flex items-center gap-2">
+        <PieChart className="size-4 text-primary" />
+        <h2 className="font-semibold tracking-tight">{t("cat.summary.title")}</h2>
+        <span className="ml-auto text-xs text-muted-foreground">{data.days}d</span>
+      </header>
+      <p className="mb-3 text-xs text-muted-foreground">{t("cat.summary.sub")}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {sorted.map((c) => {
+          const pct = data.total > 0 ? (c.total / data.total) * 100 : 0;
+          return (
+            <div key={c.category} className="rounded-lg border border-border/40 bg-card/40 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">{t(("cat." + c.category) as never)}</span>
+                <span className="text-[10px] text-muted-foreground">{c.count}</span>
+              </div>
+              <div className="mt-2 font-mono text-lg font-semibold">{c.total.toFixed(2)}</div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                <div className="h-full bg-primary" style={{ width: `${Math.min(100, pct)}%` }} />
+              </div>
+              <div className="mt-1 text-right text-[10px] text-muted-foreground">{pct.toFixed(1)}%</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
