@@ -379,9 +379,24 @@ export const applyExtractedTransactions = createServerFn({ method: "POST" })
       expense_category: t.expense_category ?? null,
       source: "ai_statement_edited",
     }));
-    const { error, count } = await context.supabase
+    const { error, data: inserted } = await context.supabase
       .from("finance_transactions")
-      .insert(rows, { count: "exact" });
+      .insert(rows)
+      .select("id,amount");
     if (error) throw new Error(error.message);
-    return { inserted: count ?? rows.length };
+
+    const affected = (inserted ?? []).map((r) => ({ table: "finance_transactions", id: r.id as string }));
+    const sumIn = (inserted ?? []).reduce((s, r) => s + Number(r.amount), 0);
+    await context.supabase.from("scan_batches").insert({
+      org_id: orgId,
+      user_id: context.userId,
+      kind: "statement",
+      source_name: data.source_name,
+      summary: `${affected.length} ${affected.length === 1 ? "transaction" : "transactions"} · net ${sumIn.toFixed(2)} ${data.currency}`,
+      item_count: affected.length,
+      total: sumIn,
+      currency: data.currency,
+      affected,
+    });
+    return { inserted: affected.length };
   });
