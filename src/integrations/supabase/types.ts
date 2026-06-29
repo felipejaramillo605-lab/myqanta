@@ -680,27 +680,48 @@ export type Database = {
       }
       organizations: {
         Row: {
+          business_type: string | null
           created_at: string
           created_by: string
+          currency: string | null
+          description: string | null
+          goals: string | null
           id: string
+          industry: string | null
           name: string
+          onboarded_at: string | null
           slug: string | null
+          team_size: string | null
           updated_at: string
         }
         Insert: {
+          business_type?: string | null
           created_at?: string
           created_by: string
+          currency?: string | null
+          description?: string | null
+          goals?: string | null
           id?: string
+          industry?: string | null
           name: string
+          onboarded_at?: string | null
           slug?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Update: {
+          business_type?: string | null
           created_at?: string
           created_by?: string
+          currency?: string | null
+          description?: string | null
+          goals?: string | null
           id?: string
+          industry?: string | null
           name?: string
+          onboarded_at?: string | null
           slug?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Relationships: []
