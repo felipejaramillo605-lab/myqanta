@@ -1,10 +1,10 @@
+import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Area,
   AreaChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,6 +13,7 @@ import {
 import { TrendingUp } from "lucide-react";
 import { getEbitdaSeries } from "@/lib/finance.functions";
 import { useI18n } from "@/lib/i18n";
+import { ChartLegend, RangeSelect } from "./chart-controls";
 
 function fmtShort(n: number) {
   if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -20,8 +21,16 @@ function fmtShort(n: number) {
   return n.toFixed(0);
 }
 
-export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
+const SERIES = [
+  { key: "revenue", color: "#22d3ee" },
+  { key: "costs", color: "#f87171" },
+  { key: "ebitda", color: "#a78bfa" },
+] as const;
+
+export function EbitdaTrendChart({ months: initialMonths = 12 }: { months?: number }) {
   const { t } = useI18n();
+  const [months, setMonths] = useState<number>(initialMonths);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const fn = useServerFn(getEbitdaSeries);
   const { data } = useSuspenseQuery({
     queryKey: ["finance", "series", months],
@@ -29,6 +38,18 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
   });
 
   const hasData = data.some((d) => d.revenue || d.costs || d.ebitda);
+  const toggle = (k: string) =>
+    setHidden((p) => {
+      const n = new Set(p);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
+  const reset = () => { setHidden(new Set()); setMonths(initialMonths); };
+  const legendItems = SERIES.map((s) => ({
+    key: s.key,
+    color: s.color,
+    label: t(("dash.kpi." + s.key) as never),
+  }));
 
   return (
     <section className="glass rounded-2xl p-5">
@@ -43,6 +64,7 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
           {t("chart.no_data")}
         </div>
       ) : (
+        <>
         <div className="mt-4 h-64">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -73,13 +95,38 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
                 }}
                 formatter={(v) => fmtShort(Number(v))}
               />
-              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground))" }} iconType="circle" />
-              <Area type="monotone" dataKey="revenue" stroke="#22d3ee" fill="url(#gRev)" strokeWidth={2} name={t("dash.kpi.revenue")} />
-              <Area type="monotone" dataKey="costs" stroke="#f87171" fill="url(#gCost)" strokeWidth={2} name={t("dash.kpi.costs")} />
-              <Area type="monotone" dataKey="ebitda" stroke="#a78bfa" fill="url(#gEb)" strokeWidth={2} name={t("dash.kpi.ebitda")} />
+              {!hidden.has("revenue") && (
+                <Area type="monotone" dataKey="revenue" stroke="#22d3ee" fill="url(#gRev)" strokeWidth={2} name={t("dash.kpi.revenue")} />
+              )}
+              {!hidden.has("costs") && (
+                <Area type="monotone" dataKey="costs" stroke="#f87171" fill="url(#gCost)" strokeWidth={2} name={t("dash.kpi.costs")} />
+              )}
+              {!hidden.has("ebitda") && (
+                <Area type="monotone" dataKey="ebitda" stroke="#a78bfa" fill="url(#gEb)" strokeWidth={2} name={t("dash.kpi.ebitda")} />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        <ChartLegend
+          items={legendItems}
+          hidden={hidden}
+          onToggle={toggle}
+          onReset={reset}
+          rangeControl={
+            <RangeSelect<number>
+              label={t("chart.range")}
+              value={months}
+              onChange={setMonths}
+              options={[
+                { value: 3, label: t("chart.range.3m") },
+                { value: 6, label: t("chart.range.6m") },
+                { value: 12, label: t("chart.range.12m") },
+                { value: 24, label: t("chart.range.24m") },
+              ]}
+            />
+          }
+        />
+        </>
       )}
     </section>
   );
