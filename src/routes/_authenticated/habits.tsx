@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Check, Flame, CheckCircle2, Circle, Loader2 } from "lucide-react";
 
 import {
-  createHabit, deleteHabit, deleteTask, listHabits, listTasks,
+  createHabit, deleteHabit, deleteTask, listHabits, listTasks, updateHabit,
   setTaskStatus, toggleHabitToday, upsertTask,
 } from "@/lib/productivity.functions";
 import { useI18n } from "@/lib/i18n";
@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
+import { HabitWeekChart } from "@/components/charts/habit-week-chart";
+import { Pencil } from "lucide-react";
 
 type Status = "todo" | "doing" | "done" | "archived";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -199,21 +201,19 @@ function HabitsPanel() {
   const { canWrite } = usePermissions();
   const fn = useServerFn(listHabits);
   const createFn = useServerFn(createHabit);
+  const updateFn = useServerFn(updateHabit);
   const toggleFn = useServerFn(toggleHabitToday);
   const delFn = useServerFn(deleteHabit);
   const { data } = useSuspenseQuery({ queryKey: ["pro", "habits"], queryFn: () => fn() });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["pro", "habits"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["pro", "habits"] });
+    qc.invalidateQueries({ queryKey: ["pro", "heatmap"] });
+  };
 
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [target, setTarget] = useState("1");
-
-  const createMut = useMutation({
-    mutationFn: () => createFn({ data: { name, cadence: "daily", target_per_period: Number(target) } }),
-    onSuccess: () => { refresh(); setOpen(false); setName(""); setTarget("1"); toast.success("✓"); },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const existingCategories = Array.from(
+    new Set(data.habits.map((h) => (h.category ?? "").trim()).filter(Boolean)),
+  );
 
   // group logs by habit
   const logsByHabit = new Map<string, Set<string>>();
@@ -237,28 +237,17 @@ function HabitsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        {canWrite && <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><Plus className="size-4" />{t("pro.add_habit")}</Button></DialogTrigger>
-          <DialogContent className="glass">
-            <DialogHeader><DialogTitle>{t("pro.add_habit")}</DialogTitle></DialogHeader>
-            <div className="grid gap-3">
-              <div>
-                <Label className="text-xs font-medium">{t("pro.habit.name")}</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-                <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_name")}</p>
-              </div>
-              <div>
-                <Label className="text-xs font-medium">{t("pro.habit.target")}</Label>
-                <Input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} />
-                <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_target")}</p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
-              <Button disabled={!name || createMut.isPending} onClick={() => createMut.mutate()}>{t("fin.save")}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>}
+        {canWrite && (
+          <HabitFormDialog
+            categories={existingCategories}
+            trigger={<Button><Plus className="size-4" />{t("pro.add_habit")}</Button>}
+            onSubmit={(v) =>
+              createFn({ data: { ...v, cadence: "daily" } })
+                .then(() => { refresh(); toast.success("✓"); })
+                .catch((e: Error) => toast.error(e.message))
+            }
+          />
+        )}
       </div>
       {data.habits.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">{t("pro.empty.habits")}</div>
@@ -269,30 +258,172 @@ function HabitsPanel() {
             const set = logsByHabit.get(h.id) ?? new Set<string>();
             const doneToday = set.has(data.today);
             const s = streak(set);
+            const color = h.color || "#22d3ee";
             return (
               <div key={h.id} className="glass flex items-center gap-4 rounded-2xl p-4">
-                <Button variant={doneToday ? "default" : "outline"} size="icon" className="size-12 rounded-full" disabled={!canWrite} onClick={() => toggleFn({ data: { habit_id: h.id } }).then(refresh)}>
+                <Button
+                  variant={doneToday ? "default" : "outline"}
+                  size="icon"
+                  className="size-12 rounded-full"
+                  style={doneToday ? { backgroundColor: color, borderColor: color, color: "#0a0a0a" } : { borderColor: color, color }}
+                  disabled={!canWrite}
+                  onClick={() => toggleFn({ data: { habit_id: h.id } }).then(refresh)}
+                >
                   {doneToday ? <Check className="size-5" /> : <Circle className="size-5" />}
                 </Button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="font-medium">{h.name}</div>
+                    {h.category && (
+                      <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ backgroundColor: `${color}22`, color }}>
+                        {h.category}
+                      </span>
+                    )}
                     <div className="flex items-center gap-1 text-xs text-amber-400"><Flame className="size-3.5" /><span className="font-mono">{s}</span><span className="text-muted-foreground">{t("pro.habit.streak")}</span></div>
                   </div>
                   <div className="mt-2 flex gap-1">
                     {last7.map((d) => (
-                      <div key={d} className={"h-1.5 flex-1 rounded-full " + (set.has(d) ? "bg-primary" : "bg-border/50")} title={d} />
+                      <div
+                        key={d}
+                        className="h-1.5 flex-1 rounded-full"
+                        style={{ backgroundColor: set.has(d) ? color : "hsl(var(--border) / 0.5)" }}
+                        title={d}
+                      />
                     ))}
                   </div>
                 </div>
+                {canWrite && (
+                  <HabitFormDialog
+                    categories={existingCategories}
+                    initial={{ name: h.name, category: h.category ?? "", color, target_per_period: h.target_per_period }}
+                    trigger={<Button variant="ghost" size="icon" title={t("pro.habit.edit")}><Pencil className="size-4" /></Button>}
+                    onSubmit={(v) =>
+                      updateFn({ data: { id: h.id, ...v } })
+                        .then(() => { refresh(); toast.success("✓"); })
+                        .catch((e: Error) => toast.error(e.message))
+                    }
+                  />
+                )}
                 {canWrite && <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: h.id } }).then(refresh)}><Trash2 className="size-4" /></Button>}
               </div>
             );
           })}
         </div>
+        <HabitWeekChart />
         <HabitYearHeatmap />
       </>
       )}
     </div>
+  );
+}
+
+const HABIT_PALETTE = ["#22d3ee","#a78bfa","#34d399","#fbbf24","#f472b6","#60a5fa","#fb923c","#f87171"];
+
+function HabitFormDialog({
+  trigger,
+  onSubmit,
+  initial,
+  categories,
+}: {
+  trigger: React.ReactNode;
+  onSubmit: (v: { name: string; category: string | null; color: string; target_per_period: number }) => void | Promise<unknown>;
+  initial?: { name: string; category: string; color: string; target_per_period: number };
+  categories: string[];
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [color, setColor] = useState(initial?.color ?? HABIT_PALETTE[0]);
+  const [target, setTarget] = useState(String(initial?.target_per_period ?? 1));
+  const [pending, setPending] = useState(false);
+
+  const reset = () => {
+    setName(initial?.name ?? "");
+    setCategory(initial?.category ?? "");
+    setColor(initial?.color ?? HABIT_PALETTE[0]);
+    setTarget(String(initial?.target_per_period ?? 1));
+  };
+
+  const submit = async () => {
+    setPending(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        category: category.trim() ? category.trim() : null,
+        color,
+        target_per_period: Math.max(1, Number(target) || 1),
+      });
+      setOpen(false);
+      if (!initial) reset();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="glass">
+        <DialogHeader>
+          <DialogTitle>{initial ? t("pro.habit.edit") : t("pro.add_habit")}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div>
+            <Label className="text-xs font-medium">{t("pro.habit.name")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Leer 20 min" />
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_name")}</p>
+          </div>
+          <div>
+            <Label className="text-xs font-medium">{t("pro.habit.category")}</Label>
+            <Input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              list="habit-categories"
+              placeholder="Salud, Estudio, Trabajo…"
+            />
+            <datalist id="habit-categories">
+              {categories.map((c) => <option key={c} value={c} />)}
+            </datalist>
+            <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_category")}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-medium">{t("pro.habit.target")}</Label>
+              <Input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} />
+              <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_target")}</p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">{t("pro.habit.color")}</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-border/50 bg-transparent"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {HABIT_PALETTE.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      className={"size-5 rounded-full border-2 " + (color.toLowerCase() === c.toLowerCase() ? "border-foreground" : "border-transparent")}
+                      style={{ backgroundColor: c }}
+                      aria-label={c}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">{t("form.help.habit_color")}</p>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
+          <Button disabled={!name.trim() || pending} onClick={submit}>{t("fin.save")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
