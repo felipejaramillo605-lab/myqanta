@@ -25,7 +25,12 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     // Build live context
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const [txRes, prodRes, taskRes, evRes] = await Promise.all([
+    const [orgRes, txRes, prodRes, taskRes, evRes] = await Promise.all([
+      context.supabase
+        .from("organizations")
+        .select("name,industry,business_type,description,goals,team_size,currency")
+        .eq("id", orgId)
+        .maybeSingle(),
       context.supabase
         .from("finance_transactions")
         .select("amount,bucket,description,occurred_on")
@@ -58,7 +63,24 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     const lowStock = (prodRes.data ?? []).filter((p) => Number(p.stock) <= Number(p.min_stock));
 
     const lang = data.lang === "es" ? "Spanish" : "English";
+    const org = orgRes.data;
+    const hasContext = !!(org?.industry || org?.business_type);
+    const contextBlock = hasContext
+      ? `BUSINESS CONTEXT:
+- Name: ${org?.name ?? "-"}
+- Industry: ${org?.industry ?? "-"}
+- Type: ${org?.business_type ?? "-"}
+- Team size: ${org?.team_size ?? "-"}
+- Currency: ${org?.currency ?? "USD"}
+- Description: ${org?.description ?? "-"}
+- Goals: ${org?.goals ?? "-"}
+
+Tailor every suggestion (stock to reorder, cost controls, financial ratios, KPIs to watch) to this industry and business type. Reference industry benchmarks when relevant.`
+      : `BUSINESS CONTEXT: Not configured yet. Politely invite the user to complete the onboarding in Settings → Business profile so you can personalize recommendations.`;
+
     const system = `You are Qanta, an executive assistant inside a personal+SMB ERP. Always reply in ${lang}, concisely and grounded ONLY in the data below. If asked about something outside this data, say you don't have that info.
+
+${contextBlock}
 
 CURRENT MONTH (${monthStart}):
 - Buckets: ${JSON.stringify(buckets)}
