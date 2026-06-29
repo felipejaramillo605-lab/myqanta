@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil } from "lucide-react";
 
 import {
   analyzeStatement,
   applyExtractedTransactions,
   createTransaction,
   deleteTransaction,
+  updateTransaction,
   getKpis,
   getEbitdaSeries,
   listTransactions,
@@ -81,6 +82,7 @@ function Finance() {
   const txFn = useServerFn(listTransactions);
   const createFn = useServerFn(createTransaction);
   const delFn = useServerFn(deleteTransaction);
+  const updateFn = useServerFn(updateTransaction);
   const analyzeFn = useServerFn(analyzeStatement);
   const applyExtractFn = useServerFn(applyExtractedTransactions);
   const closingFn = useServerFn(monthlyClosingSummary);
@@ -100,6 +102,13 @@ function Finance() {
   const delMut = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: refresh,
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (input: { id: string; occurred_on: string; description: string; amount: number; bucket: Bucket; currency: string; expense_category?: string | null }) =>
+      updateFn({ data: input }),
+    onSuccess: () => { refresh(); toast.success("✓"); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const margin = kpis.current.revenue > 0 ? (kpis.current.ebitda / kpis.current.revenue) * 100 : 0;
@@ -203,7 +212,12 @@ function Finance() {
                   <td className="px-4 py-2">{r.description}</td>
                   <td className="px-4 py-2"><span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider">{t(("fin.bucket." + r.bucket) as never)}</span></td>
                   <td className={"px-4 py-2 text-right font-mono " + (Number(r.amount) >= 0 ? "text-primary" : "text-destructive")}>{fmt(Number(r.amount), r.currency)}</td>
-                  <td className="px-2">{canWrite && <Button variant="ghost" size="icon" onClick={() => delMut.mutate(r.id)}><Trash2 className="size-4" /></Button>}</td>
+                  <td className="px-2">{canWrite && (
+                    <div className="flex justify-end gap-1">
+                      <EditTxDialog row={r} onSubmit={(v) => updateMut.mutate({ id: r.id, ...v })} pending={updateMut.isPending} />
+                      <Button variant="ghost" size="icon" title={t("common.delete")} onClick={() => { if (confirm(t("common.confirm_delete"))) delMut.mutate(r.id); }}><Trash2 className="size-4" /></Button>
+                    </div>
+                  )}</td>
                 </tr>
               ))}
             </tbody>
@@ -283,6 +297,71 @@ function AddTxDialog({ onSubmit, pending }: { onSubmit: (v: { occurred_on: strin
               setOpen(false); setDesc(""); setAmount("");
             }}
           >{t("fin.save")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type TxRow = { id: string; occurred_on: string; description: string; amount: number | string; bucket: Bucket; currency: string; expense_category?: string | null };
+
+function EditTxDialog({ row, onSubmit, pending }: { row: TxRow; onSubmit: (v: { occurred_on: string; description: string; amount: number; bucket: Bucket; currency: string; expense_category?: string | null }) => void; pending: boolean }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(row.occurred_on);
+  const [desc, setDesc] = useState(row.description);
+  const [amount, setAmount] = useState(String(row.amount));
+  const [bucket, setBucket] = useState<Bucket>(row.bucket);
+  const [category, setCategory] = useState<string>(row.expense_category ?? "otros_gastos");
+
+  const reset = () => {
+    setDate(row.occurred_on); setDesc(row.description); setAmount(String(row.amount));
+    setBucket(row.bucket); setCategory(row.expense_category ?? "otros_gastos");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" title={t("common.edit")}><Pencil className="size-4" /></Button>
+      </DialogTrigger>
+      <DialogContent className="glass max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("fin.edit")}</DialogTitle>
+          <DialogDescription>{t("edit.preview.hint")}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Field label={t("fin.tx.date")} hint={t("form.help.tx_date")}>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.desc")} hint={t("form.help.tx_desc")}>
+            <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.amount")} hint={t("form.help.tx_amount")}>
+            <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.bucket")} hint={t("form.help.tx_bucket")}>
+            <Select value={bucket} onValueChange={(v) => setBucket(v as Bucket)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BUCKETS.map((b) => <SelectItem key={b} value={b}>{t(("fin.bucket." + b) as never)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t("inv.field.category")} hint={t("form.help.tx_category")}>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(("cat." + c) as never)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
+          <Button disabled={pending || !desc || !amount} onClick={() => {
+            onSubmit({ occurred_on: date, description: desc, amount: Number(amount), bucket, currency: row.currency || "USD", expense_category: category });
+            setOpen(false);
+          }}>{t("common.update")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

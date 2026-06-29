@@ -227,6 +227,32 @@ export const deleteTransaction = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const TxUpdateInput = z.object({
+  id: z.string().uuid(),
+  occurred_on: z.string(),
+  description: z.string().min(1),
+  amount: z.number(),
+  bucket: BucketEnum,
+  currency: z.string().default("USD"),
+  expense_category: z.string().optional().nullable(),
+});
+
+export const updateTransaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => TxUpdateInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { id, ...patch } = data;
+    const { error, data: row } = await context.supabase
+      .from("finance_transactions")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
 // AI: analyze pasted bank statement text -> structured tx list
 const AnalyzeInput = z.object({
   source_name: z.string().min(1),

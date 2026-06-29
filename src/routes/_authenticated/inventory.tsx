@@ -3,12 +3,13 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown, PieChart } from "lucide-react";
+import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown, PieChart, Pencil } from "lucide-react";
 
 import {
   applyInvoiceItems,
   createMovement,
   deleteProduct,
+  deleteMovement,
   getCategorySummary,
   listMovements,
   listProducts,
@@ -57,6 +58,7 @@ function Inventory() {
   const upsertFn = useServerFn(upsertProduct);
   const delFn = useServerFn(deleteProduct);
   const movFn = useServerFn(createMovement);
+  const delMovFn = useServerFn(deleteMovement);
   const scanFn = useServerFn(scanInvoice);
   const applyFn = useServerFn(applyInvoiceItems);
   const catFn = useServerFn(getCategorySummary);
@@ -164,9 +166,16 @@ function Inventory() {
                         <td className="px-4 py-2 text-right font-mono">{Number(p.price).toFixed(2)}</td>
                         <td className="px-2">
                           {canWrite && (
-                            <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: p.id } }).then(refresh)}>
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <ProductDialog
+                                initial={p}
+                                trigger={<Button variant="ghost" size="icon" title={t("common.edit")}><Pencil className="size-4" /></Button>}
+                                onSubmit={(v) => upsertFn({ data: { ...v, id: p.id } }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))}
+                              />
+                              <Button variant="ghost" size="icon" title={t("common.delete")} onClick={() => { if (confirm(t("common.confirm_delete"))) delFn({ data: { id: p.id } }).then(refresh); }}>
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -192,6 +201,7 @@ function Inventory() {
                     <th className="px-4 py-3 text-right">{lang === "es" ? "Cantidad" : "Qty"}</th>
                     <th className="px-4 py-3 text-right">{t("inv.field.price")}</th>
                     <th className="px-4 py-3 text-right">Total</th>
+                    <th className="w-10" />
                   </tr>
                 </thead>
                 <tbody>
@@ -203,6 +213,13 @@ function Inventory() {
                       <td className="px-4 py-2 text-right font-mono">{Number(m.quantity)}</td>
                       <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">{Number(m.unit_price).toFixed(2)}</td>
                       <td className="px-4 py-2 text-right font-mono">{Number(m.total).toFixed(2)}</td>
+                      <td className="px-2">
+                        {canWrite && (
+                          <Button variant="ghost" size="icon" title={t("inv.delete_movement")} onClick={() => { if (confirm(t("common.confirm_delete"))) delMovFn({ data: { id: m.id } }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message)); }}>
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -234,16 +251,30 @@ function Field({ label, hint, children, className }: { label: string; hint?: str
   );
 }
 
-function ProductDialog({ onSubmit }: { onSubmit: (v: { name: string; sku?: string | null; unit: string; cost: number; price: number; stock: number; min_stock: number; category?: string | null }) => void }) {
+type ProductFormValue = { name: string; sku?: string | null; unit: string; cost: number; price: number; stock: number; min_stock: number; category?: string | null };
+type ProductRow = { name: string; sku: string | null; unit: string; cost: number | string; price: number | string; stock: number | string; min_stock: number | string; category: string | null };
+
+function ProductDialog({ onSubmit, initial, trigger }: { onSubmit: (v: ProductFormValue) => void; initial?: ProductRow; trigger?: React.ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" });
+  const empty = { name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" };
+  const fromInitial = () => initial ? {
+    name: initial.name,
+    sku: initial.sku ?? "",
+    unit: initial.unit ?? "unit",
+    cost: String(initial.cost ?? 0),
+    price: String(initial.price ?? 0),
+    stock: String(initial.stock ?? 0),
+    min_stock: String(initial.min_stock ?? 0),
+    category: initial.category ?? "",
+  } : empty;
+  const [f, setF] = useState(fromInitial);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="size-4" />{t("inv.add_product")}</Button></DialogTrigger>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setF(fromInitial()); }}>
+      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4" />{t("inv.add_product")}</Button>}</DialogTrigger>
       <DialogContent className="glass max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("inv.add_product")}</DialogTitle>
+          <DialogTitle>{initial ? t("inv.edit_product") : t("inv.add_product")}</DialogTitle>
           <DialogDescription>{t("inv.scan.hint")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -281,7 +312,7 @@ function ProductDialog({ onSubmit }: { onSubmit: (v: { name: string; sku?: strin
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
           <Button disabled={!f.name} onClick={() => {
             onSubmit({ name: f.name, sku: f.sku || null, unit: f.unit || "unit", cost: Number(f.cost), price: Number(f.price), stock: Number(f.stock), min_stock: Number(f.min_stock), category: f.category || null });
-            setOpen(false); setF({ name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" });
+            setOpen(false); if (!initial) setF(empty);
           }}>{t("fin.save")}</Button>
         </DialogFooter>
       </DialogContent>
