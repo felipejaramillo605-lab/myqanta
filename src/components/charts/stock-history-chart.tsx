@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -54,12 +55,14 @@ export function StockHistoryChart({ productId, days = 90 }: { productId: string;
                   border: "1px solid hsl(var(--border))",
                   borderRadius: 12,
                   fontSize: 12,
+                  color: "hsl(var(--popover-foreground))",
                 }}
               />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground))" }} iconType="circle" />
               {Number(data.product.min_stock) > 0 && (
-                <ReferenceLine y={Number(data.product.min_stock)} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: t("inv.field.min"), fill: "hsl(var(--destructive))", fontSize: 10 }} />
+                <ReferenceLine y={Number(data.product.min_stock)} stroke="#f87171" strokeDasharray="3 3" label={{ value: t("inv.field.min"), fill: "#f87171", fontSize: 10 }} />
               )}
-              <Line type="stepAfter" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+              <Line type="stepAfter" dataKey="stock" name={t("chart.stock_history")} stroke="#22d3ee" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

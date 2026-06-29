@@ -19,6 +19,19 @@ const BUCKETS = [
 
 const BucketEnum = z.enum(BUCKETS);
 
+// Buckets that represent outflows. Amounts here are always treated as
+// magnitudes (absolute value) so an accidental negative sign cannot flip the
+// math and "add" costs to revenue.
+const COST_BUCKETS = new Set(["cogs", "opex", "depreciation", "amortization", "interest", "tax", "other_expense"]);
+const INCOME_BUCKETS = new Set(["revenue", "other_income"]);
+
+function signedAmount(bucket: string, amount: number): number {
+  const v = Math.abs(Number(amount) || 0);
+  if (COST_BUCKETS.has(bucket)) return v;       // stored as positive magnitude
+  if (INCOME_BUCKETS.has(bucket)) return v;     // stored as positive magnitude
+  return Number(amount) || 0;
+}
+
 export const listTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -57,7 +70,7 @@ export const getKpis = createServerFn({ method: "GET" })
     const prev = { ...empty } as Record<string, number>;
     for (const r of rows ?? []) {
       const target = r.occurred_on >= start ? cur : prev;
-      target[r.bucket] = (target[r.bucket] ?? 0) + Number(r.amount);
+      target[r.bucket] = (target[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
     }
     const compute = (b: Record<string, number>) => {
       const revenue = b.revenue;
@@ -115,7 +128,7 @@ export const getEbitdaSeries = createServerFn({ method: "GET" })
       const key = r.occurred_on.slice(0, 7);
       const i = idx.get(key);
       if (i === undefined) continue;
-      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + Number(r.amount);
+      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
     }
     return months.map((m) => {
       const a = m.agg;
@@ -154,7 +167,7 @@ export const monthlyClosingSummary = createServerFn({ method: "POST" })
     const prev = { ...empty };
     for (const r of rows ?? []) {
       const target = r.occurred_on >= start ? cur : prev;
-      target[r.bucket] = (target[r.bucket] ?? 0) + Number(r.amount);
+      target[r.bucket] = (target[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
     }
     const stats = (b: Record<string, number>) => {
       const revenue = b.revenue;
