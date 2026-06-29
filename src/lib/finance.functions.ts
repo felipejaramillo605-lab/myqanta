@@ -128,7 +128,7 @@ export const getEbitdaSeries = createServerFn({ method: "GET" })
       const key = r.occurred_on.slice(0, 7);
       const i = idx.get(key);
       if (i === undefined) continue;
-      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + Number(r.amount);
+      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
     }
     return months.map((m) => {
       const a = m.agg;
@@ -167,7 +167,7 @@ export const monthlyClosingSummary = createServerFn({ method: "POST" })
     const prev = { ...empty };
     for (const r of rows ?? []) {
       const target = r.occurred_on >= start ? cur : prev;
-      target[r.bucket] = (target[r.bucket] ?? 0) + Number(r.amount);
+      target[r.bucket] = (target[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
     }
     const stats = (b: Record<string, number>) => {
       const revenue = b.revenue;
