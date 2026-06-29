@@ -746,6 +746,62 @@ export type Database = {
           },
         ]
       }
+      scan_batches: {
+        Row: {
+          affected: Json
+          created_at: string
+          currency: string | null
+          id: string
+          item_count: number
+          kind: string
+          org_id: string
+          payload: Json | null
+          source_name: string | null
+          summary: string | null
+          total: number | null
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          affected?: Json
+          created_at?: string
+          currency?: string | null
+          id?: string
+          item_count?: number
+          kind: string
+          org_id: string
+          payload?: Json | null
+          source_name?: string | null
+          summary?: string | null
+          total?: number | null
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          affected?: Json
+          created_at?: string
+          currency?: string | null
+          id?: string
+          item_count?: number
+          kind?: string
+          org_id?: string
+          payload?: Json | null
+          source_name?: string | null
+          summary?: string | null
+          total?: number | null
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_batches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
