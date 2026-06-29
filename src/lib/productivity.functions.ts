@@ -97,12 +97,33 @@ export const createHabit = createServerFn({ method: "POST" })
       cadence: z.string().default("daily"),
       target_per_period: z.number().int().min(1).default(1),
       color: z.string().optional().nullable(),
+      category: z.string().optional().nullable(),
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data: out, error } = await context.supabase
       .from("habits").insert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const updateHabit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      name: z.string().min(1).optional(),
+      target_per_period: z.number().int().min(1).optional(),
+      color: z.string().optional().nullable(),
+      category: z.string().optional().nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { id, ...patch } = data;
+    const { data: out, error } = await context.supabase
+      .from("habits").update(patch).eq("id", id).select().single();
     if (error) throw new Error(error.message);
     return out;
   });
@@ -192,7 +213,7 @@ export const getHabitsHeatmap = createServerFn({ method: "GET" })
     from.setUTCDate(from.getUTCDate() - 364);
     const fromStr = from.toISOString().slice(0, 10);
     const [{ data: habits, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
-      context.supabase.from("habits").select("id,name,color").eq("org_id", orgId).eq("archived", false).order("created_at"),
+      context.supabase.from("habits").select("id,name,color,category").eq("org_id", orgId).eq("archived", false).order("created_at"),
       context.supabase.from("habit_logs").select("habit_id,logged_on").eq("org_id", orgId).gte("logged_on", fromStr),
     ]);
     if (e1) throw new Error(e1.message);
