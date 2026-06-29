@@ -251,16 +251,30 @@ function Field({ label, hint, children, className }: { label: string; hint?: str
   );
 }
 
-function ProductDialog({ onSubmit }: { onSubmit: (v: { name: string; sku?: string | null; unit: string; cost: number; price: number; stock: number; min_stock: number; category?: string | null }) => void }) {
+type ProductFormValue = { name: string; sku?: string | null; unit: string; cost: number; price: number; stock: number; min_stock: number; category?: string | null };
+type ProductRow = { name: string; sku: string | null; unit: string; cost: number | string; price: number | string; stock: number | string; min_stock: number | string; category: string | null };
+
+function ProductDialog({ onSubmit, initial, trigger }: { onSubmit: (v: ProductFormValue) => void; initial?: ProductRow; trigger?: React.ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" });
+  const empty = { name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" };
+  const fromInitial = () => initial ? {
+    name: initial.name,
+    sku: initial.sku ?? "",
+    unit: initial.unit ?? "unit",
+    cost: String(initial.cost ?? 0),
+    price: String(initial.price ?? 0),
+    stock: String(initial.stock ?? 0),
+    min_stock: String(initial.min_stock ?? 0),
+    category: initial.category ?? "",
+  } : empty;
+  const [f, setF] = useState(fromInitial);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="size-4" />{t("inv.add_product")}</Button></DialogTrigger>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setF(fromInitial()); }}>
+      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4" />{t("inv.add_product")}</Button>}</DialogTrigger>
       <DialogContent className="glass max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("inv.add_product")}</DialogTitle>
+          <DialogTitle>{initial ? t("inv.edit_product") : t("inv.add_product")}</DialogTitle>
           <DialogDescription>{t("inv.scan.hint")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -298,7 +312,7 @@ function ProductDialog({ onSubmit }: { onSubmit: (v: { name: string; sku?: strin
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
           <Button disabled={!f.name} onClick={() => {
             onSubmit({ name: f.name, sku: f.sku || null, unit: f.unit || "unit", cost: Number(f.cost), price: Number(f.price), stock: Number(f.stock), min_stock: Number(f.min_stock), category: f.category || null });
-            setOpen(false); setF({ name: "", sku: "", unit: "unit", cost: "0", price: "0", stock: "0", min_stock: "0", category: "" });
+            setOpen(false); if (!initial) setF(empty);
           }}>{t("fin.save")}</Button>
         </DialogFooter>
       </DialogContent>
