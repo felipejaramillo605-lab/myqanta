@@ -579,9 +579,13 @@ export const applyInvoiceItems = createServerFn({ method: "POST" })
       if (p.sku) byKey.set(p.sku.toLowerCase(), { id: p.id, stock: Number(p.stock) });
     }
 
+    const affected: Array<{ table: string; id: string; product_id?: string; stock_delta?: number; created?: boolean }> = [
+      { table: "inv_invoices", id: inv.id },
+    ];
     let created = 0;
     for (const item of data.items) {
       let prodId: string | null = null;
+      let productWasCreated = false;
       const lookup = byKey.get((item.sku ?? "").toLowerCase()) || byKey.get(item.description.toLowerCase());
       if (lookup) prodId = lookup.id;
       else {
@@ -599,14 +603,18 @@ export const applyInvoiceItems = createServerFn({ method: "POST" })
           })
           .select("id,stock")
           .single();
-        if (np) prodId = np.id;
+        if (np) {
+          prodId = np.id;
+          productWasCreated = true;
+          affected.push({ table: "inv_products", id: np.id, created: true });
+        }
       }
       if (!prodId) continue;
 
       const qty = item.quantity || 1;
       const total = item.total || qty * item.unit_price;
       const category = item.expense_category ?? suggestCategory(item.description);
-      await context.supabase.from("inv_movements").insert({
+      const { data: mov } = await context.supabase.from("inv_movements").insert({
         user_id: context.userId,
         org_id: orgId,
         product_id: prodId,
@@ -617,7 +625,8 @@ export const applyInvoiceItems = createServerFn({ method: "POST" })
         source_invoice_id: inv.id,
         notes: `Invoice ${data.invoice_number ?? ""}`.trim(),
         expense_category: category,
-      });
+      }).select("id").single();
+      if (mov) affected.push({ table: "inv_movements", id: mov.id, product_id: prodId, stock_delta: qty });
       const { data: cur } = await context.supabase
         .from("inv_products").select("stock").eq("id", prodId).eq("org_id", orgId).single();
       await context.supabase
@@ -625,7 +634,20 @@ export const applyInvoiceItems = createServerFn({ method: "POST" })
         .update({ stock: Number(cur?.stock ?? 0) + qty })
         .eq("id", prodId);
       created++;
+      void productWasCreated;
     }
+
+    await context.supabase.from("scan_batches").insert({
+      org_id: orgId,
+      user_id: context.userId,
+      kind: "invoice",
+      source_name: data.supplier_name ?? data.invoice_number ?? "Invoice",
+      summary: `${created} ${created === 1 ? "line" : "lines"} · ${(data.total || 0).toFixed(2)} ${data.currency || "EUR"}`,
+      item_count: created,
+      total: data.total,
+      currency: data.currency || "EUR",
+      affected,
+    });
     return { ok: true as const, invoice: inv, created };
   });
 
