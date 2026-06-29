@@ -88,7 +88,12 @@ export function HabitYearHeatmap() {
           <span>{t("chart.more")}</span>
         </div>
       </div>
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4 flex gap-2 overflow-x-auto">
+        <div className="flex flex-col gap-[3px] pt-0.5 text-[9px] text-muted-foreground">
+          {["S","M","T","W","T","F","S"].map((d, i) => (
+            <div key={i} className="size-3 leading-3">{i % 2 === 1 ? d : ""}</div>
+          ))}
+        </div>
         <div className="flex gap-[3px]">
           {weeks.map((w, wi) => (
             <div key={wi} className="flex flex-col gap-[3px]">
