@@ -1,8 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -14,9 +14,12 @@ import {
 import { Activity } from "lucide-react";
 import { getStockHistory } from "@/lib/inventory.functions";
 import { useI18n } from "@/lib/i18n";
+import { ChartLegend, RangeSelect } from "./chart-controls";
 
-export function StockHistoryChart({ productId, days = 90 }: { productId: string; days?: number }) {
+export function StockHistoryChart({ productId, days: initialDays = 90 }: { productId: string; days?: number }) {
   const { t } = useI18n();
+  const [days, setDays] = useState<number>(initialDays);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const fn = useServerFn(getStockHistory);
   const { data, isLoading } = useQuery({
     queryKey: ["inv", "stock-hist", productId, days],
@@ -25,6 +28,18 @@ export function StockHistoryChart({ productId, days = 90 }: { productId: string;
   });
 
   if (!productId) return null;
+
+  const toggle = (k: string) =>
+    setHidden((p) => {
+      const n = new Set(p);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
+  const reset = () => { setHidden(new Set()); setDays(initialDays); };
+  const items = [
+    { key: "stock", color: "#22d3ee", label: t("chart.stock_history") },
+    { key: "min", color: "#f87171", label: t("inv.field.min") },
+  ];
 
   return (
     <section className="glass rounded-2xl p-5">
@@ -43,6 +58,7 @@ export function StockHistoryChart({ productId, days = 90 }: { productId: string;
           {t("chart.no_data")}
         </div>
       ) : (
+        <>
         <div className="mt-4 h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data.series} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -58,14 +74,35 @@ export function StockHistoryChart({ productId, days = 90 }: { productId: string;
                   color: "hsl(var(--popover-foreground))",
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground))" }} iconType="circle" />
-              {Number(data.product.min_stock) > 0 && (
+              {!hidden.has("min") && Number(data.product.min_stock) > 0 && (
                 <ReferenceLine y={Number(data.product.min_stock)} stroke="#f87171" strokeDasharray="3 3" label={{ value: t("inv.field.min"), fill: "#f87171", fontSize: 10 }} />
               )}
-              <Line type="stepAfter" dataKey="stock" name={t("chart.stock_history")} stroke="#22d3ee" strokeWidth={2} dot={false} />
+              {!hidden.has("stock") && (
+                <Line type="stepAfter" dataKey="stock" name={t("chart.stock_history")} stroke="#22d3ee" strokeWidth={2} dot={false} />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
+        <ChartLegend
+          items={items}
+          hidden={hidden}
+          onToggle={toggle}
+          onReset={reset}
+          rangeControl={
+            <RangeSelect<number>
+              label={t("chart.range")}
+              value={days}
+              onChange={setDays}
+              options={[
+                { value: 30, label: t("chart.range.30d") },
+                { value: 90, label: t("chart.range.90d") },
+                { value: 180, label: t("chart.range.180d") },
+                { value: 365, label: t("chart.range.365d") },
+              ]}
+            />
+          }
+        />
+        </>
       )}
     </section>
   );

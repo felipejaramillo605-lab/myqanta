@@ -1,6 +1,8 @@
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useState } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { PieChart as PieIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { ChartLegend } from "./chart-controls";
 
 const COLORS = [
   "#22d3ee", // cyan
@@ -16,9 +18,22 @@ const COLORS = [
 
 export function EbitdaBucketDonut({ byBucket }: { byBucket: Record<string, number> }) {
   const { t } = useI18n();
-  const data = Object.entries(byBucket)
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const all = Object.entries(byBucket)
     .filter(([, v]) => Math.abs(v) > 0.001)
-    .map(([k, v]) => ({ name: t(("fin.bucket." + k) as never), value: Math.abs(v), bucket: k }));
+    .map(([k, v], i) => ({
+      key: k,
+      name: t(("fin.bucket." + k) as never),
+      value: Math.abs(v),
+      color: COLORS[i % COLORS.length],
+    }));
+  const data = all.filter((d) => !hidden.has(d.key));
+  const toggle = (k: string) =>
+    setHidden((p) => {
+      const n = new Set(p);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
 
   return (
     <section className="glass rounded-2xl p-5">
@@ -28,11 +43,12 @@ export function EbitdaBucketDonut({ byBucket }: { byBucket: Record<string, numbe
           {t("chart.bucket_mix")}
         </h2>
       </div>
-      {data.length === 0 ? (
+      {all.length === 0 ? (
         <div className="mt-6 grid h-56 place-items-center rounded-xl bg-muted/30 text-xs text-muted-foreground">
           {t("chart.no_data")}
         </div>
       ) : (
+        <>
         <div className="mt-4 h-56">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -45,20 +61,21 @@ export function EbitdaBucketDonut({ byBucket }: { byBucket: Record<string, numbe
                   color: "hsl(var(--popover-foreground))",
                 }}
               />
-              <Legend
-                verticalAlign="bottom"
-                height={36}
-                iconType="circle"
-                wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground))" }}
-              />
               <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} strokeWidth={0} paddingAngle={2}>
-                {data.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                {data.map((d) => (
+                  <Cell key={d.key} fill={d.color} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
         </div>
+        <ChartLegend
+          items={all.map((d) => ({ key: d.key, label: d.name, color: d.color }))}
+          hidden={hidden}
+          onToggle={toggle}
+          onReset={() => setHidden(new Set())}
+        />
+        </>
       )}
     </section>
   );
