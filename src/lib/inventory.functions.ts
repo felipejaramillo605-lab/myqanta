@@ -122,6 +122,28 @@ export const createMovement = createServerFn({ method: "POST" })
     return mov;
   });
 
+export const deleteMovement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { data: mov, error: ferr } = await context.supabase
+      .from("inv_movements")
+      .select("product_id, kind, quantity")
+      .eq("id", data.id)
+      .single();
+    if (ferr) throw new Error(ferr.message);
+    const { error } = await context.supabase.from("inv_movements").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    if (mov) {
+      const { data: prod } = await context.supabase
+        .from("inv_products").select("stock").eq("id", mov.product_id).single();
+      const reversed = Number(prod?.stock ?? 0) - stockDelta(mov.kind, Number(mov.quantity));
+      await context.supabase.from("inv_products").update({ stock: reversed }).eq("id", mov.product_id);
+    }
+    return { ok: true };
+  });
+
 // ===== Purchase order (batch reorder from low-stock alerts) =====
 const PurchaseOrderInput = z.object({
   items: z
