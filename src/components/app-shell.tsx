@@ -47,7 +47,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const initials = (user?.user_metadata?.full_name as string | undefined)?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "?";
 
-  const navItems = isAdmin ? [] : NAV;
+  // Admin Manager (owner) keeps full access to all modules plus the admin dashboard.
+  const navItems = NAV;
 
   return (
     <div className="min-h-screen">
@@ -80,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {!isAdmin && <Link
+          <Link
             to={"/settings/team" as never}
             className={
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
@@ -91,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Users className="size-4" />
             {t("nav.team")}
-          </Link>}
+          </Link>
           {isAdmin && (
             <Link
               to="/admin/theme"
