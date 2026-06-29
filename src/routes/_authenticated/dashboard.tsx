@@ -77,7 +77,7 @@ function Dashboard() {
     <div className="space-y-8">
       <header>
         <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-          {t("dash.phase")}
+          {t("dash.tagline")}
         </div>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
           {t("dash.welcome")}, <span className="text-gradient">{name}</span>
