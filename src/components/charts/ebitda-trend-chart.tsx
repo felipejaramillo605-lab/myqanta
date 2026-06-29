@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -47,12 +48,16 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
             <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gCost" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f87171" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#f87171" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gEb" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.25} vertical={false} />
@@ -64,12 +69,14 @@ export function EbitdaTrendChart({ months = 12 }: { months?: number }) {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: 12,
                   fontSize: 12,
+                  color: "hsl(var(--popover-foreground))",
                 }}
                 formatter={(v) => fmtShort(Number(v))}
               />
-              <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#gRev)" strokeWidth={2} name={t("dash.kpi.revenue")} />
-              <Area type="monotone" dataKey="costs" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.1)" strokeWidth={2} name={t("dash.kpi.costs")} />
-              <Area type="monotone" dataKey="ebitda" stroke="hsl(var(--accent))" fill="url(#gEb)" strokeWidth={2} name={t("dash.kpi.ebitda")} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground))" }} iconType="circle" />
+              <Area type="monotone" dataKey="revenue" stroke="#22d3ee" fill="url(#gRev)" strokeWidth={2} name={t("dash.kpi.revenue")} />
+              <Area type="monotone" dataKey="costs" stroke="#f87171" fill="url(#gCost)" strokeWidth={2} name={t("dash.kpi.costs")} />
+              <Area type="monotone" dataKey="ebitda" stroke="#a78bfa" fill="url(#gEb)" strokeWidth={2} name={t("dash.kpi.ebitda")} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
