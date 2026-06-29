@@ -303,6 +303,71 @@ function AddTxDialog({ onSubmit, pending }: { onSubmit: (v: { occurred_on: strin
   );
 }
 
+type TxRow = { id: string; occurred_on: string; description: string; amount: number | string; bucket: Bucket; currency: string; expense_category?: string | null };
+
+function EditTxDialog({ row, onSubmit, pending }: { row: TxRow; onSubmit: (v: { occurred_on: string; description: string; amount: number; bucket: Bucket; currency: string; expense_category?: string | null }) => void; pending: boolean }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(row.occurred_on);
+  const [desc, setDesc] = useState(row.description);
+  const [amount, setAmount] = useState(String(row.amount));
+  const [bucket, setBucket] = useState<Bucket>(row.bucket);
+  const [category, setCategory] = useState<string>(row.expense_category ?? "otros_gastos");
+
+  const reset = () => {
+    setDate(row.occurred_on); setDesc(row.description); setAmount(String(row.amount));
+    setBucket(row.bucket); setCategory(row.expense_category ?? "otros_gastos");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" title={t("common.edit")}><Pencil className="size-4" /></Button>
+      </DialogTrigger>
+      <DialogContent className="glass max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("fin.edit")}</DialogTitle>
+          <DialogDescription>{t("edit.preview.hint")}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Field label={t("fin.tx.date")} hint={t("form.help.tx_date")}>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.desc")} hint={t("form.help.tx_desc")}>
+            <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.amount")} hint={t("form.help.tx_amount")}>
+            <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Field>
+          <Field label={t("fin.tx.bucket")} hint={t("form.help.tx_bucket")}>
+            <Select value={bucket} onValueChange={(v) => setBucket(v as Bucket)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BUCKETS.map((b) => <SelectItem key={b} value={b}>{t(("fin.bucket." + b) as never)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t("inv.field.category")} hint={t("form.help.tx_category")}>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(("cat." + c) as never)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
+          <Button disabled={pending || !desc || !amount} onClick={() => {
+            onSubmit({ occurred_on: date, description: desc, amount: Number(amount), bucket, currency: row.currency || "USD", expense_category: category });
+            setOpen(false);
+          }}>{t("common.update")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 type AnalyzeResult = Awaited<ReturnType<typeof analyzeStatement>>;
 type EditableTx = { occurred_on: string; description: string; amount: number; bucket: Bucket; expense_category: string };
 type ApplyExtractFn = (a: { data: { source_name: string; currency: string; transactions: { occurred_on: string; description: string; amount: number; bucket: Bucket; expense_category: string | null }[] } }) => Promise<{ inserted: number }>;
