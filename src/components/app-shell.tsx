@@ -21,6 +21,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
 import { OrgSwitcher } from "@/components/org-switcher";
+import { BusinessOnboardingDialog } from "@/components/business-onboarding-dialog";
+import { useState } from "react";
+import { Briefcase } from "lucide-react";
 
 const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", key: "nav.dashboard", icon: LayoutDashboard },
@@ -37,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const handleSignOut = async () => {
     await qc.cancelQueries();
@@ -130,6 +134,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
             <NotificationBell />
             <AssistantPanel />
+            <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")} title={t("onboarding.open")}>
+              <Briefcase className="size-4" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={toggleMode} aria-label="toggle mode">
               {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
@@ -151,6 +158,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-1">
           <NotificationBell />
           <AssistantPanel />
+          <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")}>
+            <Briefcase className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={toggleMode}>
             {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
@@ -185,6 +195,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="h-16 lg:hidden" />
       </main>
+      <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <BusinessOnboardingDialog autoOpenIfMissing />
     </div>
   );
 }
