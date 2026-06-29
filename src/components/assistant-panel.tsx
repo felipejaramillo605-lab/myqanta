@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, Send } from "lucide-react";
+import { Sparkles, Send, RefreshCw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ export function AssistantPanel() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [lastRegenAt, setLastRegenAt] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const mut = useMutation({
@@ -25,9 +26,23 @@ export function AssistantPanel() {
       setMessages((m) => [...m, { role: "assistant", content: "⚠️ " + e.message }]),
   });
 
+  const regen = useMutation({
+    mutationFn: () => fn({ data: { messages: [{ role: "user", content: t("ai.regen.prompt") }], lang } }),
+    onSuccess: (res) => {
+      setMessages((m) => [
+        ...m,
+        { role: "user", content: t("ai.regen") },
+        { role: "assistant", content: res.reply },
+      ]);
+      setLastRegenAt(new Date());
+    },
+    onError: (e: Error) =>
+      setMessages((m) => [...m, { role: "assistant", content: "⚠️ " + e.message }]),
+  });
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, mut.isPending]);
+  }, [messages, mut.isPending, regen.isPending]);
 
   const send = () => {
     const v = input.trim();
@@ -37,6 +52,13 @@ export function AssistantPanel() {
     setInput("");
     mut.mutate(next);
   };
+
+  const busy = mut.isPending || regen.isPending;
+  const statusText = regen.isPending
+    ? t("ai.regen.loading")
+    : lastRegenAt
+      ? `${t("ai.regen.updated")} ${lastRegenAt.toLocaleTimeString(lang === "es" ? "es-ES" : "en-US", { hour: "2-digit", minute: "2-digit" })}`
+      : t("ai.regen.never");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -51,6 +73,28 @@ export function AssistantPanel() {
             <Sparkles className="size-4 text-primary" />
             {t("ai.title")}
           </SheetTitle>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => regen.mutate()}
+              disabled={busy}
+              className="gap-2"
+            >
+              <RefreshCw className={"size-3.5 " + (regen.isPending ? "animate-spin" : "")} />
+              {t("ai.regen")}
+            </Button>
+            <span
+              className={
+                "font-mono text-[10px] uppercase tracking-wider " +
+                (regen.isPending ? "text-primary" : "text-muted-foreground")
+              }
+              aria-live="polite"
+            >
+              {statusText}
+            </span>
+          </div>
         </SheetHeader>
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
@@ -88,10 +132,10 @@ export function AssistantPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={t("ai.placeholder")}
-            disabled={mut.isPending}
+            disabled={busy}
             autoFocus
           />
-          <Button type="submit" size="icon" disabled={mut.isPending || !input.trim()}>
+          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
             <Send className="size-4" />
           </Button>
         </form>
