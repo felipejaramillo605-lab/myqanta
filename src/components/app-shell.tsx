@@ -47,6 +47,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const initials = (user?.user_metadata?.full_name as string | undefined)?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "?";
 
+  const navItems = isAdmin ? [] : NAV;
+
   return (
     <div className="min-h-screen">
       {/* Sidebar (desktop) */}
@@ -59,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const active = path === item.to || path.startsWith(item.to + "/");
             return (
@@ -78,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          <Link
+          {!isAdmin && <Link
             to={"/settings/team" as never}
             className={
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
@@ -89,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Users className="size-4" />
             {t("nav.team")}
-          </Link>
+          </Link>}
           {isAdmin && (
             <Link
               to="/admin/theme"
@@ -162,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-border/50 bg-background/80 px-2 py-2 backdrop-blur-xl lg:hidden">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const active = path === item.to || path.startsWith(item.to + "/");
             return (
