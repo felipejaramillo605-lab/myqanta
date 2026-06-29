@@ -591,6 +591,15 @@ const dict = {
     "form.help.habit_target": "Daily target (e.g. 1 time, 30 min).",
     "form.help.statement_source": "Label to recognise this statement later (e.g. \"BBVA March 2026\").",
     "form.help.statement_text": "Paste the bank statement or invoice text. AI classifies each line.",
+    "history.title": "Scan history",
+    "history.open": "History",
+    "history.empty": "No scans applied yet.",
+    "history.undo": "Undo",
+    "history.undone": "Undone",
+    "history.confirm": "This deletes the records this scan created and reverses stock. Continue?",
+    "history.undone_ok": "Scan undone",
+    "history.kind.invoice": "Invoice",
+    "history.kind.statement": "Statement",
   },
 } as const;
 
