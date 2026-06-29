@@ -3,12 +3,13 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown, PieChart } from "lucide-react";
+import { Plus, ScanLine, Trash2, Package, AlertTriangle, ArrowLeftRight, FileDown, PieChart, Pencil } from "lucide-react";
 
 import {
   applyInvoiceItems,
   createMovement,
   deleteProduct,
+  deleteMovement,
   getCategorySummary,
   listMovements,
   listProducts,
@@ -57,6 +58,7 @@ function Inventory() {
   const upsertFn = useServerFn(upsertProduct);
   const delFn = useServerFn(deleteProduct);
   const movFn = useServerFn(createMovement);
+  const delMovFn = useServerFn(deleteMovement);
   const scanFn = useServerFn(scanInvoice);
   const applyFn = useServerFn(applyInvoiceItems);
   const catFn = useServerFn(getCategorySummary);
@@ -164,9 +166,16 @@ function Inventory() {
                         <td className="px-4 py-2 text-right font-mono">{Number(p.price).toFixed(2)}</td>
                         <td className="px-2">
                           {canWrite && (
-                            <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: p.id } }).then(refresh)}>
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <ProductDialog
+                                initial={p}
+                                trigger={<Button variant="ghost" size="icon" title={t("common.edit")}><Pencil className="size-4" /></Button>}
+                                onSubmit={(v) => upsertFn({ data: { ...v, id: p.id } }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))}
+                              />
+                              <Button variant="ghost" size="icon" title={t("common.delete")} onClick={() => { if (confirm(t("common.confirm_delete"))) delFn({ data: { id: p.id } }).then(refresh); }}>
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -192,6 +201,7 @@ function Inventory() {
                     <th className="px-4 py-3 text-right">{lang === "es" ? "Cantidad" : "Qty"}</th>
                     <th className="px-4 py-3 text-right">{t("inv.field.price")}</th>
                     <th className="px-4 py-3 text-right">Total</th>
+                    <th className="w-10" />
                   </tr>
                 </thead>
                 <tbody>
@@ -203,6 +213,13 @@ function Inventory() {
                       <td className="px-4 py-2 text-right font-mono">{Number(m.quantity)}</td>
                       <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">{Number(m.unit_price).toFixed(2)}</td>
                       <td className="px-4 py-2 text-right font-mono">{Number(m.total).toFixed(2)}</td>
+                      <td className="px-2">
+                        {canWrite && (
+                          <Button variant="ghost" size="icon" title={t("inv.delete_movement")} onClick={() => { if (confirm(t("common.confirm_delete"))) delMovFn({ data: { id: m.id } }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message)); }}>
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
