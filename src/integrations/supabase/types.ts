@@ -302,6 +302,7 @@ export type Database = {
         Row: {
           archived: boolean
           cadence: string
+          category: string | null
           color: string | null
           created_at: string
           description: string | null
@@ -315,6 +316,7 @@ export type Database = {
         Insert: {
           archived?: boolean
           cadence?: string
+          category?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -328,6 +330,7 @@ export type Database = {
         Update: {
           archived?: boolean
           cadence?: string
+          category?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
