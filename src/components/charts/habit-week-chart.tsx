@@ -34,7 +34,7 @@ function daysInMonth(d: Date) {
 }
 
 export function HabitWeekChart() {
-  const { t, locale } = useI18n();
+  const { t, lang } = useI18n();
   const fn = useServerFn(getHabitsHeatmap);
   const { data } = useSuspenseQuery({ queryKey: ["pro", "heatmap"], queryFn: () => fn() });
 
@@ -91,7 +91,7 @@ export function HabitWeekChart() {
 
   const dowKeys = ["chart.dow.mon","chart.dow.tue","chart.dow.wed","chart.dow.thu","chart.dow.fri","chart.dow.sat","chart.dow.sun"] as const;
   const fmtRange = () => {
-    const lc = locale === "es" ? "es-ES" : "en-US";
+    const lc = lang === "es" ? "es-ES" : "en-US";
     if (period === "day") return new Date(days[0] + "T00:00:00Z").toLocaleDateString(lc, { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" });
     if (period === "week") return `${new Date(days[0] + "T00:00:00Z").toLocaleDateString(lc, { day: "2-digit", month: "short", timeZone: "UTC" })} – ${new Date(days[6] + "T00:00:00Z").toLocaleDateString(lc, { day: "2-digit", month: "short", timeZone: "UTC" })}`;
     return new Date(days[0] + "T00:00:00Z").toLocaleDateString(lc, { month: "long", year: "numeric", timeZone: "UTC" });
