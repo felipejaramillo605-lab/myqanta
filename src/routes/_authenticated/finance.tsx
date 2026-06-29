@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil } from "lucide-react";
 
 import {
   analyzeStatement,
   applyExtractedTransactions,
   createTransaction,
   deleteTransaction,
+  updateTransaction,
   getKpis,
   getEbitdaSeries,
   listTransactions,
@@ -81,6 +82,7 @@ function Finance() {
   const txFn = useServerFn(listTransactions);
   const createFn = useServerFn(createTransaction);
   const delFn = useServerFn(deleteTransaction);
+  const updateFn = useServerFn(updateTransaction);
   const analyzeFn = useServerFn(analyzeStatement);
   const applyExtractFn = useServerFn(applyExtractedTransactions);
   const closingFn = useServerFn(monthlyClosingSummary);
@@ -100,6 +102,13 @@ function Finance() {
   const delMut = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: refresh,
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (input: { id: string; occurred_on: string; description: string; amount: number; bucket: Bucket; currency: string; expense_category?: string | null }) =>
+      updateFn({ data: input }),
+    onSuccess: () => { refresh(); toast.success("✓"); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const margin = kpis.current.revenue > 0 ? (kpis.current.ebitda / kpis.current.revenue) * 100 : 0;
@@ -203,7 +212,12 @@ function Finance() {
                   <td className="px-4 py-2">{r.description}</td>
                   <td className="px-4 py-2"><span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider">{t(("fin.bucket." + r.bucket) as never)}</span></td>
                   <td className={"px-4 py-2 text-right font-mono " + (Number(r.amount) >= 0 ? "text-primary" : "text-destructive")}>{fmt(Number(r.amount), r.currency)}</td>
-                  <td className="px-2">{canWrite && <Button variant="ghost" size="icon" onClick={() => delMut.mutate(r.id)}><Trash2 className="size-4" /></Button>}</td>
+                  <td className="px-2">{canWrite && (
+                    <div className="flex justify-end gap-1">
+                      <EditTxDialog row={r} onSubmit={(v) => updateMut.mutate({ id: r.id, ...v })} pending={updateMut.isPending} />
+                      <Button variant="ghost" size="icon" title={t("common.delete")} onClick={() => { if (confirm(t("common.confirm_delete"))) delMut.mutate(r.id); }}><Trash2 className="size-4" /></Button>
+                    </div>
+                  )}</td>
                 </tr>
               ))}
             </tbody>
