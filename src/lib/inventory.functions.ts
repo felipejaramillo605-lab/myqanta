@@ -687,7 +687,7 @@ export const getCategorySummary = createServerFn({ method: "GET" })
     const [{ data: movs }, { data: txs }] = await Promise.all([
       context.supabase
         .from("inv_movements")
-        .select("total,expense_category,occurred_at,kind")
+        .select("total,expense_category,occurred_at,kind,product_id")
         .eq("org_id", orgId)
         .eq("kind", "purchase")
         .gte("occurred_at", fromIso),
@@ -698,6 +698,22 @@ export const getCategorySummary = createServerFn({ method: "GET" })
         .gte("occurred_on", fromIso.slice(0, 10)),
     ]);
 
+    // Build product -> current category map so manual edits to a product's
+    // category are reflected immediately in the breakdown (movements keep a
+    // historical snapshot of expense_category, the product is the source of
+    // truth going forward).
+    const productIds = Array.from(
+      new Set((movs ?? []).map((m) => m.product_id).filter((x): x is string => !!x)),
+    );
+    const productCat = new Map<string, string | null>();
+    if (productIds.length) {
+      const { data: prods } = await context.supabase
+        .from("inv_products")
+        .select("id,category")
+        .in("id", productIds);
+      for (const p of prods ?? []) productCat.set(p.id as string, (p.category as string | null) ?? null);
+    }
+
     const totals = new Map<string, { total: number; count: number }>();
     const bump = (cat: string | null, amount: number) => {
       const key = cat && (EXPENSE_CATEGORIES as readonly string[]).includes(cat) ? cat : "otros_gastos";
@@ -706,7 +722,10 @@ export const getCategorySummary = createServerFn({ method: "GET" })
       cur.count += 1;
       totals.set(key, cur);
     };
-    for (const m of movs ?? []) bump(m.expense_category, Math.abs(Number(m.total)));
+    for (const m of movs ?? []) {
+      const current = m.product_id ? productCat.get(m.product_id) ?? null : null;
+      bump(current ?? m.expense_category, Math.abs(Number(m.total)));
+    }
     for (const t of txs ?? []) {
       const amt = Number(t.amount);
       if (amt < 0) bump(t.expense_category, Math.abs(amt));
