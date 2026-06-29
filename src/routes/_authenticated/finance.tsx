@@ -20,6 +20,7 @@ import { downloadCsv } from "@/lib/export-utils";
 import { generateEbitdaReportPdf } from "@/lib/pdf-report";
 import { EbitdaTrendChart } from "@/components/charts/ebitda-trend-chart";
 import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
+import { ScanHistoryDialog } from "@/components/scan-history-dialog";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/use-permissions";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
@@ -147,6 +148,7 @@ function Finance() {
             <FileText className="size-4" />
             {closingMut.isPending ? t("export.closing_run") : t("export.closing")}
           </Button>
+          <ScanHistoryDialog kind="statement" onUndone={refresh} />
           {canWrite && <AnalyzeDialog analyze={analyzeFn} apply={applyExtractFn} onApplied={refresh} />}
           {canWrite && <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />}
         </div>

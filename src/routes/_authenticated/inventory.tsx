@@ -19,6 +19,7 @@ import {
 import { EXPENSE_CATEGORIES, suggestCategory, type DecimalSeparator } from "@/lib/categories";
 import { LowStockAlerts } from "@/components/low-stock-alerts";
 import { StockHistoryChart } from "@/components/charts/stock-history-chart";
+import { ScanHistoryDialog } from "@/components/scan-history-dialog";
 import { downloadCsv } from "@/lib/export-utils";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/use-permissions";
@@ -84,6 +85,7 @@ function Inventory() {
           )}>
             <FileDown className="size-4" />{t("export.csv")}
           </Button>
+          <ScanHistoryDialog kind="invoice" onUndone={refresh} />
           {canWrite && <ScanDialog scan={scanFn} apply={applyFn} onApplied={refresh} />}
           {canWrite && <MovementDialog products={products} onSubmit={(v) => movFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
           {canWrite && <ProductDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
