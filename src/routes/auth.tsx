@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
+import { logSecurityEvent } from "@/lib/security-log";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,11 +51,17 @@ function AuthPage() {
             data: { full_name },
           },
         });
-        if (error) throw error;
+        if (error) {
+          void logSecurityEvent({ event_type: "signup_failed", severity: "info", email, message: error.message });
+          throw error;
+        }
         toast.success(lang === "es" ? "Cuenta creada" : "Account created");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          void logSecurityEvent({ event_type: "login_failed", severity: "warn", email, message: error.message });
+          throw error;
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

@@ -835,6 +835,56 @@ export type Database = {
           },
         ]
       }
+      security_events: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string
+          id: string
+          message: string | null
+          meta: Json
+          occurred_at: string
+          org_id: string | null
+          path: string | null
+          severity: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type: string
+          id?: string
+          message?: string | null
+          meta?: Json
+          occurred_at?: string
+          org_id?: string | null
+          path?: string | null
+          severity?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string
+          id?: string
+          message?: string | null
+          meta?: Json
+          occurred_at?: string
+          org_id?: string | null
+          path?: string | null
+          severity?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -1004,6 +1054,17 @@ export type Database = {
         Returns: boolean
       }
       is_platform_owner: { Args: { _user_id: string }; Returns: boolean }
+      log_security_event: {
+        Args: {
+          _email?: string
+          _event_type: string
+          _message?: string
+          _meta?: Json
+          _path?: string
+          _severity?: string
+        }
+        Returns: string
+      }
       lookup_invite: {
         Args: { _token: string }
         Returns: {

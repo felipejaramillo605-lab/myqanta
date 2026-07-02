@@ -21,6 +21,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
+import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminPlatformRouteImport } from './routes/_authenticated/admin.platform'
 
 const BlockedRoute = BlockedRouteImport.update({
@@ -83,6 +84,12 @@ const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   path: '/admin/theme',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminSecurityLogRoute =
+  AuthenticatedAdminSecurityLogRouteImport.update({
+    id: '/admin/security-log',
+    path: '/admin/security-log',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminPlatformRoute =
   AuthenticatedAdminPlatformRouteImport.update({
     id: '/admin/platform',
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
+  '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
@@ -115,6 +123,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
+  '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
@@ -131,6 +140,7 @@ export interface FileRoutesById {
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/platform': typeof AuthenticatedAdminPlatformRoute
+  '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/invite/$token'
     | '/admin/platform'
+    | '/admin/security-log'
     | '/admin/theme'
     | '/settings/team'
   fileRoutesByTo: FileRoutesByTo
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/invite/$token'
     | '/admin/platform'
+    | '/admin/security-log'
     | '/admin/theme'
     | '/settings/team'
   id:
@@ -176,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory'
     | '/invite/$token'
     | '/_authenticated/admin/platform'
+    | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
     | '/_authenticated/settings/team'
   fileRoutesById: FileRoutesById
@@ -274,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminThemeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/security-log': {
+      id: '/_authenticated/admin/security-log'
+      path: '/admin/security-log'
+      fullPath: '/admin/security-log'
+      preLoaderRoute: typeof AuthenticatedAdminSecurityLogRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/platform': {
       id: '/_authenticated/admin/platform'
       path: '/admin/platform'
@@ -291,6 +311,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedAdminPlatformRoute: typeof AuthenticatedAdminPlatformRoute
+  AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
@@ -302,6 +323,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedAdminPlatformRoute: AuthenticatedAdminPlatformRoute,
+  AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
