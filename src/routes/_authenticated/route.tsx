@@ -7,6 +7,12 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("is_blocked")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (prof?.is_blocked) throw redirect({ to: "/blocked" });
     return { user: data.user };
   },
   component: () => (
