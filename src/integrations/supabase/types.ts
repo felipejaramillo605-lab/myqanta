@@ -733,9 +733,12 @@ export type Database = {
         Row: {
           active_org_id: string | null
           avatar_url: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
           created_at: string
           full_name: string | null
           id: string
+          is_blocked: boolean
           preferred_language: string
           preferred_mode: string
           updated_at: string
@@ -743,9 +746,12 @@ export type Database = {
         Insert: {
           active_org_id?: string | null
           avatar_url?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          is_blocked?: boolean
           preferred_language?: string
           preferred_mode?: string
           updated_at?: string
@@ -753,9 +759,12 @@ export type Database = {
         Update: {
           active_org_id?: string | null
           avatar_url?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          is_blocked?: boolean
           preferred_language?: string
           preferred_mode?: string
           updated_at?: string
@@ -969,6 +978,7 @@ export type Database = {
     }
     Functions: {
       accept_invite: { Args: { _token: string }; Returns: string }
+      am_i_blocked: { Args: never; Returns: boolean }
       can_write_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
@@ -993,6 +1003,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      is_platform_owner: { Args: { _user_id: string }; Returns: boolean }
       lookup_invite: {
         Args: { _token: string }
         Returns: {
@@ -1005,9 +1016,27 @@ export type Database = {
           role: Database["public"]["Enums"]["org_role"]
         }[]
       }
+      platform_list_users: {
+        Args: never
+        Returns: {
+          blocked_at: string
+          blocked_reason: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_blocked: boolean
+          last_sign_in_at: string
+          org_count: number
+        }[]
+      }
+      platform_set_blocked: {
+        Args: { _blocked: boolean; _reason: string; _user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      app_role: "user" | "admin_manager"
+      app_role: "user" | "admin_manager" | "platform_owner"
       finance_bucket:
         | "revenue"
         | "cogs"
@@ -1150,7 +1179,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["user", "admin_manager"],
+      app_role: ["user", "admin_manager", "platform_owner"],
       finance_bucket: [
         "revenue",
         "cogs",

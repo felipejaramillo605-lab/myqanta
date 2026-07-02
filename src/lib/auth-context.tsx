@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type Role = "user" | "admin_manager";
+type Role = "user" | "admin_manager" | "platform_owner";
 
 type AuthCtx = {
   user: User | null;
@@ -11,6 +11,7 @@ type AuthCtx = {
   loading: boolean;
   roles: Role[];
   isAdmin: boolean;
+  isPlatformOwner: boolean;
 };
 
 const Ctx = createContext<AuthCtx>({
@@ -19,6 +20,7 @@ const Ctx = createContext<AuthCtx>({
   loading: true,
   roles: [],
   isAdmin: false,
+  isPlatformOwner: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         roles,
         isAdmin: roles.includes("admin_manager"),
+        isPlatformOwner: roles.includes("platform_owner"),
       }}
     >
       {children}
