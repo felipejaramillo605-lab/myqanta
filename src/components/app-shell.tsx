@@ -126,6 +126,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               Consola de plataforma
             </Link>
           )}
+          {isPlatformOwner && (
+            <Link
+              to={"/admin/security-log" as never}
+              className={
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+                (path.startsWith("/admin/security-log")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+              }
+            >
+              <ShieldCheck className="size-4" />
+              Bitácora de seguridad
+            </Link>
+          )}
         </nav>
 
         <div className="border-t border-border/50 p-3">
