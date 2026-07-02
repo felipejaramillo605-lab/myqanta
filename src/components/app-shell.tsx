@@ -36,8 +36,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
-  const { user, isAdmin } = useAuth();
-  const { isPlatformOwner } = useAuth();
+  const { user, isAdmin, isPlatformOwner } = useAuth();
   const { mode, toggleMode } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
