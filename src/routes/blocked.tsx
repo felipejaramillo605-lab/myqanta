@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { amIBlocked } from "@/lib/platform-admin.functions";
+import { logSecurityEvent } from "@/lib/security-log";
 
 export const Route = createFileRoute("/blocked")({
   ssr: false,
@@ -15,6 +16,9 @@ function BlockedPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const check = useServerFn(amIBlocked);
+  useEffect(() => {
+    void logSecurityEvent({ event_type: "blocked_access_attempt", severity: "warn", message: "User hit /blocked" });
+  }, []);
   const { data: blocked, isLoading } = useQuery({
     queryKey: ["am-i-blocked"],
     queryFn: () => check(),
