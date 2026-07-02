@@ -16,6 +16,7 @@ import {
   Moon,
   Sun,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
@@ -36,6 +37,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const { user, isAdmin } = useAuth();
+  const { isPlatformOwner } = useAuth();
   const { mode, toggleMode } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -109,6 +111,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Settings className="size-4" />
               {t("nav.admin")}
+            </Link>
+          )}
+          {isPlatformOwner && (
+            <Link
+              to={"/admin/platform" as never}
+              className={
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+                (path.startsWith("/admin/platform")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+              }
+            >
+              <ShieldCheck className="size-4" />
+              Consola de plataforma
             </Link>
           )}
         </nav>
