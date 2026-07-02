@@ -18,14 +18,16 @@ export type LogSecurityEventInput = {
  */
 export async function logSecurityEvent(input: LogSecurityEventInput): Promise<void> {
   try {
-    await supabase.rpc("log_security_event", {
+    const args: Record<string, unknown> = {
       _event_type: input.event_type,
       _severity: input.severity ?? "info",
-      _message: input.message ?? null,
-      _email: input.email ?? null,
-      _path: input.path ?? (typeof window !== "undefined" ? window.location.pathname : null),
-      _meta: (input.meta ?? {}) as never,
-    });
+      _meta: input.meta ?? {},
+    };
+    if (input.message) args._message = input.message;
+    if (input.email) args._email = input.email;
+    const path = input.path ?? (typeof window !== "undefined" ? window.location.pathname : undefined);
+    if (path) args._path = path;
+    await supabase.rpc("log_security_event", args as never);
   } catch {
     /* swallow */
   }
