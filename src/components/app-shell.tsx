@@ -187,6 +187,26 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-1">
           <NotificationBell />
           <AssistantPanel />
+          {isPlatformOwner && (
+            <>
+              <Link
+                to={"/admin/platform" as never}
+                aria-label="Consola de plataforma"
+                title="Consola de plataforma"
+                className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+              >
+                <ShieldCheck className="size-4" />
+              </Link>
+              <Link
+                to={"/admin/security-log" as never}
+                aria-label="Bitácora de seguridad"
+                title="Bitácora de seguridad"
+                className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+              >
+                <Users className="size-4" />
+              </Link>
+            </>
+          )}
           <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")}>
             <Briefcase className="size-4" />
           </Button>
