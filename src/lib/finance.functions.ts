@@ -385,6 +385,113 @@ Dates must be YYYY-MM-DD. ${
     };
   });
 
+// ===== AI: scan bank-statement image / PDF -> structured tx list =====
+const ScanStatementInput = z.object({
+  source_name: z.string().min(1),
+  image_data_url: z.string().startsWith("data:"),
+  mime: z.string(),
+  currency: z.string().default("USD"),
+  decimal_separator: z.enum(["auto", "comma", "dot"]).default("auto"),
+});
+
+export const scanStatement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ScanStatementInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+
+    // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
+    const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);
+    if (approxBytes > 8 * 1024 * 1024) throw new Error("SCAN_TOO_LARGE");
+
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const { generateObject } = await import("ai");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    const sepHint =
+      data.decimal_separator === "comma"
+        ? "The statement uses COMMA as decimal separator and dot as thousand separator (e.g. 1.234,56 = 1234.56). Convert numbers to plain decimals with dot separator."
+        : data.decimal_separator === "dot"
+          ? "The statement uses DOT as decimal separator and comma as thousand separator (e.g. 1,234.56 = 1234.56). Convert numbers to plain decimals with dot separator."
+          : "Detect the decimal separator (comma or dot) and convert numbers to plain decimals with dot separator.";
+
+    const system = `You are an OCR + financial analyst. Extract every transaction from a bank-statement image or PDF and classify each line into an EBITDA bucket.
+Buckets:
+- revenue: sales / service income
+- cogs: cost of goods sold, direct materials
+- opex: operating expenses (rent, salaries, utilities, marketing, software, fees)
+- depreciation, amortization
+- interest: interest paid / received on debt
+- tax: taxes paid
+- other_income, other_expense: anything else
+Amount sign convention: income positive, expense negative.
+Dates must be YYYY-MM-DD. ${sepHint} Output a concise summary in the document's language.`;
+
+    const isPdf = data.mime === "application/pdf";
+    const userContent = isPdf
+      ? [
+          { type: "text" as const, text: "Extract every transaction from this bank statement." },
+          { type: "file" as const, data: data.image_data_url, mediaType: data.mime, filename: "statement.pdf" },
+        ]
+      : [
+          { type: "text" as const, text: "Extract every transaction from this bank statement." },
+          { type: "image" as const, image: data.image_data_url },
+        ];
+
+    let parsed: z.infer<typeof ExtractionSchema>;
+    try {
+      const res = await generateObject({
+        model: gateway("google/gemini-2.5-flash"),
+        schema: ExtractionSchema,
+        system,
+        messages: [{ role: "user", content: userContent }],
+      });
+      parsed = res.object;
+    } catch (err: unknown) {
+      const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
+      const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
+      const msg = String(e?.message ?? "");
+      if (status === 429 || /rate.?limit/i.test(msg)) throw new Error("SCAN_RATE_LIMITED");
+      if (status === 402 || /credit|payment.required/i.test(msg)) throw new Error("SCAN_NO_CREDITS");
+      if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) throw new Error("SCAN_UNSUPPORTED_FILE");
+      throw new Error("SCAN_FAILED");
+    }
+
+    if (data.decimal_separator !== "auto") {
+      for (const t of parsed.transactions) {
+        if (typeof t.amount === "string") {
+          t.amount = parseNumberWithSeparator(t.amount, data.decimal_separator);
+        }
+      }
+    }
+
+    const { data: stmt, error: stmtErr } = await context.supabase
+      .from("finance_statements")
+      .insert({
+        user_id: context.userId,
+        org_id: orgId,
+        source_name: data.source_name,
+        period_start: parsed.period_start ?? null,
+        period_end: parsed.period_end ?? null,
+        status: "preview",
+        ai_summary: parsed.summary,
+        raw_text: `[${isPdf ? "PDF" : "IMAGE"}] ${data.source_name}`,
+        transactions_count: parsed.transactions.length,
+      })
+      .select()
+      .single();
+    if (stmtErr) throw new Error(stmtErr.message);
+
+    return {
+      statement: stmt,
+      summary: parsed.summary,
+      transactions: parsed.transactions,
+      inserted: 0,
+    };
+  });
+
 // ===== Apply hand-edited statement transactions (after preview) =====
 const ApplyExtractedInput = z.object({
   source_name: z.string().min(1),
