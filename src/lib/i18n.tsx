@@ -385,7 +385,7 @@ const dict = {
     "nav.inventory": "Purchases",
     "nav.productivity": "Habits",
     "nav.agenda": "Agenda",
-    "nav.reminders": "Recordatorios",
+    "nav.reminders": "Reminders",
     "nav.admin": "Settings",
     "nav.signout": "Sign out",
     "auth.signin": "Sign in",
