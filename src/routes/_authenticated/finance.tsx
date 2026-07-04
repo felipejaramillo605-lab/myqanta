@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil, ScanLine, Upload } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil, ScanLine } from "lucide-react";
 
 import {
   analyzeStatement,
