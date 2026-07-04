@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil, ScanLine } from "lucide-react";
 
 import {
   analyzeStatement,
   applyExtractedTransactions,
+  scanStatement,
   createTransaction,
   deleteTransaction,
   updateTransaction,
@@ -84,6 +85,7 @@ function Finance() {
   const delFn = useServerFn(deleteTransaction);
   const updateFn = useServerFn(updateTransaction);
   const analyzeFn = useServerFn(analyzeStatement);
+  const scanFn = useServerFn(scanStatement);
   const applyExtractFn = useServerFn(applyExtractedTransactions);
   const closingFn = useServerFn(monthlyClosingSummary);
 
@@ -158,7 +160,7 @@ function Finance() {
             {closingMut.isPending ? t("export.closing_run") : t("export.closing")}
           </Button>
           <ScanHistoryDialog kind="statement" onUndone={refresh} />
-          {canWrite && <AnalyzeDialog analyze={analyzeFn} apply={applyExtractFn} onApplied={refresh} />}
+          {canWrite && <AnalyzeDialog analyze={analyzeFn} scan={scanFn} apply={applyExtractFn} onApplied={refresh} />}
           {canWrite && <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />}
         </div>
       </header>
@@ -372,17 +374,33 @@ type AnalyzeResult = Awaited<ReturnType<typeof analyzeStatement>>;
 type EditableTx = { occurred_on: string; description: string; amount: number; bucket: Bucket; expense_category: string };
 type ApplyExtractFn = (a: { data: { source_name: string; currency: string; transactions: { occurred_on: string; description: string; amount: number; bucket: Bucket; expense_category: string | null }[] } }) => Promise<{ inserted: number }>;
 
-function AnalyzeDialog({ analyze, apply, onApplied }: { analyze: (a: { data: { source_name: string; text: string; currency: string; commit: boolean; decimal_separator?: DecimalSeparator } }) => Promise<AnalyzeResult>; apply: ApplyExtractFn; onApplied: () => void }) {
+type ScanStatementFn = (a: { data: { source_name: string; image_data_url: string; mime: string; currency: string; decimal_separator?: DecimalSeparator } }) => Promise<AnalyzeResult>;
+
+function AnalyzeDialog({ analyze, scan, apply, onApplied }: { analyze: (a: { data: { source_name: string; text: string; currency: string; commit: boolean; decimal_separator?: DecimalSeparator } }) => Promise<AnalyzeResult>; scan: ScanStatementFn; apply: ApplyExtractFn; onApplied: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [source, setSource] = useState("");
   const [text, setText] = useState("");
+  const [dataUrl, setDataUrl] = useState("");
+  const [mime, setMime] = useState("");
   const [sep, setSep] = useState<DecimalSeparator>("auto");
   const [preview, setPreview] = useState<AnalyzeResult | null>(null);
   const [items, setItems] = useState<EditableTx[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    setMime(file.type);
+    if (!source) setSource(file.name.replace(/\.[^.]+$/, ""));
+    const reader = new FileReader();
+    reader.onload = () => setDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const run = useMutation({
-    mutationFn: () => analyze({ data: { source_name: source || "statement", text, currency: "USD", commit: false, decimal_separator: sep } }),
+    mutationFn: () =>
+      dataUrl
+        ? scan({ data: { source_name: source || "statement", image_data_url: dataUrl, mime, currency: "USD", decimal_separator: sep } })
+        : analyze({ data: { source_name: source || "statement", text, currency: "USD", commit: false, decimal_separator: sep } }),
     onSuccess: (res) => {
       setPreview(res);
       setItems(res.transactions.map((tx) => ({
@@ -405,7 +423,7 @@ function AnalyzeDialog({ analyze, apply, onApplied }: { analyze: (a: { data: { s
     }}),
     onSuccess: (res) => {
       toast.success(`${t("fin.applied")}: ${res.inserted}`);
-      setOpen(false); setPreview(null); setText(""); setSource(""); setItems([]);
+      setOpen(false); setPreview(null); setText(""); setSource(""); setItems([]); setDataUrl(""); setMime("");
       onApplied();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -416,7 +434,7 @@ function AnalyzeDialog({ analyze, apply, onApplied }: { analyze: (a: { data: { s
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setItems([]); } }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setPreview(null); setItems([]); setDataUrl(""); setMime(""); } }}>
       <DialogTrigger asChild>
         <Button variant="outline"><Sparkles className="size-4" />{t("fin.analyze")}</Button>
       </DialogTrigger>
@@ -439,9 +457,24 @@ function AnalyzeDialog({ analyze, apply, onApplied }: { analyze: (a: { data: { s
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t("fin.statement.placeholder")} hint={t("form.help.statement_text")}>
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} className="font-mono text-xs" />
-          </Field>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          <Button variant="outline" type="button" onClick={() => fileRef.current?.click()}>
+            <ScanLine className="size-4" />
+            {dataUrl ? (mime.startsWith("image/") ? "📷 " : "📄 ") + (mime || "file") : t("inv.scan")}
+          </Button>
+          {dataUrl && mime.startsWith("image/") && (
+            <img src={dataUrl} alt="statement" className="max-h-48 rounded-lg border border-border/50 object-contain" />
+          )}
+          {dataUrl && (
+            <Button variant="ghost" size="sm" type="button" onClick={() => { setDataUrl(""); setMime(""); }}>
+              <Trash2 className="size-4" />{t("fin.cancel")}
+            </Button>
+          )}
+          {!dataUrl && (
+            <Field label={t("fin.statement.placeholder")} hint={t("form.help.statement_text")}>
+              <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} className="font-mono text-xs" />
+            </Field>
+          )}
           {preview && items.length > 0 && (
             <div className="rounded-lg border border-border/50 bg-card/40 p-3">
               <p className="mb-2 text-xs text-muted-foreground">{preview.summary}</p>
@@ -475,7 +508,7 @@ function AnalyzeDialog({ analyze, apply, onApplied }: { analyze: (a: { data: { s
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
           {!preview ? (
-            <Button disabled={run.isPending || text.length < 20} onClick={() => run.mutate()}>
+            <Button disabled={run.isPending || (!dataUrl && text.length < 20)} onClick={() => run.mutate()}>
               {run.isPending ? t("fin.analyzing") : t("fin.analyze.run")}
             </Button>
           ) : (
