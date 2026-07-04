@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
@@ -48,6 +49,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRemindersRoute = AuthenticatedRemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
   id: '/inventory',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/finance': typeof AuthenticatedFinanceRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/inventory': typeof AuthenticatedInventoryRoute
+  '/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/finance': typeof AuthenticatedFinanceRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/inventory': typeof AuthenticatedInventoryRoute
+  '/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/_authenticated/finance': typeof AuthenticatedFinanceRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/finance'
     | '/habits'
     | '/inventory'
+    | '/reminders'
     | '/invite/$token'
     | '/admin/platform'
     | '/admin/security-log'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/finance'
     | '/habits'
     | '/inventory'
+    | '/reminders'
     | '/invite/$token'
     | '/admin/platform'
     | '/admin/security-log'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/_authenticated/finance'
     | '/_authenticated/habits'
     | '/_authenticated/inventory'
+    | '/_authenticated/reminders'
     | '/invite/$token'
     | '/_authenticated/admin/platform'
     | '/_authenticated/admin/security-log'
@@ -251,6 +263,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/reminders': {
+      id: '/_authenticated/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof AuthenticatedRemindersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/inventory': {
       id: '/_authenticated/inventory'
@@ -331,6 +350,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
   AuthenticatedAdminPlatformRoute: typeof AuthenticatedAdminPlatformRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
@@ -343,6 +363,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
   AuthenticatedAdminPlatformRoute: AuthenticatedAdminPlatformRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,

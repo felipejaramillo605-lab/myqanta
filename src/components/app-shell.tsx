@@ -17,6 +17,7 @@ import {
   Sun,
   Users,
   ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
@@ -32,6 +33,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/inventory", key: "nav.inventory", icon: ShoppingCart },
   { to: "/habits", key: "nav.productivity", icon: Repeat },
   { to: "/agenda", key: "nav.agenda", icon: Calendar },
+  { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
