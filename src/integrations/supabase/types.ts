@@ -779,6 +779,77 @@ export type Database = {
           },
         ]
       }
+      reminders: {
+        Row: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          message: string
+          meta: Json
+          org_id: string
+          phone_e164: string
+          provider: string
+          provider_message_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["reminder_source"]
+          status: Database["public"]["Enums"]["reminder_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          message: string
+          meta?: Json
+          org_id: string
+          phone_e164: string
+          provider?: string
+          provider_message_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          source_id?: string | null
+          source_type?: Database["public"]["Enums"]["reminder_source"]
+          status?: Database["public"]["Enums"]["reminder_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          message?: string
+          meta?: Json
+          org_id?: string
+          phone_e164?: string
+          provider?: string
+          provider_message_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          source_id?: string | null
+          source_type?: Database["public"]["Enums"]["reminder_source"]
+          status?: Database["public"]["Enums"]["reminder_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_batches: {
         Row: {
           affected: Json
@@ -1022,6 +1093,36 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_settings: {
+        Row: {
+          created_at: string
+          default_lead_minutes: number
+          enabled: boolean
+          phone_e164: string | null
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_lead_minutes?: number
+          enabled?: boolean
+          phone_e164?: string | null
+          provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_lead_minutes?: number
+          enabled?: boolean
+          phone_e164?: string | null
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1111,6 +1212,8 @@ export type Database = {
       inv_movement_kind: "purchase" | "sale" | "adjustment" | "transfer"
       inv_party_kind: "supplier" | "customer"
       org_role: "owner" | "admin" | "member" | "viewer"
+      reminder_source: "task" | "habit" | "event" | "custom"
+      reminder_status: "pending" | "sent" | "failed" | "cancelled"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "todo" | "doing" | "done" | "archived"
     }
@@ -1255,6 +1358,8 @@ export const Constants = {
       inv_movement_kind: ["purchase", "sale", "adjustment", "transfer"],
       inv_party_kind: ["supplier", "customer"],
       org_role: ["owner", "admin", "member", "viewer"],
+      reminder_source: ["task", "habit", "event", "custom"],
+      reminder_status: ["pending", "sent", "failed", "cancelled"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["todo", "doing", "done", "archived"],
     },
