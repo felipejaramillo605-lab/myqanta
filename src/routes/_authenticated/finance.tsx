@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil } from "lucide-react";
+import { Plus, Sparkles, Trash2, TrendingUp, ArrowDownRight, ArrowUpRight, FileDown, FileText, Pencil, ScanLine, Upload } from "lucide-react";
 
 import {
   analyzeStatement,
   applyExtractedTransactions,
+  scanStatement,
   createTransaction,
   deleteTransaction,
   updateTransaction,
@@ -84,6 +85,7 @@ function Finance() {
   const delFn = useServerFn(deleteTransaction);
   const updateFn = useServerFn(updateTransaction);
   const analyzeFn = useServerFn(analyzeStatement);
+  const scanFn = useServerFn(scanStatement);
   const applyExtractFn = useServerFn(applyExtractedTransactions);
   const closingFn = useServerFn(monthlyClosingSummary);
 
@@ -158,7 +160,7 @@ function Finance() {
             {closingMut.isPending ? t("export.closing_run") : t("export.closing")}
           </Button>
           <ScanHistoryDialog kind="statement" onUndone={refresh} />
-          {canWrite && <AnalyzeDialog analyze={analyzeFn} apply={applyExtractFn} onApplied={refresh} />}
+          {canWrite && <AnalyzeDialog analyze={analyzeFn} scan={scanFn} apply={applyExtractFn} onApplied={refresh} />}
           {canWrite && <AddTxDialog onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />}
         </div>
       </header>
