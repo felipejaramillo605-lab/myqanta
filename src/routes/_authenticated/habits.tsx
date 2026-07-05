@@ -379,6 +379,17 @@ function HabitsPanel() {
                   />
                 )}
                 {canWrite && <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: h.id } }).then(refresh)}><Trash2 className="size-4" /></Button>}
+                {canWrite && (
+                  <HabitDatePicker
+                    doneSet={set}
+                    color={color}
+                    onToggle={(date) =>
+                      toggleFn({ data: { habit_id: h.id, date } })
+                        .then(refresh)
+                        .catch((e: Error) => toast.error(e.message))
+                    }
+                  />
+                )}
               </div>
             );
           })}
