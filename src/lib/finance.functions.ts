@@ -407,7 +407,7 @@ export const scanStatement = createServerFn({ method: "POST" })
     if (approxBytes > 8 * 1024 * 1024) throw new Error("SCAN_TOO_LARGE");
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const { generateObject } = await import("ai");
+    const { generateObject, NoObjectGeneratedError } = await import("ai");
     const gateway = createLovableAiGatewayProvider(key);
 
     const sepHint =
