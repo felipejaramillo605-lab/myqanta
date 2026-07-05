@@ -130,18 +130,28 @@ export const updateHabit = createServerFn({ method: "POST" })
 
 export const toggleHabitToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ habit_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({
+      habit_id: z.string().uuid(),
+      // ISO date YYYY-MM-DD; defaults to today when omitted.
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }).parse(d),
+  )
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
-    const today = new Date().toISOString().slice(0, 10);
+    const target = data.date ?? new Date().toISOString().slice(0, 10);
+    // Rechaza fechas futuras — no se puede marcar un hábito antes de tiempo.
+    if (target > new Date().toISOString().slice(0, 10)) {
+      throw new Error("No se puede marcar un hábito en el futuro");
+    }
     const { data: existing } = await context.supabase
-      .from("habit_logs").select("id").eq("habit_id", data.habit_id).eq("logged_on", today).maybeSingle();
+      .from("habit_logs").select("id").eq("habit_id", data.habit_id).eq("logged_on", target).maybeSingle();
     if (existing) {
       await context.supabase.from("habit_logs").delete().eq("id", existing.id);
       return { done: false };
     }
     await context.supabase.from("habit_logs").insert({
-      user_id: context.userId, org_id: orgId, habit_id: data.habit_id, logged_on: today, count: 1,
+      user_id: context.userId, org_id: orgId, habit_id: data.habit_id, logged_on: target, count: 1,
     });
     return { done: true };
   });
