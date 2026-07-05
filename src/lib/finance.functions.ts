@@ -280,13 +280,13 @@ const ExtractedTx = z.object({
   description: z.string(),
   amount: z.number().describe("Positive for income, negative for expense"),
   bucket: BucketEnum,
-  confidence: z.number().min(0).max(1).default(0.7),
+  confidence: z.number().nullable().describe("0..1 confidence, or null if unknown"),
 });
 
 const ExtractionSchema = z.object({
   summary: z.string(),
-  period_start: z.string().optional(),
-  period_end: z.string().optional(),
+  period_start: z.string().nullable(),
+  period_end: z.string().nullable(),
   transactions: z.array(ExtractedTx),
 });
 
@@ -302,7 +302,7 @@ export const analyzeStatement = createServerFn({ method: "POST" })
       : await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const { generateObject } = await import("ai");
+    const { generateObject, NoObjectGeneratedError } = await import("ai");
     const gateway = createLovableAiGatewayProvider(key);
 
     const system = `You are a financial analyst. Classify each bank-statement line into an EBITDA bucket.
@@ -407,7 +407,7 @@ export const scanStatement = createServerFn({ method: "POST" })
     if (approxBytes > 8 * 1024 * 1024) throw new Error("SCAN_TOO_LARGE");
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const { generateObject } = await import("ai");
+    const { generateObject, NoObjectGeneratedError } = await import("ai");
     const gateway = createLovableAiGatewayProvider(key);
 
     const sepHint =
@@ -450,6 +450,37 @@ Dates must be YYYY-MM-DD. ${sepHint} Output a concise summary in the document's 
       });
       parsed = res.object;
     } catch (err: unknown) {
+      // Try to salvage a slightly-off object from the raw text before failing.
+      if (NoObjectGeneratedError.isInstance(err)) {
+        const raw = (err as { text?: string }).text ?? "";
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const candidate = JSON.parse(jsonMatch[0]);
+            parsed = ExtractionSchema.parse({
+              summary: candidate.summary ?? "",
+              period_start: candidate.period_start ?? null,
+              period_end: candidate.period_end ?? null,
+              transactions: (candidate.transactions ?? []).map((t: Record<string, unknown>) => ({
+                occurred_on: String(t.occurred_on ?? ""),
+                description: String(t.description ?? ""),
+                amount: Number(t.amount ?? 0),
+                bucket: t.bucket ?? "other_expense",
+                confidence: typeof t.confidence === "number" ? t.confidence : null,
+              })),
+            });
+            // fall through to normal post-processing below
+            // eslint-disable-next-line no-console
+            console.warn("[scanStatement] recovered from NoObjectGeneratedError");
+            // continue outside the catch
+            // (parsed is assigned)
+            // eslint-disable-next-line no-empty
+          } catch {}
+        }
+      }
+      // If we still don't have a parsed value, translate the error.
+      // @ts-expect-error narrowing across try/catch salvage branch
+      if (!parsed) {
       const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
       const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
       const msg = String(e?.message ?? "");
@@ -459,6 +490,7 @@ Dates must be YYYY-MM-DD. ${sepHint} Output a concise summary in the document's 
       if (status === 402 || /credit|payment.required/i.test(msg)) throw new Error("SCAN_NO_CREDITS");
       if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) throw new Error("SCAN_UNSUPPORTED_FILE");
       throw new Error(`SCAN_FAILED: ${msg || "unknown"}`);
+      }
     }
 
     if (data.decimal_separator !== "auto") {
