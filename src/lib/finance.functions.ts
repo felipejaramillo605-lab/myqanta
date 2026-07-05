@@ -453,10 +453,12 @@ Dates must be YYYY-MM-DD. ${sepHint} Output a concise summary in the document's 
       const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
       const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
       const msg = String(e?.message ?? "");
+      // eslint-disable-next-line no-console
+      console.error("[scanStatement] AI gateway failure", { status, msg, mime: data.mime, err });
       if (status === 429 || /rate.?limit/i.test(msg)) throw new Error("SCAN_RATE_LIMITED");
       if (status === 402 || /credit|payment.required/i.test(msg)) throw new Error("SCAN_NO_CREDITS");
       if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) throw new Error("SCAN_UNSUPPORTED_FILE");
-      throw new Error("SCAN_FAILED");
+      throw new Error(`SCAN_FAILED: ${msg || "unknown"}`);
     }
 
     if (data.decimal_separator !== "auto") {
