@@ -512,3 +512,59 @@ function HabitFormDialog({
     </Dialog>
   );
 }
+
+// Popover con los últimos 14 días para marcar / desmarcar un hábito en otra
+// fecha (p.ej. me olvidé ayer y quiero registrarlo hoy).
+function HabitDatePicker({
+  doneSet,
+  color,
+  onToggle,
+}: {
+  doneSet: Set<string>;
+  color: string;
+  onToggle: (date: string) => void | Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" });
+    return { iso, label };
+  });
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" title="Marcar otro día">
+          <CalendarDays className="size-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <div className="mb-2 px-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          Marcar cumplimiento
+        </div>
+        <div className="grid gap-1">
+          {days.map((d) => {
+            const done = doneSet.has(d.iso);
+            return (
+              <button
+                key={d.iso}
+                type="button"
+                onClick={() => onToggle(d.iso)}
+                className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-accent"
+              >
+                <span className="capitalize">{d.label}</span>
+                <span
+                  className="flex size-5 items-center justify-center rounded-full border"
+                  style={done ? { backgroundColor: color, borderColor: color, color: "#0a0a0a" } : { borderColor: "hsl(var(--border))" }}
+                >
+                  {done ? <Check className="size-3" /> : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
