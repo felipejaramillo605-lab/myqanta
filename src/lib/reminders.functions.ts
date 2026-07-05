@@ -3,8 +3,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole } from "./permissions";
+import { computeNextOccurrence } from "./reminders-recurrence";
 
 const SourceType = z.enum(["task", "habit", "event", "custom"]);
+const RecurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
 
 // ===== Settings =====
 export const getWhatsappSettings = createServerFn({ method: "GET" })
@@ -69,6 +71,9 @@ const CreateInput = z.object({
   message: z.string().min(1).max(1000),
   phone_e164: z.string().min(6),
   scheduled_at: z.string(),
+  recurrence: RecurrenceEnum.default("none"),
+  recurrence_interval: z.number().int().min(1).max(365).default(1),
+  recurrence_until: z.string().nullable().optional(),
 });
 
 export const createReminder = createServerFn({ method: "POST" })
@@ -93,6 +98,9 @@ export const createReminder = createServerFn({ method: "POST" })
         phone_e164: data.phone_e164,
         scheduled_at: data.scheduled_at,
         provider: settings?.provider ?? "mock",
+        recurrence: data.recurrence,
+        recurrence_interval: data.recurrence_interval,
+        recurrence_until: data.recurrence_until ?? null,
       })
       .select()
       .single();
@@ -155,6 +163,34 @@ export const sendReminderNow = createServerFn({ method: "POST" })
           attempts: (r.attempts ?? 0) + 1,
         };
     await context.supabase.from("reminders").update(patch).eq("id", r.id);
+
+    // Programa la siguiente ocurrencia si el recordatorio es recurrente
+    // y el envío fue correcto.
+    if (res.ok && r.recurrence && r.recurrence !== "none") {
+      const next = computeNextOccurrence(
+        r.scheduled_at,
+        r.recurrence,
+        r.recurrence_interval ?? 1,
+        r.recurrence_until,
+      );
+      if (next) {
+        await context.supabase.from("reminders").insert({
+          org_id: r.org_id,
+          user_id: r.user_id,
+          source_type: r.source_type,
+          source_id: r.source_id,
+          title: r.title,
+          message: r.message,
+          phone_e164: r.phone_e164,
+          scheduled_at: next.toISOString(),
+          provider: r.provider,
+          recurrence: r.recurrence,
+          recurrence_interval: r.recurrence_interval ?? 1,
+          recurrence_until: r.recurrence_until,
+          parent_reminder_id: r.parent_reminder_id ?? r.id,
+        });
+      }
+    }
     return { ok: res.ok, simulated: res.simulated };
   });
 

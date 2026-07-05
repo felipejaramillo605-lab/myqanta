@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { computeNextOccurrence } from "@/lib/reminders-recurrence";
 
 // Called by pg_cron every minute (or on demand) to dispatch due WhatsApp
 // reminders. Public route — anon key acts as the shared secret and RLS is
@@ -55,6 +56,32 @@ export const Route = createFileRoute("/api/public/hooks/process-reminders")({
                 error: null,
               })
               .eq("id", r.id);
+
+            if (r.recurrence && r.recurrence !== "none") {
+              const next = computeNextOccurrence(
+                r.scheduled_at,
+                r.recurrence,
+                r.recurrence_interval ?? 1,
+                r.recurrence_until,
+              );
+              if (next) {
+                await supabase.from("reminders").insert({
+                  org_id: r.org_id,
+                  user_id: r.user_id,
+                  source_type: r.source_type,
+                  source_id: r.source_id,
+                  title: r.title,
+                  message: r.message,
+                  phone_e164: r.phone_e164,
+                  scheduled_at: next.toISOString(),
+                  provider: r.provider,
+                  recurrence: r.recurrence,
+                  recurrence_interval: r.recurrence_interval ?? 1,
+                  recurrence_until: r.recurrence_until,
+                  parent_reminder_id: r.parent_reminder_id ?? r.id,
+                });
+              }
+            }
           } else {
             failed++;
             await supabase

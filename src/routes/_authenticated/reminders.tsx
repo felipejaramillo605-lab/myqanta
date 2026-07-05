@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { describeRecurrence, type Recurrence } from "@/lib/reminders-recurrence";
 
 export const Route = createFileRoute("/_authenticated/reminders")({
   head: () => ({ meta: [{ title: "Qanta — Recordatorios WhatsApp" }] }),
@@ -88,6 +89,9 @@ function RemindersPage() {
     return d.toISOString().slice(0, 16);
   }, []);
   const [when, setWhen] = useState(nowLocal);
+  const [recurrence, setRecurrence] = useState<Recurrence>("none");
+  const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
+  const [recurrenceUntil, setRecurrenceUntil] = useState<string>("");
 
   function onKindChange(next: SourceKind) {
     setKind(next);
@@ -137,6 +141,9 @@ function RemindersPage() {
           message: message.trim(),
           phone_e164: targetPhone,
           scheduled_at: new Date(when).toISOString(),
+          recurrence,
+          recurrence_interval: recurrenceInterval,
+          recurrence_until: recurrenceUntil ? new Date(recurrenceUntil).toISOString() : null,
         },
       });
     },
@@ -145,6 +152,9 @@ function RemindersPage() {
       setTitle("");
       setMessage("");
       setSourceId("");
+      setRecurrence("none");
+      setRecurrenceInterval(1);
+      setRecurrenceUntil("");
       refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -258,6 +268,43 @@ function RemindersPage() {
             <Label className="text-xs">Fecha y hora de envío</Label>
             <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
           </div>
+          <div>
+            <Label className="text-xs">Repetición</Label>
+            <Select value={recurrence} onValueChange={(v) => setRecurrence(v as Recurrence)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Una vez</SelectItem>
+                <SelectItem value="daily">Diario</SelectItem>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {recurrence !== "none" && (
+            <>
+              <div>
+                <Label className="text-xs">Cada (intervalo)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={recurrenceInterval}
+                  onChange={(e) => setRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))}
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {describeRecurrence(recurrence, recurrenceInterval)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs">Finaliza el (opcional)</Label>
+                <Input
+                  type="datetime-local"
+                  value={recurrenceUntil}
+                  onChange={(e) => setRecurrenceUntil(e.target.value)}
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="mt-4 flex justify-end">
           <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
@@ -284,6 +331,11 @@ function RemindersPage() {
                     <span className="font-medium">{r.title}</span>
                     <StatusBadge status={r.status} />
                     <Badge variant="outline" className="text-[10px] uppercase">{r.source_type}</Badge>
+                    {r.recurrence && r.recurrence !== "none" && (
+                      <Badge variant="outline" className="text-[10px] normal-case">
+                        🔁 {describeRecurrence(r.recurrence as Recurrence, r.recurrence_interval ?? 1)}
+                      </Badge>
+                    )}
                     {r.provider === "mock" && (
                       <Badge variant="secondary" className="text-[10px]">SIM</Badge>
                     )}

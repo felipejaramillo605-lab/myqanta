@@ -788,9 +788,13 @@ export type Database = {
           message: string
           meta: Json
           org_id: string
+          parent_reminder_id: string | null
           phone_e164: string
           provider: string
           provider_message_id: string | null
+          recurrence: Database["public"]["Enums"]["reminder_recurrence"]
+          recurrence_interval: number
+          recurrence_until: string | null
           scheduled_at: string
           sent_at: string | null
           source_id: string | null
@@ -808,9 +812,13 @@ export type Database = {
           message: string
           meta?: Json
           org_id: string
+          parent_reminder_id?: string | null
           phone_e164: string
           provider?: string
           provider_message_id?: string | null
+          recurrence?: Database["public"]["Enums"]["reminder_recurrence"]
+          recurrence_interval?: number
+          recurrence_until?: string | null
           scheduled_at: string
           sent_at?: string | null
           source_id?: string | null
@@ -828,9 +836,13 @@ export type Database = {
           message?: string
           meta?: Json
           org_id?: string
+          parent_reminder_id?: string | null
           phone_e164?: string
           provider?: string
           provider_message_id?: string | null
+          recurrence?: Database["public"]["Enums"]["reminder_recurrence"]
+          recurrence_interval?: number
+          recurrence_until?: string | null
           scheduled_at?: string
           sent_at?: string | null
           source_id?: string | null
@@ -846,6 +858,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_parent_reminder_id_fkey"
+            columns: ["parent_reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
             referencedColumns: ["id"]
           },
         ]
@@ -1212,6 +1231,7 @@ export type Database = {
       inv_movement_kind: "purchase" | "sale" | "adjustment" | "transfer"
       inv_party_kind: "supplier" | "customer"
       org_role: "owner" | "admin" | "member" | "viewer"
+      reminder_recurrence: "none" | "daily" | "weekly" | "monthly"
       reminder_source: "task" | "habit" | "event" | "custom"
       reminder_status: "pending" | "sent" | "failed" | "cancelled"
       task_priority: "low" | "medium" | "high" | "urgent"
@@ -1358,6 +1378,7 @@ export const Constants = {
       inv_movement_kind: ["purchase", "sale", "adjustment", "transfer"],
       inv_party_kind: ["supplier", "customer"],
       org_role: ["owner", "admin", "member", "viewer"],
+      reminder_recurrence: ["none", "daily", "weekly", "monthly"],
       reminder_source: ["task", "habit", "event", "custom"],
       reminder_status: ["pending", "sent", "failed", "cancelled"],
       task_priority: ["low", "medium", "high", "urgent"],
