@@ -280,13 +280,13 @@ const ExtractedTx = z.object({
   description: z.string(),
   amount: z.number().describe("Positive for income, negative for expense"),
   bucket: BucketEnum,
-  confidence: z.number().min(0).max(1).default(0.7),
+  confidence: z.number().nullable().describe("0..1 confidence, or null if unknown"),
 });
 
 const ExtractionSchema = z.object({
   summary: z.string(),
-  period_start: z.string().optional(),
-  period_end: z.string().optional(),
+  period_start: z.string().nullable(),
+  period_end: z.string().nullable(),
   transactions: z.array(ExtractedTx),
 });
 
