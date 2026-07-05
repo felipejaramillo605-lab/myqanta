@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Check, Flame, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, Flame, CheckCircle2, Circle, Loader2, CalendarDays } from "lucide-react";
 
 import {
   createHabit, deleteHabit, deleteTask, listHabits, listTasks, updateHabit,
@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
 import { HabitWeekChart } from "@/components/charts/habit-week-chart";
 import { Pencil } from "lucide-react";
@@ -75,6 +76,11 @@ function TasksPanel() {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["pro", "tasks"] });
 
+  const save = (v: Parameters<Parameters<typeof TaskDialog>[0]["onSubmit"]>[0]) =>
+    upsertFn({ data: v })
+      .then(() => { refresh(); toast.success("✓"); })
+      .catch((e: Error) => toast.error(e.message));
+
   const cols: { key: Status; label: string }[] = [
     { key: "todo", label: t("pro.status.todo") },
     { key: "doing", label: t("pro.status.doing") },
@@ -84,7 +90,7 @@ function TasksPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        {canWrite && <TaskDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
+        {canWrite && <TaskDialog onSubmit={save} />}
       </div>
       {tasks.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">{t("pro.empty.tasks")}</div>
@@ -111,9 +117,27 @@ function TasksPanel() {
                           </div>
                         </div>
                         {canWrite && (
-                          <Button variant="ghost" size="icon" className="opacity-0 transition group-hover:opacity-100" onClick={() => delFn({ data: { id: tk.id } }).then(refresh)}>
-                            <Trash2 className="size-3.5" />
-                          </Button>
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <TaskDialog
+                              initial={{
+                                id: tk.id,
+                                title: tk.title,
+                                description: tk.description ?? "",
+                                priority: tk.priority as Priority,
+                                due: tk.due_date ? new Date(tk.due_date).toISOString().slice(0, 10) : "",
+                                status: tk.status as Status,
+                              }}
+                              onSubmit={save}
+                              trigger={
+                                <Button variant="ghost" size="icon" title="Editar">
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                              }
+                            />
+                            <Button variant="ghost" size="icon" title="Eliminar" onClick={() => delFn({ data: { id: tk.id } }).then(refresh)}>
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                       <div className="mt-3 flex gap-1">
@@ -149,16 +173,57 @@ function PriorityBadge({ p }: { p: Priority }) {
   return <span className={"rounded-full px-2 py-0.5 " + cls[p]}>{t(("pro.priority." + p) as never)}</span>;
 }
 
-function TaskDialog({ onSubmit }: { onSubmit: (v: { title: string; description?: string | null; status: Status; priority: Priority; due_date?: string | null; tags: string[] }) => void }) {
+type TaskFormValue = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  status: Status;
+  priority: Priority;
+  due_date?: string | null;
+  tags: string[];
+};
+
+function TaskDialog({
+  onSubmit,
+  initial,
+  trigger,
+}: {
+  onSubmit: (v: TaskFormValue) => void;
+  initial?: { id: string; title: string; description: string; priority: Priority; due: string; status: Status };
+  trigger?: React.ReactNode;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ title: "", description: "", priority: "medium" as Priority, due: "" });
+  const [f, setF] = useState({
+    title: initial?.title ?? "",
+    description: initial?.description ?? "",
+    priority: initial?.priority ?? ("medium" as Priority),
+    due: initial?.due ?? "",
+  });
+  const isEdit = Boolean(initial);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="size-4" />{t("pro.add_task")}</Button></DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v && initial) {
+          setF({
+            title: initial.title,
+            description: initial.description,
+            priority: initial.priority,
+            due: initial.due,
+          });
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Button><Plus className="size-4" />{t("pro.add_task")}</Button>
+        )}
+      </DialogTrigger>
       <DialogContent className="glass">
-        <DialogHeader><DialogTitle>{t("pro.add_task")}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? "Editar tarea" : t("pro.add_task")}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div>
             <Label className="text-xs font-medium">{t("pro.task.title")}</Label>
@@ -186,8 +251,17 @@ function TaskDialog({ onSubmit }: { onSubmit: (v: { title: string; description?:
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>{t("fin.cancel")}</Button>
           <Button disabled={!f.title} onClick={() => {
-            onSubmit({ title: f.title, description: f.description || null, status: "todo", priority: f.priority, due_date: f.due ? new Date(f.due).toISOString() : null, tags: [] });
-            setOpen(false); setF({ title: "", description: "", priority: "medium", due: "" });
+            onSubmit({
+              ...(initial?.id ? { id: initial.id } : {}),
+              title: f.title,
+              description: f.description || null,
+              status: initial?.status ?? "todo",
+              priority: f.priority,
+              due_date: f.due ? new Date(f.due).toISOString() : null,
+              tags: [],
+            });
+            setOpen(false);
+            if (!initial) setF({ title: "", description: "", priority: "medium", due: "" });
           }}>{t("fin.save")}</Button>
         </DialogFooter>
       </DialogContent>
