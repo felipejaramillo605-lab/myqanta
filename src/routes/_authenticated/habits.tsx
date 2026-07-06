@@ -527,8 +527,8 @@ function HabitDatePicker({
   const [open, setOpen] = useState(false);
   const days = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
-    d.setUTCDate(d.getUTCDate() - i);
-    const iso = d.toISOString().slice(0, 10);
+    d.setDate(d.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const label = d.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" });
     return { iso, label };
   });
