@@ -20,6 +20,9 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Inicia sesión o crea tu cuenta en Qanta." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   component: AuthPage,
 });
 
@@ -30,11 +33,15 @@ function AuthPage() {
   const { t, lang, setLang } = useI18n();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard" });
-  }, [loading, user, navigate]);
+    if (!loading && user) {
+      if (next) window.location.replace(next);
+      else navigate({ to: "/dashboard" });
+    }
+  }, [loading, user, navigate, next]);
 
   const handleEmailAuth = async (mode: "signin" | "signup", form: FormData) => {
     setBusy(true);
@@ -47,7 +54,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: next ? window.location.origin + next : window.location.origin,
             data: { full_name },
           },
         });
@@ -74,7 +81,10 @@ function AuthPage() {
   const handleGoogle = async () => {
     setBusy(true);
     try {
-      const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      const redirect = next
+        ? `${window.location.origin}/auth?next=${encodeURIComponent(next)}`
+        : window.location.origin;
+      const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: redirect });
       if (res.error) toast.error(res.error.message);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
