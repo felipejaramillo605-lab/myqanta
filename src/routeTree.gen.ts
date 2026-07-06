@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminPlatformRouteImport } from './routes/_authenticated/admin.platform'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicHooksProcessRemindersRouteImport } from './routes/api/public/hooks/process-reminders'
 
 const McpRoute = McpRouteImport.update({
@@ -130,6 +131,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksProcessRemindersRoute =
   ApiPublicHooksProcessRemindersRouteImport.update({
     id: '/api/public/hooks/process-reminders',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/platform': typeof AuthenticatedAdminPlatformRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/reminders'
     | '/invite/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/platform'
     | '/admin/security-log'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/reminders'
     | '/invite/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/platform'
     | '/admin/security-log'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory'
     | '/_authenticated/reminders'
     | '/invite/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/platform'
     | '/_authenticated/admin/security-log'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksProcessRemindersRoute: typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-reminders': {
       id: '/api/public/hooks/process-reminders'
       path: '/api/public/hooks/process-reminders'
@@ -466,6 +486,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   InviteTokenRoute: InviteTokenRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksProcessRemindersRoute: ApiPublicHooksProcessRemindersRoute,
 }
