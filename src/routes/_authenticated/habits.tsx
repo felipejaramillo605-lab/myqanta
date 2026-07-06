@@ -27,6 +27,11 @@ import { Pencil } from "lucide-react";
 type Status = "todo" | "doing" | "done" | "archived";
 type Priority = "low" | "medium" | "high" | "urgent";
 
+// Fecha local en formato YYYY-MM-DD (evita el desfase de toISOString → UTC).
+function toLocalIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export const Route = createFileRoute("/_authenticated/habits")({
   head: () => ({ meta: [{ title: "Qanta — Productividad" }] }),
   loader: async ({ context }) => {
@@ -299,13 +304,13 @@ function HabitsPanel() {
   const streak = (set: Set<string>) => {
     let n = 0;
     const d = new Date();
-    while (set.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
+    while (set.has(toLocalIso(d))) { n++; d.setDate(d.getDate() - 1); }
     return n;
   };
 
   const last7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setUTCDate(d.getUTCDate() - (6 - i));
-    return d.toISOString().slice(0, 10);
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return toLocalIso(d);
   });
 
   return (
