@@ -140,8 +140,11 @@ export const toggleHabitToday = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const target = data.date ?? new Date().toISOString().slice(0, 10);
-    // Rechaza fechas futuras — no se puede marcar un hábito antes de tiempo.
-    if (target > new Date().toISOString().slice(0, 10)) {
+    // Rechaza fechas futuras — con 1 día de tolerancia para diferencias de
+    // zona horaria entre el navegador del usuario y UTC del servidor.
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    if (target > tomorrow.toISOString().slice(0, 10)) {
       throw new Error("No se puede marcar un hábito en el futuro");
     }
     const { data: existing } = await context.supabase
