@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
@@ -59,6 +60,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRemindersRoute = AuthenticatedRemindersRouteImport.update({
   id: '/reminders',
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/habits': typeof AuthenticatedHabitsRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/reminders': typeof AuthenticatedRemindersRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/habits': typeof AuthenticatedHabitsRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/reminders': typeof AuthenticatedRemindersRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/inventory'
     | '/reminders'
+    | '/team'
     | '/invite/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/inventory'
     | '/reminders'
+    | '/team'
     | '/invite/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/_authenticated/habits'
     | '/_authenticated/inventory'
     | '/_authenticated/reminders'
+    | '/_authenticated/team'
     | '/invite/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -338,6 +350,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reminders': {
       id: '/_authenticated/reminders'
@@ -454,6 +473,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAdminPlatformRoute: typeof AuthenticatedAdminPlatformRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
@@ -467,6 +487,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAdminPlatformRoute: AuthenticatedAdminPlatformRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
