@@ -1,0 +1,60 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { resolveActiveOrgId } from "./org-helpers";
+import { resolveOrgWithRole } from "./permissions";
+
+const CodeRe = /^[A-Za-z0-9_-]{2,32}$/;
+
+const MemberInput = z.object({
+  id: z.string().uuid().optional(),
+  code: z.string().regex(CodeRe, "Código: 2-32 caracteres alfanuméricos, _ o -"),
+  full_name: z.string().trim().min(1).max(120),
+  position: z.string().trim().max(120).nullable().optional(),
+  phone_e164: z.string().trim().max(32).nullable().optional(),
+  email: z.string().trim().email().max(255).nullable().optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  archived: z.boolean().optional(),
+});
+
+export const listTeamMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("team_members")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("full_name");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertTeamMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => MemberInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const payload = {
+      ...data,
+      org_id: orgId,
+      created_by: context.userId,
+    };
+    const { data: out, error } = await context.supabase
+      .from("team_members")
+      .upsert(payload)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteTeamMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { error } = await context.supabase.from("team_members").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
