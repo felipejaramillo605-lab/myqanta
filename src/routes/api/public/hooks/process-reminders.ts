@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeNextOccurrence } from "@/lib/reminders-recurrence";
+import { sendGmail } from "@/lib/gmail.server";
+import { sendWhatsapp } from "@/lib/whatsapp.server";
 
 // Called by pg_cron every minute (or on demand) to dispatch due WhatsApp
 // reminders. Public route — anon key acts as the shared secret and RLS is
@@ -39,11 +41,17 @@ export const Route = createFileRoute("/api/public/hooks/process-reminders")({
           });
         }
 
-        const { sendWhatsapp } = await import("@/lib/whatsapp.server");
         let sent = 0;
         let failed = 0;
         for (const r of due ?? []) {
-          const res = await sendWhatsapp(r.phone_e164, r.message, r.provider);
+          const channel = r.channel ?? "whatsapp";
+          const res = channel === "email"
+            ? (r.email
+                ? await sendGmail(r.email, r.title, r.message)
+                : { ok: false as const, error: "Sin correo de destino.", simulated: false, provider: "gmail" })
+            : (r.phone_e164
+                ? await sendWhatsapp(r.phone_e164, r.message, r.provider)
+                : { ok: false as const, error: "Sin teléfono de destino.", simulated: false, provider: r.provider });
           if (res.ok) {
             sent++;
             await supabase
@@ -72,7 +80,10 @@ export const Route = createFileRoute("/api/public/hooks/process-reminders")({
                   source_id: r.source_id,
                   title: r.title,
                   message: r.message,
+                  channel: r.channel,
                   phone_e164: r.phone_e164,
+                  email: r.email,
+                  team_member_id: r.team_member_id,
                   scheduled_at: next.toISOString(),
                   provider: r.provider,
                   recurrence: r.recurrence,
