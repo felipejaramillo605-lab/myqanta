@@ -231,7 +231,7 @@ export const listReminderSources = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const now = new Date().toISOString();
-    const [tasks, events, habits] = await Promise.all([
+    const [tasks, events, habits, team] = await Promise.all([
       context.supabase
         .from("tasks")
         .select("id,title,due_date")
@@ -256,10 +256,18 @@ export const listReminderSources = createServerFn({ method: "GET" })
         .eq("archived", false)
         .order("name")
         .limit(50),
+      context.supabase
+        .from("team_members")
+        .select("id,code,full_name,email,phone_e164,position")
+        .eq("org_id", orgId)
+        .eq("archived", false)
+        .order("full_name")
+        .limit(200),
     ]);
     return {
       tasks: tasks.data ?? [],
       events: events.data ?? [],
       habits: habits.data ?? [],
+      team: team.data ?? [],
     };
   });
