@@ -7,6 +7,21 @@ import { computeNextOccurrence } from "./reminders-recurrence";
 
 const SourceType = z.enum(["task", "habit", "event", "custom"]);
 const RecurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
+const ChannelEnum = z.enum(["whatsapp", "email"]);
+
+async function dispatch(
+  channel: string,
+  opts: { phone?: string | null; email?: string | null; title: string; message: string; provider?: string | null },
+) {
+  if (channel === "email") {
+    const { sendGmail } = await import("./gmail.server");
+    if (!opts.email) return { provider: "gmail", ok: false as const, simulated: false, error: "Sin correo de destino." };
+    return sendGmail(opts.email, opts.title, opts.message);
+  }
+  const { sendWhatsapp } = await import("./whatsapp.server");
+  if (!opts.phone) return { provider: opts.provider ?? "mock", ok: false as const, simulated: false, error: "Sin teléfono de destino." };
+  return sendWhatsapp(opts.phone, opts.message, opts.provider ?? undefined);
+}
 
 // ===== Settings =====
 export const getWhatsappSettings = createServerFn({ method: "GET" })
@@ -69,7 +84,10 @@ const CreateInput = z.object({
   source_id: z.string().uuid().nullable().optional(),
   title: z.string().min(1),
   message: z.string().min(1).max(1000),
-  phone_e164: z.string().min(6),
+  channel: ChannelEnum.default("whatsapp"),
+  phone_e164: z.string().min(6).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  team_member_id: z.string().uuid().nullable().optional(),
   scheduled_at: z.string(),
   recurrence: RecurrenceEnum.default("none"),
   recurrence_interval: z.number().int().min(1).max(365).default(1),
@@ -81,6 +99,8 @@ export const createReminder = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => CreateInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    if (data.channel === "email" && !data.email) throw new Error("Falta el correo de destino.");
+    if (data.channel === "whatsapp" && !data.phone_e164) throw new Error("Falta el número de WhatsApp.");
     const { data: settings } = await context.supabase
       .from("whatsapp_settings")
       .select("provider")
@@ -95,9 +115,12 @@ export const createReminder = createServerFn({ method: "POST" })
         source_id: data.source_id ?? null,
         title: data.title,
         message: data.message,
-        phone_e164: data.phone_e164,
+        channel: data.channel,
+        phone_e164: data.phone_e164 ?? null,
+        email: data.email ?? null,
+        team_member_id: data.team_member_id ?? null,
         scheduled_at: data.scheduled_at,
-        provider: settings?.provider ?? "mock",
+        provider: data.channel === "email" ? "gmail" : (settings?.provider ?? "mock"),
         recurrence: data.recurrence,
         recurrence_interval: data.recurrence_interval,
         recurrence_until: data.recurrence_until ?? null,
@@ -147,8 +170,13 @@ export const sendReminderNow = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!r) throw new Error("Reminder not found");
 
-    const { sendWhatsapp } = await import("./whatsapp.server");
-    const res = await sendWhatsapp(r.phone_e164, r.message, r.provider);
+    const res = await dispatch(r.channel ?? "whatsapp", {
+      phone: r.phone_e164,
+      email: r.email,
+      title: r.title,
+      message: r.message,
+      provider: r.provider,
+    });
     const patch = res.ok
       ? {
           status: "sent" as const,
@@ -181,7 +209,10 @@ export const sendReminderNow = createServerFn({ method: "POST" })
           source_id: r.source_id,
           title: r.title,
           message: r.message,
+          channel: r.channel,
           phone_e164: r.phone_e164,
+          email: r.email,
+          team_member_id: r.team_member_id,
           scheduled_at: next.toISOString(),
           provider: r.provider,
           recurrence: r.recurrence,
