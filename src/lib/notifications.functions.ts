@@ -4,7 +4,7 @@ import { resolveActiveOrgId } from "./org-helpers";
 
 export type Notification = {
   id: string;
-  kind: "low_stock" | "task_due" | "task_overdue" | "event_upcoming";
+  kind: "low_stock" | "task_due" | "task_overdue" | "event_upcoming" | "reminder_due" | "reminder_failed";
   title: string;
   detail?: string;
   href: string;
@@ -20,7 +20,7 @@ export const listNotifications = createServerFn({ method: "GET" })
     const today = now.toISOString().slice(0, 10);
     const in48h = new Date(now.getTime() + 48 * 3600 * 1000).toISOString();
 
-    const [lowStockRes, tasksRes, eventsRes] = await Promise.all([
+    const [lowStockRes, tasksRes, eventsRes, remindersRes] = await Promise.all([
       context.supabase
         .from("inv_products")
         .select("id,name,stock,min_stock,unit")
@@ -42,6 +42,15 @@ export const listNotifications = createServerFn({ method: "GET" })
         .gte("starts_at", now.toISOString())
         .lt("starts_at", in48h)
         .order("starts_at"),
+      context.supabase
+        .from("reminders")
+        .select("id,title,scheduled_at,status,channel,error")
+        .eq("org_id", orgId)
+        .eq("user_id", context.userId)
+        .in("status", ["pending", "failed"])
+        .lte("scheduled_at", in48h)
+        .order("scheduled_at")
+        .limit(50),
     ]);
 
     const notifs: Notification[] = [];
@@ -82,6 +91,21 @@ export const listNotifications = createServerFn({ method: "GET" })
         href: "/agenda",
         severity: "info",
         date: ev.starts_at,
+      });
+    }
+
+    for (const r of remindersRes.data ?? []) {
+      const failed = r.status === "failed";
+      notifs.push({
+        id: `reminder:${r.id}`,
+        kind: failed ? "reminder_failed" : "reminder_due",
+        title: r.title,
+        detail: [
+          failed ? `Falló: ${r.error ?? "error"}` : `${r.channel === "email" ? "Email" : "WhatsApp"} · ${new Date(r.scheduled_at).toLocaleString()}`,
+        ].join(" "),
+        href: "/reminders",
+        severity: failed ? "danger" : "info",
+        date: r.scheduled_at,
       });
     }
 

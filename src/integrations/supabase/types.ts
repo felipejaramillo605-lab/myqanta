@@ -782,14 +782,16 @@ export type Database = {
       reminders: {
         Row: {
           attempts: number
+          channel: string
           created_at: string
+          email: string | null
           error: string | null
           id: string
           message: string
           meta: Json
           org_id: string
           parent_reminder_id: string | null
-          phone_e164: string
+          phone_e164: string | null
           provider: string
           provider_message_id: string | null
           recurrence: Database["public"]["Enums"]["reminder_recurrence"]
@@ -800,20 +802,23 @@ export type Database = {
           source_id: string | null
           source_type: Database["public"]["Enums"]["reminder_source"]
           status: Database["public"]["Enums"]["reminder_status"]
+          team_member_id: string | null
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
           attempts?: number
+          channel?: string
           created_at?: string
+          email?: string | null
           error?: string | null
           id?: string
           message: string
           meta?: Json
           org_id: string
           parent_reminder_id?: string | null
-          phone_e164: string
+          phone_e164?: string | null
           provider?: string
           provider_message_id?: string | null
           recurrence?: Database["public"]["Enums"]["reminder_recurrence"]
@@ -824,20 +829,23 @@ export type Database = {
           source_id?: string | null
           source_type?: Database["public"]["Enums"]["reminder_source"]
           status?: Database["public"]["Enums"]["reminder_status"]
+          team_member_id?: string | null
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
           attempts?: number
+          channel?: string
           created_at?: string
+          email?: string | null
           error?: string | null
           id?: string
           message?: string
           meta?: Json
           org_id?: string
           parent_reminder_id?: string | null
-          phone_e164?: string
+          phone_e164?: string | null
           provider?: string
           provider_message_id?: string | null
           recurrence?: Database["public"]["Enums"]["reminder_recurrence"]
@@ -848,6 +856,7 @@ export type Database = {
           source_id?: string | null
           source_type?: Database["public"]["Enums"]["reminder_source"]
           status?: Database["public"]["Enums"]["reminder_status"]
+          team_member_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -865,6 +874,13 @@ export type Database = {
             columns: ["parent_reminder_id"]
             isOneToOne: false
             referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -1021,6 +1037,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tasks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          archived: boolean
+          code: string
+          created_at: string
+          created_by: string
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          org_id: string
+          phone_e164: string | null
+          position: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          code: string
+          created_at?: string
+          created_by: string
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          phone_e164?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          phone_e164?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"

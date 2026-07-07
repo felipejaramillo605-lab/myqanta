@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { MessageCircle, Send, Trash2, XCircle, Plus, Phone } from "lucide-react";
+import { MessageCircle, Send, Trash2, XCircle, Plus, Phone, Mail } from "lucide-react";
 
 import {
   cancelReminder,
@@ -45,6 +45,7 @@ export const Route = createFileRoute("/_authenticated/reminders")({
 });
 
 type SourceKind = "custom" | "task" | "habit" | "event";
+type Channel = "whatsapp" | "email";
 
 function RemindersPage() {
   const qc = useQueryClient();
@@ -81,6 +82,10 @@ function RemindersPage() {
   // Create form state
   const [kind, setKind] = useState<SourceKind>("custom");
   const [sourceId, setSourceId] = useState<string>("");
+  const [channel, setChannel] = useState<Channel>("email");
+  const [teamMemberId, setTeamMemberId] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phoneOverride, setPhoneOverride] = useState<string>("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const nowLocal = useMemo(() => {
@@ -96,6 +101,15 @@ function RemindersPage() {
   function onKindChange(next: SourceKind) {
     setKind(next);
     setSourceId("");
+  }
+
+  function onTeamChange(id: string) {
+    setTeamMemberId(id);
+    const m = sources?.team.find((x) => x.id === id);
+    if (m) {
+      setEmail(m.email ?? "");
+      setPhoneOverride(m.phone_e164 ?? "");
+    }
   }
 
   function onSourceIdChange(id: string) {
@@ -130,16 +144,19 @@ function RemindersPage() {
 
   const createMutation = useMutation({
     mutationFn: () => {
-      const targetPhone = phone.trim();
-      if (!targetPhone) throw new Error("Configura tu número de WhatsApp primero");
       if (!title.trim() || !message.trim() || !when) throw new Error("Completa todos los campos");
+      if (channel === "email" && !email.trim()) throw new Error("Elige un miembro con correo o escribe uno.");
+      if (channel === "whatsapp" && !phoneOverride.trim() && !phone.trim()) throw new Error("Configura un número de WhatsApp.");
       return createFn({
         data: {
           source_type: kind,
           source_id: sourceId || null,
           title: title.trim(),
           message: message.trim(),
-          phone_e164: targetPhone,
+          channel,
+          phone_e164: channel === "whatsapp" ? (phoneOverride.trim() || phone.trim()) : null,
+          email: channel === "email" ? email.trim() : null,
+          team_member_id: teamMemberId || null,
           scheduled_at: new Date(when).toISOString(),
           recurrence,
           recurrence_interval: recurrenceInterval,
@@ -152,6 +169,9 @@ function RemindersPage() {
       setTitle("");
       setMessage("");
       setSourceId("");
+      setTeamMemberId("");
+      setEmail("");
+      setPhoneOverride("");
       setRecurrence("none");
       setRecurrenceInterval(1);
       setRecurrenceUntil("");
@@ -225,6 +245,41 @@ function RemindersPage() {
           <Plus className="size-4" /> Nuevo recordatorio
         </h2>
         <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <Label className="text-xs">Canal</Label>
+            <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="email"><span className="inline-flex items-center gap-2"><Mail className="size-3" /> Email (Gmail)</span></SelectItem>
+                <SelectItem value="whatsapp"><span className="inline-flex items-center gap-2"><MessageCircle className="size-3" /> WhatsApp</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Miembro del equipo</Label>
+            <Select value={teamMemberId} onValueChange={onTeamChange}>
+              <SelectTrigger><SelectValue placeholder="— Sin asignar —" /></SelectTrigger>
+              <SelectContent>
+                {sources?.team.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.full_name} {m.position ? `· ${m.position}` : ""} ({m.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[10px] text-muted-foreground">El destinatario se autocompleta desde el directorio.</p>
+          </div>
+          {channel === "email" ? (
+            <div className="md:col-span-2">
+              <Label className="text-xs">Correo destino</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@empresa.com" />
+            </div>
+          ) : (
+            <div className="md:col-span-2">
+              <Label className="text-xs">Teléfono destino (opcional; usa tu número por defecto si vacío)</Label>
+              <Input value={phoneOverride} onChange={(e) => setPhoneOverride(e.target.value)} placeholder="+34612345678" />
+            </div>
+          )}
           <div>
             <Label className="text-xs">Origen</Label>
             <Select value={kind} onValueChange={(v) => onKindChange(v as SourceKind)}>
@@ -308,7 +363,7 @@ function RemindersPage() {
         </div>
         <div className="mt-4 flex justify-end">
           <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
-            <MessageCircle className="size-4" /> Programar
+            {channel === "email" ? <Mail className="size-4" /> : <MessageCircle className="size-4" />} Programar
           </Button>
         </div>
       </section>
@@ -342,7 +397,8 @@ function RemindersPage() {
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.message}</p>
                   <div className="mt-1 flex flex-wrap gap-3 font-mono text-[10px] text-muted-foreground">
-                    <span>→ {r.phone_e164}</span>
+                    <span>{r.channel === "email" ? "✉" : "→"} {r.channel === "email" ? r.email : r.phone_e164}</span>
+                    <Badge variant="outline" className="text-[10px] uppercase">{r.channel ?? "whatsapp"}</Badge>
                     <span>⏱ {new Date(r.scheduled_at).toLocaleString()}</span>
                     {r.sent_at && <span>✓ {new Date(r.sent_at).toLocaleString()}</span>}
                     {r.error && <span className="text-destructive">✗ {r.error}</span>}

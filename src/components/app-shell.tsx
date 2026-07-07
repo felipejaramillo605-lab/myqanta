@@ -34,6 +34,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/habits", key: "nav.productivity", icon: Repeat },
   { to: "/agenda", key: "nav.agenda", icon: Calendar },
   { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
+  { to: "/team", key: "nav.team", icon: Users },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

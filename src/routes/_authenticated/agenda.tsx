@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, Bell } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { deleteEvent, listEvents, upsertEvent } from "@/lib/productivity.functions";
 import { useI18n } from "@/lib/i18n";
@@ -77,7 +78,24 @@ function Agenda() {
                   </div>
                   {e.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{e.description}</p>}
                 </div>
-                {canWrite && <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: e.id } }).then(refresh)}><Trash2 className="size-4" /></Button>}
+                <Link
+                  to={"/reminders" as never}
+                  aria-label="Crear recordatorio"
+                  title="Crear recordatorio"
+                  className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+                >
+                  <Bell className="size-4" />
+                </Link>
+                {canWrite && (
+                  <>
+                    <EventDialog
+                      initial={e}
+                      trigger={<Button variant="ghost" size="icon"><Pencil className="size-4" /></Button>}
+                      onSubmit={(v) => upsertFn({ data: { ...v, id: e.id } }).then(() => { refresh(); toast.success("✓"); }).catch((err: Error) => toast.error(err.message))}
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: e.id } }).then(refresh)}><Trash2 className="size-4" /></Button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -101,19 +119,50 @@ function Agenda() {
   );
 }
 
-function EventDialog({ onSubmit }: { onSubmit: (v: { title: string; description?: string | null; location?: string | null; starts_at: string; ends_at: string; all_day: boolean }) => void }) {
+type EventInitial = {
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+};
+
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 16);
+}
+
+function EventDialog({
+  onSubmit,
+  initial,
+  trigger,
+}: {
+  onSubmit: (v: { title: string; description?: string | null; location?: string | null; starts_at: string; ends_at: string; all_day: boolean }) => void;
+  initial?: EventInitial;
+  trigger?: React.ReactNode;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const today = new Date();
   const def = today.toISOString().slice(0, 16);
   const defEnd = new Date(today.getTime() + 3600_000).toISOString().slice(0, 16);
-  const [f, setF] = useState({ title: "", description: "", location: "", starts: def, ends: defEnd, allDay: false });
+  const [f, setF] = useState({
+    title: initial?.title ?? "",
+    description: initial?.description ?? "",
+    location: initial?.location ?? "",
+    starts: initial ? toLocalInput(initial.starts_at) : def,
+    ends: initial ? toLocalInput(initial.ends_at) : defEnd,
+    allDay: initial?.all_day ?? false,
+  });
+  const isEdit = !!initial;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="size-4" />{t("ag.add")}</Button></DialogTrigger>
+      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4" />{t("ag.add")}</Button>}</DialogTrigger>
       <DialogContent className="glass">
-        <DialogHeader><DialogTitle>{t("ag.add")}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? "Editar evento" : t("ag.add")}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div>
             <Label className="text-xs font-medium">{t("ag.field.title")}</Label>
