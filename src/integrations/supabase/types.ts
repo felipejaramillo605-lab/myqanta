@@ -599,6 +599,30 @@ export type Database = {
           },
         ]
       }
+      ip_watchlist: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          id: string
+          ip_hash: string
+          reason: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          ip_hash: string
+          reason?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          ip_hash?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       organization_invites: {
         Row: {
           accepted_at: string | null
@@ -884,6 +908,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      request_metrics: {
+        Row: {
+          country: string | null
+          duration_ms: number
+          email: string | null
+          id: string
+          ip_hash: string | null
+          method: string
+          occurred_at: string
+          path: string
+          status: number
+          ua_hash: string | null
+          user_id: string | null
+        }
+        Insert: {
+          country?: string | null
+          duration_ms?: number
+          email?: string | null
+          id?: string
+          ip_hash?: string | null
+          method?: string
+          occurred_at?: string
+          path: string
+          status?: number
+          ua_hash?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          country?: string | null
+          duration_ms?: number
+          email?: string | null
+          id?: string
+          ip_hash?: string | null
+          method?: string
+          occurred_at?: string
+          path?: string
+          status?: number
+          ua_hash?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       scan_batches: {
         Row: {
@@ -1222,6 +1288,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      detect_and_log_suspicious: { Args: never; Returns: undefined }
       get_active_org: { Args: { _user_id: string }; Returns: string }
       has_org_role: {
         Args: {
@@ -1266,6 +1333,10 @@ export type Database = {
           role: Database["public"]["Enums"]["org_role"]
         }[]
       }
+      platform_add_watch: {
+        Args: { _ip_hash: string; _reason?: string }
+        Returns: undefined
+      }
       platform_list_users: {
         Args: never
         Returns: {
@@ -1280,10 +1351,52 @@ export type Database = {
           org_count: number
         }[]
       }
+      platform_remove_watch: { Args: { _ip_hash: string }; Returns: undefined }
       platform_set_blocked: {
         Args: { _blocked: boolean; _reason: string; _user_id: string }
         Returns: undefined
       }
+      platform_suspicious: {
+        Args: { _hours?: number }
+        Returns: {
+          detail: Json
+          kind: string
+          score: number
+          subject: string
+        }[]
+      }
+      platform_top_ips: {
+        Args: { _hours?: number; _limit?: number }
+        Returns: {
+          errors: number
+          ip_hash: string
+          last_seen: string
+          requests: number
+          unique_users: number
+          watched: boolean
+        }[]
+      }
+      platform_top_users: {
+        Args: { _hours?: number; _limit?: number }
+        Returns: {
+          avg_ms: number
+          email: string
+          errors: number
+          last_seen: string
+          requests: number
+          user_id: string
+        }[]
+      }
+      platform_traffic_series: {
+        Args: { _hours?: number }
+        Returns: {
+          bucket: string
+          errors: number
+          requests: number
+        }[]
+      }
+      platform_traffic_summary: { Args: { _hours?: number }; Returns: Json }
+      purge_old_request_metrics: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "user" | "admin_manager" | "platform_owner"
