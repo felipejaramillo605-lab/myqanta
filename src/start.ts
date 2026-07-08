@@ -22,7 +22,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // Client-side fire-and-forget: after every server function call, log a
 // lightweight metric so the platform owner can see traffic per user & detect
 // abuse. The endpoint is public but idempotent — failures are swallowed.
-const logRequestMiddleware = createMiddleware({ type: "function" }).client(async ({ next, functionId }) => {
+const logRequestMiddleware = createMiddleware({ type: "function" }).client(async (opts) => {
+  const { next } = opts;
+  const functionId = (opts as unknown as { functionId?: string }).functionId;
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   let status = 200;
   try {
