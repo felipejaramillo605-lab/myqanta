@@ -54,7 +54,7 @@ export const getSuspicious = createServerFn({ method: "GET" })
     await assertPlatformOwner(context.supabase, context.userId);
     const { data: r, error } = await (context.supabase.rpc as any)("platform_suspicious", { _hours: data.hours });
     if (error) throw new Error(error.message);
-    return (r ?? []) as Array<{ kind: string; subject: string; score: number; detail: Record<string, unknown> }>;
+    return (r ?? []) as Array<{ kind: string; subject: string; score: number; detail: any }>;
   });
 
 export const addWatch = createServerFn({ method: "POST" })
