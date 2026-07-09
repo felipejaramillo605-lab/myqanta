@@ -90,8 +90,8 @@ Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
 
 ## Orden sugerido
 
-1. **A1+A2+A3** (una entrega): consola de seguridad completa — resuelve tu petición explícita.
-2. **B2 Ventas** — cierra el loop financiero (lo más pedido en ERP personal/empresa).
+1. **A1+A2+A3** ✅ entregado — consola `/admin/security` con métricas, sospechosos, watchlist.
+2. **B2 Ventas** ✅ entregado — `/sales` con clientes, facturas (borrador → emitida → pagada/anulada), líneas con producto/IVA, cobros que crean transacción en Finanzas, descarga PDF y descuento automático de stock.
 3. **B1 CRM** — alimenta Ventas.
 4. **B3 Proyectos** — extiende productividad existente.
 5. **B5 Documentos** — base para B4 y B6.
