@@ -185,9 +185,9 @@ export const issueInvoice = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const invoice = inv as { status: string; number: number | null };
     if (invoice.status !== "draft") throw new Error("Solo facturas en borrador se pueden emitir");
-    const { data: numRes, error: numErr } = await (context.supabase.rpc as never)(
-      "next_invoice_number", { _org_id: orgId },
-    );
+    const { data: numRes, error: numErr } = await (context.supabase as unknown as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }).rpc("next_invoice_number", { _org_id: orgId });
     if (numErr) throw new Error((numErr as { message: string }).message);
     const number = numRes as unknown as number;
 
@@ -323,7 +323,7 @@ export const deletePayment = createServerFn({ method: "POST" })
     await context.supabase.from("sales_payments" as never).delete().eq("id", data.id);
     const { data: inv } = await context.supabase
       .from("sales_invoices" as never).select("paid_amount, total, status").eq("id", p.invoice_id).single();
-    const invoice = inv as { paid_amount: number; total: number; status: string };
+    const invoice = inv as unknown as { paid_amount: number; total: number; status: string };
     const newPaid = Math.max(0, Number(invoice.paid_amount) - Number(p.amount));
     const newStatus = invoice.status === "void" ? "void"
       : (newPaid + 0.005 >= Number(invoice.total) ? "paid" : "issued");
