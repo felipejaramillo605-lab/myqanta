@@ -46,6 +46,19 @@ export const listTransactions = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const listAccounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("finance_accounts")
+      .select("id, name, currency, kind")
+      .eq("org_id", orgId)
+      .order("name");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
 export const getKpis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
