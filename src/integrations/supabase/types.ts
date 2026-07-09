@@ -951,6 +951,272 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_customers: {
+        Row: {
+          address: string | null
+          archived: boolean
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          org_id: string
+          phone: string | null
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          archived?: boolean
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          phone?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          archived?: boolean
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          phone?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_customers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoice_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          org_id: string
+          position: number
+          product_id: string | null
+          quantity: number
+          subtotal: number
+          tax_rate: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          org_id: string
+          position?: number
+          product_id?: string | null
+          quantity?: number
+          subtotal?: number
+          tax_rate?: number
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          org_id?: string
+          position?: number
+          product_id?: string | null
+          quantity?: number
+          subtotal?: number
+          tax_rate?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inv_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoices: {
+        Row: {
+          created_at: string
+          created_by: string
+          currency: string
+          customer_id: string | null
+          customer_name_snapshot: string | null
+          due_date: string | null
+          id: string
+          issue_date: string
+          issued_at: string | null
+          notes: string | null
+          number: number | null
+          org_id: string
+          paid_amount: number
+          status: string
+          subtotal: number
+          tax_amount: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          currency?: string
+          customer_id?: string | null
+          customer_name_snapshot?: string | null
+          due_date?: string | null
+          id?: string
+          issue_date?: string
+          issued_at?: string | null
+          notes?: string | null
+          number?: number | null
+          org_id: string
+          paid_amount?: number
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          currency?: string
+          customer_id?: string | null
+          customer_name_snapshot?: string | null
+          due_date?: string | null
+          id?: string
+          issue_date?: string
+          issued_at?: string | null
+          notes?: string | null
+          number?: number | null
+          org_id?: string
+          paid_amount?: number
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "sales_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_payments: {
+        Row: {
+          account_id: string | null
+          amount: number
+          created_at: string
+          created_by: string
+          finance_transaction_id: string | null
+          id: string
+          invoice_id: string
+          method: string
+          notes: string | null
+          org_id: string
+          paid_on: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          created_at?: string
+          created_by: string
+          finance_transaction_id?: string | null
+          id?: string
+          invoice_id: string
+          method?: string
+          notes?: string | null
+          org_id: string
+          paid_on?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          created_at?: string
+          created_by?: string
+          finance_transaction_id?: string | null
+          id?: string
+          invoice_id?: string
+          method?: string
+          notes?: string | null
+          org_id?: string
+          paid_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_payments_finance_transaction_id_fkey"
+            columns: ["finance_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "finance_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_batches: {
         Row: {
           affected: Json
@@ -1333,6 +1599,7 @@ export type Database = {
           role: Database["public"]["Enums"]["org_role"]
         }[]
       }
+      next_invoice_number: { Args: { _org_id: string }; Returns: number }
       platform_add_watch: {
         Args: { _ip_hash: string; _reason?: string }
         Returns: undefined
