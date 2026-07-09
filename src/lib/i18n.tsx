@@ -384,6 +384,7 @@ const dict = {
     "nav.dashboard": "Dashboard",
     "nav.finance": "Finance",
     "nav.inventory": "Purchases",
+    "nav.sales": "Sales",
     "nav.productivity": "Habits",
     "nav.agenda": "Agenda",
     "nav.reminders": "Reminders",
