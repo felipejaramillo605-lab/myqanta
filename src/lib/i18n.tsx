@@ -10,6 +10,7 @@ const dict = {
     "nav.finance": "Finanzas",
     "nav.inventory": "Compras",
     "nav.sales": "Ventas",
+    "nav.crm": "CRM",
     "nav.productivity": "Hábitos",
     "nav.agenda": "Agenda",
     "nav.reminders": "Recordatorios",
