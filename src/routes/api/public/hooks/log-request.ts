@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 const IP_SALT = process.env.APP_METRICS_SALT ?? "qanta-metrics-salt-v1";
