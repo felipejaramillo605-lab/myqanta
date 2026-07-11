@@ -12,8 +12,12 @@ export const Route = createFileRoute("/api/public/hooks/process-reminders")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = request.headers.get("apikey");
-        if (!apiKey || apiKey !== process.env.SUPABASE_PUBLISHABLE_KEY) {
+        // Authenticate the caller with a dedicated non-public CRON_SECRET.
+        // The old apikey/publishable-key check was insecure because the same
+        // value is shipped to every browser as VITE_SUPABASE_PUBLISHABLE_KEY.
+        const cronSecret = process.env.CRON_SECRET;
+        const provided = request.headers.get("x-cron-secret");
+        if (!cronSecret || !provided || provided !== cronSecret) {
           return new Response(JSON.stringify({ error: "unauthorized" }), {
             status: 401,
             headers: { "content-type": "application/json" },
