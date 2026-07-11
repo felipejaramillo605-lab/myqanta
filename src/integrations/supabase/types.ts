@@ -1001,6 +1001,123 @@ export type Database = {
           },
         ]
       }
+      project_members: {
+        Row: {
+          created_at: string
+          hourly_rate: number | null
+          id: string
+          org_id: string
+          project_id: string
+          role: Database["public"]["Enums"]["project_member_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hourly_rate?: number | null
+          id?: string
+          org_id: string
+          project_id: string
+          role?: Database["public"]["Enums"]["project_member_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hourly_rate?: number | null
+          id?: string
+          org_id?: string
+          project_id?: string
+          role?: Database["public"]["Enums"]["project_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          budget_amount: number | null
+          client_name: string | null
+          code: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          org_id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["project_status"]
+          updated_at: string
+        }
+        Insert: {
+          budget_amount?: number | null
+          client_name?: string | null
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_id?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          org_id: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          updated_at?: string
+        }
+        Update: {
+          budget_amount?: number | null
+          client_name?: string | null
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_id?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "sales_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           attempts: number
@@ -1530,6 +1647,7 @@ export type Database = {
           id: string
           org_id: string
           priority: Database["public"]["Enums"]["task_priority"]
+          project_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           tags: string[] | null
           title: string
@@ -1544,6 +1662,7 @@ export type Database = {
           id?: string
           org_id: string
           priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: string[] | null
           title: string
@@ -1558,6 +1677,7 @@ export type Database = {
           id?: string
           org_id?: string
           priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: string[] | null
           title?: string
@@ -1570,6 +1690,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1689,6 +1816,70 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      time_entries: {
+        Row: {
+          billable: boolean
+          created_at: string
+          entry_date: string
+          hours: number
+          id: string
+          note: string | null
+          org_id: string
+          project_id: string
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billable?: boolean
+          created_at?: string
+          entry_date?: string
+          hours: number
+          id?: string
+          note?: string | null
+          org_id: string
+          project_id: string
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billable?: boolean
+          created_at?: string
+          entry_date?: string
+          hours?: number
+          id?: string
+          note?: string | null
+          org_id?: string
+          project_id?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1886,6 +2077,8 @@ export type Database = {
       inv_movement_kind: "purchase" | "sale" | "adjustment" | "transfer"
       inv_party_kind: "supplier" | "customer"
       org_role: "owner" | "admin" | "member" | "viewer"
+      project_member_role: "lead" | "member" | "viewer"
+      project_status: "active" | "paused" | "completed" | "cancelled"
       reminder_recurrence: "none" | "daily" | "weekly" | "monthly"
       reminder_source: "task" | "habit" | "event" | "custom"
       reminder_status: "pending" | "sent" | "failed" | "cancelled"
@@ -2042,6 +2235,8 @@ export const Constants = {
       inv_movement_kind: ["purchase", "sale", "adjustment", "transfer"],
       inv_party_kind: ["supplier", "customer"],
       org_role: ["owner", "admin", "member", "viewer"],
+      project_member_role: ["lead", "member", "viewer"],
+      project_status: ["active", "paused", "completed", "cancelled"],
       reminder_recurrence: ["none", "daily", "weekly", "monthly"],
       reminder_source: ["task", "habit", "event", "custom"],
       reminder_status: ["pending", "sent", "failed", "cancelled"],
