@@ -92,8 +92,8 @@ Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
 
 1. **A1+A2+A3** ✅ entregado — consola `/admin/security` con métricas, sospechosos, watchlist.
 2. **B2 Ventas** ✅ entregado — `/sales` con clientes, facturas (borrador → emitida → pagada/anulada), líneas con producto/IVA, cobros que crean transacción en Finanzas, descarga PDF y descuento automático de stock.
-3. **B1 CRM** — alimenta Ventas.
-4. **B3 Proyectos** — extiende productividad existente.
+3. **B1 CRM** ✅ entregado — `/crm` con kanban de pipeline, contactos y actividades.
+4. **B3 Proyectos** ✅ entregado — `/projects` con CRUD de proyectos, estados, presupuesto y timesheet por proyecto.
 5. **B5 Documentos** — base para B4 y B6.
 6. **B4 RRHH** y **B6 Reportería** — cierre.
 7. **B7** transversal.
