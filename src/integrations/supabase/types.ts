@@ -212,6 +212,62 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          mime_type: string | null
+          name: string
+          org_id: string
+          size_bytes: number
+          storage_path: string
+          tags: string[]
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          org_id: string
+          size_bytes?: number
+          storage_path: string
+          tags?: string[]
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          org_id?: string
+          size_bytes?: number
+          storage_path?: string
+          tags?: string[]
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           all_day: boolean
@@ -542,6 +598,128 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "habits_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_leaves: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          days: number
+          end_date: string
+          id: string
+          kind: string
+          member_id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          days?: number
+          end_date: string
+          id?: string
+          kind?: string
+          member_id: string
+          org_id: string
+          reason?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          days?: number
+          end_date?: string
+          id?: string
+          kind?: string
+          member_id?: string
+          org_id?: string
+          reason?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_leaves_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leaves_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_runs: {
+        Row: {
+          created_at: string
+          created_by: string
+          details: Json
+          finance_txn_id: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          period_month: number
+          period_year: number
+          status: string
+          total_gross: number
+          total_net: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          details?: Json
+          finance_txn_id?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          period_month: number
+          period_year: number
+          status?: string
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          details?: Json
+          finance_txn_id?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          period_month?: number
+          period_year?: number
+          status?: string
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_runs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1705,44 +1883,56 @@ export type Database = {
         Row: {
           archived: boolean
           code: string
+          contract_type: string | null
           created_at: string
           created_by: string
           email: string | null
           full_name: string
+          hire_date: string | null
           id: string
           notes: string | null
           org_id: string
           phone_e164: string | null
           position: string | null
+          salary_base: number | null
           updated_at: string
+          vacation_days_available: number | null
         }
         Insert: {
           archived?: boolean
           code: string
+          contract_type?: string | null
           created_at?: string
           created_by: string
           email?: string | null
           full_name: string
+          hire_date?: string | null
           id?: string
           notes?: string | null
           org_id: string
           phone_e164?: string | null
           position?: string | null
+          salary_base?: number | null
           updated_at?: string
+          vacation_days_available?: number | null
         }
         Update: {
           archived?: boolean
           code?: string
+          contract_type?: string | null
           created_at?: string
           created_by?: string
           email?: string | null
           full_name?: string
+          hire_date?: string | null
           id?: string
           notes?: string | null
           org_id?: string
           phone_e164?: string | null
           position?: string | null
+          salary_base?: number | null
           updated_at?: string
+          vacation_days_available?: number | null
         }
         Relationships: [
           {
