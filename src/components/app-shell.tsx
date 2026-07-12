@@ -20,6 +20,8 @@ import {
   MessageCircle,
   Receipt,
   Contact2,
+  UserCog,
+  FolderOpen,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
@@ -36,6 +38,8 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/sales", key: "nav.sales", icon: Receipt },
   { to: "/crm", key: "nav.crm", icon: Contact2 },
   { to: "/projects", key: "nav.projects", icon: Briefcase },
+  { to: "/hr", key: "nav.hr", icon: UserCog },
+  { to: "/documents", key: "nav.documents", icon: FolderOpen },
   { to: "/habits", key: "nav.productivity", icon: Repeat },
   { to: "/agenda", key: "nav.agenda", icon: Calendar },
   { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
