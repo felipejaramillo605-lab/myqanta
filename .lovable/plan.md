@@ -94,9 +94,10 @@ Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
 2. **B2 Ventas** ✅ entregado — `/sales` con clientes, facturas (borrador → emitida → pagada/anulada), líneas con producto/IVA, cobros que crean transacción en Finanzas, descarga PDF y descuento automático de stock.
 3. **B1 CRM** ✅ entregado — `/crm` con kanban de pipeline, contactos y actividades.
 4. **B3 Proyectos** ✅ entregado — `/projects` con CRUD de proyectos, estados, presupuesto y timesheet por proyecto.
-5. **B5 Documentos** — base para B4 y B6.
-6. **B4 RRHH** y **B6 Reportería** — cierre.
-7. **B7** transversal.
+5. **B4 RRHH** ✅ entregado — `/hr` con fichas de contrato, ausencias con aprobación y generador mensual de nómina que crea gasto en Finanzas al cerrarse.
+6. **B5 Documentos** ✅ entregado — `/documents` con bucket privado, subida drag&drop mediante URL firmada y descarga con URL firmada de 10 min.
+7. **B6 Reportería** — pendiente.
+8. **B7 Configuración de empresa** — pendiente.
 
 ---
 
