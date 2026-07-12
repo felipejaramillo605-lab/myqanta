@@ -1,0 +1,256 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { resolveActiveOrgId } from "./org-helpers";
+import { resolveOrgWithRole } from "./permissions";
+
+export const LEAVE_KINDS = ["vacation", "sick", "permission", "unpaid"] as const;
+export const LEAVE_STATUSES = ["pending", "approved", "rejected"] as const;
+export type LeaveKind = (typeof LEAVE_KINDS)[number];
+export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
+
+export type LeaveRow = {
+  id: string;
+  org_id: string;
+  member_id: string;
+  kind: LeaveKind;
+  start_date: string;
+  end_date: string;
+  days: number;
+  status: LeaveStatus;
+  reason: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type PayrollRow = {
+  id: string;
+  org_id: string;
+  period_year: number;
+  period_month: number;
+  status: "draft" | "finalized";
+  total_gross: number;
+  total_net: number;
+  notes: string | null;
+  details: Array<{ member_id: string; full_name: string; gross: number; net: number }>;
+  finance_txn_id: string | null;
+  created_at: string;
+};
+
+const LeaveInput = z.object({
+  id: z.string().uuid().optional(),
+  member_id: z.string().uuid(),
+  kind: z.enum(LEAVE_KINDS).default("vacation"),
+  start_date: z.string().min(8),
+  end_date: z.string().min(8),
+  days: z.number().nonnegative().max(366).default(0),
+  status: z.enum(LEAVE_STATUSES).default("pending"),
+  reason: z.string().trim().max(500).nullable().optional(),
+});
+
+export const listLeaves = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("hr_leaves" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .order("start_date", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as LeaveRow[];
+  });
+
+export const upsertLeave = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => LeaveInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const days = data.days > 0
+      ? data.days
+      : Math.max(
+          1,
+          Math.round(
+            (Date.parse(data.end_date) - Date.parse(data.start_date)) / 86400000,
+          ) + 1,
+        );
+    const payload: Record<string, unknown> = {
+      ...data,
+      days,
+      reason: data.reason ?? null,
+      org_id: orgId,
+      created_by: context.userId,
+    };
+    if (data.status === "approved") {
+      payload.approved_by = context.userId;
+      payload.approved_at = new Date().toISOString();
+    }
+    const { data: out, error } = await context.supabase
+      .from("hr_leaves" as never)
+      .upsert(payload as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteLeave = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { error } = await context.supabase.from("hr_leaves" as never).delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ==== Payroll ====
+const PayrollInput = z.object({
+  period_year: z.number().int().min(2000).max(2100),
+  period_month: z.number().int().min(1).max(12),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
+export const listPayrollRuns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("hr_payroll_runs" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .order("period_year", { ascending: false })
+      .order("period_month", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as PayrollRow[];
+  });
+
+// Generate a monthly payroll run from team_members.salary_base and optionally
+// post a single aggregated expense transaction to Finance.
+export const generatePayrollRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PayrollInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const { data: members, error: mErr } = await context.supabase
+      .from("team_members")
+      .select("id, full_name, salary_base, archived")
+      .eq("org_id", orgId);
+    if (mErr) throw new Error(mErr.message);
+    const active = (members ?? []).filter((m: any) => !m.archived && Number(m.salary_base) > 0);
+    const details = active.map((m: any) => {
+      const gross = Number(m.salary_base) || 0;
+      // Simple flat retention estimate (client can tune later)
+      const net = Math.round(gross * 0.78 * 100) / 100;
+      return { member_id: m.id, full_name: m.full_name, gross, net };
+    });
+    const total_gross = details.reduce((s, d) => s + d.gross, 0);
+    const total_net = details.reduce((s, d) => s + d.net, 0);
+    const payload = {
+      org_id: orgId,
+      period_year: data.period_year,
+      period_month: data.period_month,
+      status: "draft",
+      total_gross,
+      total_net,
+      details,
+      notes: data.notes ?? null,
+      created_by: context.userId,
+    };
+    const { data: out, error } = await context.supabase
+      .from("hr_payroll_runs" as never)
+      .upsert(payload as never, { onConflict: "org_id,period_year,period_month" } as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const finalizePayrollRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const { data: run, error: rErr } = await context.supabase
+      .from("hr_payroll_runs" as never)
+      .select("*")
+      .eq("id", data.id)
+      .eq("org_id", orgId)
+      .single();
+    if (rErr || !run) throw new Error(rErr?.message ?? "Nómina no encontrada");
+    const r = run as unknown as PayrollRow;
+    if (r.status === "finalized") return r;
+    // Post an aggregated expense to finance_transactions (opex).
+    const txnDate = new Date(r.period_year, r.period_month - 1, 28).toISOString().slice(0, 10);
+    const { data: txn, error: tErr } = await context.supabase
+      .from("finance_transactions" as never)
+      .insert({
+        org_id: orgId,
+        occurred_at: txnDate,
+        description: `Nómina ${r.period_year}-${String(r.period_month).padStart(2, "0")}`,
+        bucket: "opex",
+        amount: r.total_gross,
+        created_by: context.userId,
+      } as never)
+      .select("id")
+      .single();
+    if (tErr) throw new Error(tErr.message);
+    const { data: updated, error: uErr } = await context.supabase
+      .from("hr_payroll_runs" as never)
+      .update({ status: "finalized", finance_txn_id: (txn as any).id } as never)
+      .eq("id", data.id)
+      .select()
+      .single();
+    if (uErr) throw new Error(uErr.message);
+    return updated;
+  });
+
+export const deletePayrollRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const { error } = await context.supabase.from("hr_payroll_runs" as never).delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Convenience for HR page: list members with HR fields.
+export const listHrMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("team_members")
+      .select("id, full_name, position, email, archived, contract_type, salary_base, hire_date, vacation_days_available")
+      .eq("org_id", orgId)
+      .order("full_name");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+const HrMemberInput = z.object({
+  id: z.string().uuid(),
+  contract_type: z.string().trim().max(60).nullable().optional(),
+  salary_base: z.number().nonnegative().nullable().optional(),
+  hire_date: z.string().nullable().optional(),
+  vacation_days_available: z.number().int().min(0).max(365).nullable().optional(),
+});
+
+export const updateHrMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => HrMemberInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const { id, ...rest } = data;
+    const { data: out, error } = await context.supabase
+      .from("team_members")
+      .update(rest as never)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
