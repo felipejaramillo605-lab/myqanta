@@ -12,10 +12,18 @@ function toBase64Url(input: string): string {
   return btoa(utf8).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+function stripHeaderInjection(input: string): string {
+  // Elimina saltos de línea para que nadie pueda inyectar cabeceras
+  // adicionales (Bcc, Cc, etc.) a través de "to" o "subject".
+  return input.replace(/[\r\n]+/g, " ").trim();
+}
+
 function buildRawEmail(to: string, subject: string, body: string): string {
+  const safeTo = stripHeaderInjection(to);
+  const safeSubject = stripHeaderInjection(subject);
   const lines = [
-    `To: ${to}`,
-    `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+    `To: ${safeTo}`,
+    `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(safeSubject)))}?=`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 7bit",
@@ -25,11 +33,7 @@ function buildRawEmail(to: string, subject: string, body: string): string {
   return toBase64Url(lines.join("\r\n"));
 }
 
-export async function sendGmail(
-  to: string,
-  subject: string,
-  body: string,
-): Promise<EmailSendResult> {
+export async function sendGmail(to: string, subject: string, body: string): Promise<EmailSendResult> {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const gmailKey = process.env.GOOGLE_MAIL_API_KEY;
   if (!lovableKey || !gmailKey) {
