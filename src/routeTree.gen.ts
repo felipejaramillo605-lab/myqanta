@@ -31,6 +31,7 @@ import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
@@ -152,6 +153,12 @@ const AuthenticatedSettingsTeamRoute =
     path: '/settings/team',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsCompanyRoute =
+  AuthenticatedSettingsCompanyRouteImport.update({
+    id: '/settings/company',
+    path: '/settings/company',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   id: '/admin/theme',
   path: '/admin/theme',
@@ -226,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -257,6 +265,7 @@ export interface FileRoutesByTo {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -290,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -386,6 +398,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
+    | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -562,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/company': {
+      id: '/_authenticated/settings/company'
+      path: '/settings/company'
+      fullPath: '/settings/company'
+      preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/theme': {
       id: '/_authenticated/admin/theme'
       path: '/admin/theme'
@@ -639,6 +659,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
+  AuthenticatedSettingsCompanyRoute: typeof AuthenticatedSettingsCompanyRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
@@ -660,6 +681,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
+  AuthenticatedSettingsCompanyRoute: AuthenticatedSettingsCompanyRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 
