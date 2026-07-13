@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
@@ -76,6 +78,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
 const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRemindersRoute = AuthenticatedRemindersRouteImport.update({
@@ -146,6 +153,12 @@ const AuthenticatedSettingsTeamRoute =
     path: '/settings/team',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsCompanyRoute =
+  AuthenticatedSettingsCompanyRouteImport.update({
+    id: '/settings/company',
+    path: '/settings/company',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   id: '/admin/theme',
   path: '/admin/theme',
@@ -210,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/reminders': typeof AuthenticatedRemindersRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -219,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -240,6 +255,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof AuthenticatedInventoryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/reminders': typeof AuthenticatedRemindersRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -249,6 +265,7 @@ export interface FileRoutesByTo {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -272,6 +289,7 @@ export interface FileRoutesById {
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -281,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -304,6 +323,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/projects'
     | '/reminders'
+    | '/reports'
     | '/sales'
     | '/team'
     | '/invite/$token'
@@ -313,6 +333,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -334,6 +355,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/projects'
     | '/reminders'
+    | '/reports'
     | '/sales'
     | '/team'
     | '/invite/$token'
@@ -343,6 +365,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -365,6 +388,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory'
     | '/_authenticated/projects'
     | '/_authenticated/reminders'
+    | '/_authenticated/reports'
     | '/_authenticated/sales'
     | '/_authenticated/team'
     | '/invite/$token'
@@ -374,6 +398,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
+    | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -450,6 +475,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof AuthenticatedSalesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reminders': {
@@ -543,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/company': {
+      id: '/_authenticated/settings/company'
+      path: '/settings/company'
+      fullPath: '/settings/company'
+      preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/theme': {
       id: '/_authenticated/admin/theme'
       path: '/admin/theme'
@@ -613,12 +652,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
   AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAdminPlatformRoute: typeof AuthenticatedAdminPlatformRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
+  AuthenticatedSettingsCompanyRoute: typeof AuthenticatedSettingsCompanyRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
@@ -633,12 +674,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
   AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAdminPlatformRoute: AuthenticatedAdminPlatformRoute,
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
+  AuthenticatedSettingsCompanyRoute: AuthenticatedSettingsCompanyRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 

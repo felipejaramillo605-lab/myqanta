@@ -23,6 +23,7 @@ import {
   UserCog,
   FolderOpen,
 } from "lucide-react";
+import { BarChart3, Building2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
@@ -40,6 +41,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/projects", key: "nav.projects", icon: Briefcase },
   { to: "/hr", key: "nav.hr", icon: UserCog },
   { to: "/documents", key: "nav.documents", icon: FolderOpen },
+  { to: "/reports", key: "nav.reports", icon: BarChart3 },
   { to: "/habits", key: "nav.productivity", icon: Repeat },
   { to: "/agenda", key: "nav.agenda", icon: Calendar },
   { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
@@ -109,6 +111,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Users className="size-4" />
             {t("nav.team")}
+          </Link>
+          <Link
+            to={"/settings/company" as never}
+            className={
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+              (path.startsWith("/settings/company")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+            }
+          >
+            <Building2 className="size-4" />
+            {t("nav.company")}
           </Link>
           {isAdmin && (
             <Link
