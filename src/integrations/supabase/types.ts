@@ -1083,49 +1083,76 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
           business_type: string | null
+          contact_email: string | null
           created_at: string
           created_by: string
           currency: string | null
+          default_vat_rate: number | null
           description: string | null
           goals: string | null
           id: string
           industry: string | null
+          invoice_footer: string | null
+          invoice_prefix: string | null
+          logo_url: string | null
           name: string
           onboarded_at: string | null
+          phone: string | null
           slug: string | null
+          tax_id: string | null
           team_size: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
+          address?: string | null
           business_type?: string | null
+          contact_email?: string | null
           created_at?: string
           created_by: string
           currency?: string | null
+          default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
           id?: string
           industry?: string | null
+          invoice_footer?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
           name: string
           onboarded_at?: string | null
+          phone?: string | null
           slug?: string | null
+          tax_id?: string | null
           team_size?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
+          address?: string | null
           business_type?: string | null
+          contact_email?: string | null
           created_at?: string
           created_by?: string
           currency?: string | null
+          default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
           id?: string
           industry?: string | null
+          invoice_footer?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
           name?: string
           onboarded_at?: string | null
+          phone?: string | null
           slug?: string | null
+          tax_id?: string | null
           team_size?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
