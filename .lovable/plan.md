@@ -96,8 +96,8 @@ Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
 4. **B3 Proyectos** ✅ entregado — `/projects` con CRUD de proyectos, estados, presupuesto y timesheet por proyecto.
 5. **B4 RRHH** ✅ entregado — `/hr` con fichas de contrato, ausencias con aprobación y generador mensual de nómina que crea gasto en Finanzas al cerrarse.
 6. **B5 Documentos** ✅ entregado — `/documents` con bucket privado, subida drag&drop mediante URL firmada y descarga con URL firmada de 10 min.
-7. **B6 Reportería** — pendiente.
-8. **B7 Configuración de empresa** — pendiente.
+7. **B6 Reportería** ✅ entregado — `/reports` con KPIs consolidados por rango (Finanzas, Ventas, Inventario, Proyectos, RRHH, CRM), top clientes y export CSV.
+8. **B7 Configuración de empresa** ✅ entregado — `/settings/company` con datos fiscales, logo, contacto, prefijo de factura, IVA por defecto, moneda y pie de página.
 
 ---
 
