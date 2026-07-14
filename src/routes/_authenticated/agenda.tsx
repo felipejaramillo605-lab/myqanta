@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, Bell, ChevronLeft, ChevronRight, CheckSquare, Repeat } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -332,12 +332,12 @@ function WeekView({
           </div>
         ))}
         {HOURS.map((h) => (
-          <>
-            <div key={`h-${h}`} className="bg-background/60 px-1 py-0.5 text-right font-mono text-[10px] text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
+          <Fragment key={`h-${h}`}>
+            <div className="bg-background/60 px-1 py-0.5 text-right font-mono text-[10px] text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
             {days.map((d) => (
               <div key={`${d.toISOString()}-${h}`} className="relative h-12 bg-background" />
             ))}
-          </>
+          </Fragment>
         ))}
       </div>
       <div className="relative -mt-[calc(48*14px)] pointer-events-none">
