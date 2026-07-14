@@ -35,6 +35,15 @@ export const upsertTeamMember = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => MemberInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    if (data.id) {
+      const { data: existing, error: exErr } = await context.supabase
+        .from("team_members")
+        .select("org_id")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (exErr) throw new Error(exErr.message);
+      if (existing && existing.org_id !== orgId) throw new Error("Forbidden");
+    }
     const payload = {
       ...data,
       org_id: orgId,
@@ -53,8 +62,12 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
-    const { error } = await context.supabase.from("team_members").delete().eq("id", data.id);
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { error } = await context.supabase
+      .from("team_members")
+      .delete()
+      .eq("id", data.id)
+      .eq("org_id", orgId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
