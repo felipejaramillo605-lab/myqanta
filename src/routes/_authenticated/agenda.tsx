@@ -438,6 +438,15 @@ type EventRow = {
   all_day: boolean;
 };
 
+type EventFormValue = {
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+};
+
 function ListView({
   events, locale, lang, canWrite, onDelete, onEdit,
 }: {
