@@ -440,18 +440,16 @@ type EventRow = {
 };
 
 function ListView({
-  events, locale, lang, canWrite, onDelete, onEdit, upsertFn,
+  events, locale, lang, canWrite, onDelete, onEdit,
 }: {
   events: EventRow[];
   locale: string;
   lang: string;
   canWrite: boolean;
   onDelete: (id: string) => void;
-  onEdit: (v: Parameters<typeof upsertEvent>[0]["data"], id: string) => void;
-  upsertFn: ReturnType<typeof useServerFn<typeof upsertEvent>>;
+  onEdit: (v: EventFormValue, id: string) => void;
 }) {
   const { t } = useI18n();
-  void upsertFn;
   const now = Date.now();
   const upcoming = events.filter((e) => new Date(e.ends_at).getTime() >= now);
   const past = events.filter((e) => new Date(e.ends_at).getTime() < now).slice(0, 20);
