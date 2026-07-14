@@ -187,7 +187,6 @@ function Agenda() {
           canWrite={canWrite}
           onDelete={(id) => delFn({ data: { id } }).then(refresh)}
           onEdit={(v, id) => upsertFn({ data: { ...v, id } }).then(() => { refresh(); toast.success("✓"); }).catch((err: Error) => toast.error(err.message))}
-          upsertFn={upsertFn}
         />
       )}
 
