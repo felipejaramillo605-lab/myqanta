@@ -38,7 +38,12 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
     const { data, error } = await oauthApi().getAuthorizationDetails(authorizationId);
     if (error) throw new Error(error.message);
     const immediate = data?.redirect_url ?? data?.redirect_to;
-    if (immediate && !data?.client) throw redirect({ href: immediate });
+    if (immediate && !data?.client) {
+      if (!isAllowedRedirect(immediate)) {
+        throw new Error("Destino de redirección no permitido");
+      }
+      throw redirect({ href: immediate });
+    }
     return data;
   },
   component: Consent,
@@ -49,6 +54,18 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
     </main>
   ),
 });
+
+function isAllowedRedirect(target: string): boolean {
+  try {
+    const url = new URL(target, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const host = url.hostname.toLowerCase();
+    if (typeof window !== "undefined" && host === window.location.hostname.toLowerCase()) return true;
+    if (host.endsWith(".supabase.co") || host === "supabase.co") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 function Consent() {
   const details = Route.useLoaderData();
