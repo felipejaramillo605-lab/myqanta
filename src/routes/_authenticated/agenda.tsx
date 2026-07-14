@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, Bell } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, Bell, ChevronLeft, ChevronRight, CheckSquare, Repeat } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { deleteEvent, listEvents, upsertEvent } from "@/lib/productivity.functions";
+import { listTasks, listHabits } from "@/lib/productivity.functions";
+import { listReminders } from "@/lib/reminders.functions";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/use-permissions";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
@@ -20,27 +22,115 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({ meta: [{ title: "Qanta — Agenda" }] }),
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData({ queryKey: ["agenda", "events"], queryFn: () => listEvents({ data: {} }) });
+    await Promise.all([
+      context.queryClient.ensureQueryData({ queryKey: ["agenda", "events"], queryFn: () => listEvents({ data: {} }) }),
+      context.queryClient.ensureQueryData({ queryKey: ["agenda", "tasks"], queryFn: () => listTasks() }),
+      context.queryClient.ensureQueryData({ queryKey: ["agenda", "habits"], queryFn: () => listHabits() }),
+      context.queryClient.ensureQueryData({ queryKey: ["agenda", "reminders"], queryFn: () => listReminders() }),
+    ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">404</div>,
   component: Agenda,
 });
 
+type CalItem = {
+  id: string;
+  type: "event" | "task" | "habit" | "reminder";
+  title: string;
+  date: Date;
+  endsAt?: Date;
+  allDay?: boolean;
+  location?: string | null;
+  description?: string | null;
+  color: string;
+};
+
+const TYPE_STYLES: Record<CalItem["type"], { color: string; label: string; icon: typeof CalendarIcon }> = {
+  event: { color: "#6366f1", label: "Evento", icon: CalendarIcon },
+  task: { color: "#f59e0b", label: "Tarea", icon: CheckSquare },
+  habit: { color: "#10b981", label: "Hábito", icon: Repeat },
+  reminder: { color: "#ef4444", label: "Recordatorio", icon: Bell },
+};
+
+function dayKey(d: Date | string) {
+  const dt = typeof d === "string" ? new Date(d) : d;
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+function startOfWeek(d: Date) {
+  const c = new Date(d);
+  const day = (c.getDay() + 6) % 7; // Monday = 0
+  c.setDate(c.getDate() - day);
+  c.setHours(0, 0, 0, 0);
+  return c;
+}
+
 function Agenda() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const { canWrite } = usePermissions();
   const fn = useServerFn(listEvents);
+  const tasksFn = useServerFn(listTasks);
+  const habitsFn = useServerFn(listHabits);
+  const remindersFn = useServerFn(listReminders);
   const upsertFn = useServerFn(upsertEvent);
   const delFn = useServerFn(deleteEvent);
   const { data: events } = useSuspenseQuery({ queryKey: ["agenda", "events"], queryFn: () => fn({ data: {} }) });
+  const { data: tasks } = useSuspenseQuery({ queryKey: ["agenda", "tasks"], queryFn: () => tasksFn() });
+  const { data: habitData } = useSuspenseQuery({ queryKey: ["agenda", "habits"], queryFn: () => habitsFn() });
+  const { data: reminders } = useSuspenseQuery({ queryKey: ["agenda", "reminders"], queryFn: () => remindersFn() });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agenda"] });
-  const now = Date.now();
-  const upcoming = events.filter((e) => new Date(e.ends_at).getTime() >= now);
-  const past = events.filter((e) => new Date(e.ends_at).getTime() < now).slice(0, 20);
   const locale = lang === "es" ? "es-ES" : "en-US";
+
+  const items: CalItem[] = useMemo(() => {
+    const arr: CalItem[] = [];
+    for (const e of events) {
+      arr.push({
+        id: `event:${e.id}`,
+        type: "event",
+        title: e.title,
+        date: new Date(e.starts_at),
+        endsAt: new Date(e.ends_at),
+        allDay: e.all_day,
+        location: e.location,
+        description: e.description,
+        color: e.color || TYPE_STYLES.event.color,
+      });
+    }
+    for (const tk of tasks as Array<{ id: string; title: string; due_date: string | null }>) {
+      if (!tk.due_date) continue;
+      arr.push({ id: `task:${tk.id}`, type: "task", title: tk.title, date: new Date(tk.due_date), allDay: true, color: TYPE_STYLES.task.color });
+    }
+    const habitsById = new Map((habitData?.habits ?? []).map((h: any) => [h.id, h]));
+    for (const log of habitData?.logs ?? []) {
+      const h: any = habitsById.get((log as any).habit_id);
+      if (!h) continue;
+      const d = new Date((log as any).logged_on + "T09:00:00");
+      arr.push({ id: `habit:${(log as any).id}`, type: "habit", title: h.name, date: d, allDay: true, color: h.color || TYPE_STYLES.habit.color });
+    }
+    for (const r of reminders as Array<{ id: string; title: string; scheduled_at: string; status?: string }>) {
+      arr.push({ id: `reminder:${r.id}`, type: "reminder", title: r.title, date: new Date(r.scheduled_at), color: TYPE_STYLES.reminder.color });
+    }
+    return arr;
+  }, [events, tasks, habitData, reminders]);
+
+  const itemsByDay = useMemo(() => {
+    const m = new Map<string, CalItem[]>();
+    for (const it of items) {
+      const k = dayKey(it.date);
+      const list = m.get(k) ?? [];
+      list.push(it);
+      m.set(k, list);
+    }
+    for (const list of m.values()) list.sort((a, b) => a.date.getTime() - b.date.getTime());
+    return m;
+  }, [items]);
+
+  const [view, setView] = useState<"month" | "week" | "list">("month");
+  const [cursor, setCursor] = useState(() => new Date());
+  const [dayDetail, setDayDetail] = useState<string | null>(null);
 
   return (
     <div className="space-y-8">
@@ -50,11 +140,329 @@ function Agenda() {
           <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{t("ag.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("ag.sub")}</p>
         </div>
-        {canWrite && <EventDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border/50 p-0.5 text-xs">
+            {(["month", "week", "list"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`rounded-md px-3 py-1.5 capitalize transition ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {v === "month" ? (lang === "es" ? "Mes" : "Month") : v === "week" ? (lang === "es" ? "Semana" : "Week") : (lang === "es" ? "Lista" : "List")}
+              </button>
+            ))}
+          </div>
+          {canWrite && <EventDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
+        </div>
       </header>
 
       <ReadOnlyBanner />
 
+      <Legend />
+
+      {view === "month" && (
+        <MonthView
+          cursor={cursor}
+          setCursor={setCursor}
+          itemsByDay={itemsByDay}
+          locale={locale}
+          onDayClick={(k) => setDayDetail(k)}
+          lang={lang}
+        />
+      )}
+      {view === "week" && (
+        <WeekView
+          cursor={cursor}
+          setCursor={setCursor}
+          items={items}
+          locale={locale}
+          lang={lang}
+        />
+      )}
+      {view === "list" && (
+        <ListView
+          events={events}
+          locale={locale}
+          lang={lang}
+          canWrite={canWrite}
+          onDelete={(id) => delFn({ data: { id } }).then(refresh)}
+          onEdit={(v, id) => upsertFn({ data: { ...v, id } }).then(() => { refresh(); toast.success("✓"); }).catch((err: Error) => toast.error(err.message))}
+        />
+      )}
+
+      <DayDetailDialog dayKey={dayDetail} onClose={() => setDayDetail(null)} itemsByDay={itemsByDay} locale={locale} />
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      {Object.entries(TYPE_STYLES).map(([k, v]) => {
+        const Icon = v.icon;
+        return (
+          <span key={k} className="inline-flex items-center gap-1.5">
+            <span className="inline-block size-2.5 rounded-full" style={{ background: v.color }} />
+            <Icon className="size-3" />
+            {v.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function MonthView({
+  cursor, setCursor, itemsByDay, locale, onDayClick, lang,
+}: {
+  cursor: Date;
+  setCursor: (d: Date) => void;
+  itemsByDay: Map<string, CalItem[]>;
+  locale: string;
+  onDayClick: (k: string) => void;
+  lang: string;
+}) {
+  const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const gridStart = startOfWeek(first);
+  const cells: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    cells.push(d);
+  }
+  const monthLabel = cursor.toLocaleString(locale, { month: "long", year: "numeric" });
+  const today = dayKey(new Date());
+  const weekDays = lang === "es"
+    ? ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  return (
+    <div className="glass rounded-2xl p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="text-lg font-semibold capitalize">{monthLabel}</div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft className="size-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => setCursor(new Date())}>{lang === "es" ? "Hoy" : "Today"}</Button>
+          <Button variant="ghost" size="icon" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight className="size-4" /></Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border/50 bg-border/50">
+        {weekDays.map((d) => (
+          <div key={d} className="bg-background/60 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{d}</div>
+        ))}
+        {cells.map((d) => {
+          const k = dayKey(d);
+          const inMonth = d.getMonth() === cursor.getMonth();
+          const dayItems = itemsByDay.get(k) ?? [];
+          const visible = dayItems.slice(0, 3);
+          const more = dayItems.length - visible.length;
+          return (
+            <button
+              key={k}
+              onClick={() => onDayClick(k)}
+              className={`flex min-h-[92px] flex-col items-stretch gap-1 p-1.5 text-left transition hover:bg-sidebar-accent/60 ${inMonth ? "bg-background" : "bg-background/40 text-muted-foreground"}`}
+            >
+              <div className={`text-xs font-medium ${k === today ? "flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground" : ""}`}>
+                {d.getDate()}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {visible.map((it) => (
+                  <span
+                    key={it.id}
+                    className="truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                    style={{ background: it.color }}
+                    title={it.title}
+                  >
+                    {it.title}
+                  </span>
+                ))}
+                {more > 0 && <span className="text-[10px] text-muted-foreground">+{more} {lang === "es" ? "más" : "more"}</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WeekView({
+  cursor, setCursor, items, locale, lang,
+}: {
+  cursor: Date;
+  setCursor: (d: Date) => void;
+  items: CalItem[];
+  locale: string;
+  lang: string;
+}) {
+  const start = startOfWeek(cursor);
+  const days: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7..20
+  const dayKeys = new Set(days.map(dayKey));
+  const shown = items.filter((it) => dayKeys.has(dayKey(it.date)));
+  const rangeLabel = `${days[0].toLocaleDateString(locale, { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}`;
+
+  const step = (delta: number) => {
+    const c = new Date(cursor);
+    c.setDate(c.getDate() + delta * 7);
+    setCursor(c);
+  };
+
+  return (
+    <div className="glass rounded-2xl p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="text-lg font-semibold">{rangeLabel}</div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => setCursor(new Date())}>{lang === "es" ? "Hoy" : "Today"}</Button>
+          <Button variant="ghost" size="icon" onClick={() => step(1)}><ChevronRight className="size-4" /></Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-px rounded-lg border border-border/50 bg-border/50 text-xs">
+        <div className="bg-background/60" />
+        {days.map((d) => (
+          <div key={d.toISOString()} className="bg-background/60 px-1.5 py-1 text-center">
+            <div className="text-[10px] uppercase text-muted-foreground">{d.toLocaleDateString(locale, { weekday: "short" })}</div>
+            <div className="font-mono text-sm">{d.getDate()}</div>
+          </div>
+        ))}
+        {HOURS.map((h) => (
+          <Fragment key={`h-${h}`}>
+            <div className="bg-background/60 px-1 py-0.5 text-right font-mono text-[10px] text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
+            {days.map((d) => (
+              <div key={`${d.toISOString()}-${h}`} className="relative h-12 bg-background" />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <div className="relative -mt-[calc(48*14px)] pointer-events-none">
+        {/* Overlay events */}
+        <WeekOverlay days={days} hours={HOURS} items={shown} />
+      </div>
+    </div>
+  );
+}
+
+function WeekOverlay({ days, hours, items }: { days: Date[]; hours: number[]; items: CalItem[] }) {
+  const HOUR_PX = 48;
+  const startHour = hours[0];
+  const totalH = hours.length * HOUR_PX;
+  return (
+    <div className="grid grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-px" style={{ height: totalH }}>
+      <div />
+      {days.map((d) => {
+        const dk = dayKey(d);
+        const dayItems = items.filter((it) => dayKey(it.date) === dk);
+        return (
+          <div key={dk} className="relative">
+            {dayItems.map((it) => {
+              const startH = it.date.getHours() + it.date.getMinutes() / 60;
+              const endH = it.endsAt ? it.endsAt.getHours() + it.endsAt.getMinutes() / 60 : startH + 0.75;
+              const top = Math.max(0, (startH - startHour) * HOUR_PX);
+              const height = Math.max(20, (endH - startH) * HOUR_PX);
+              if (startH >= startHour + hours.length || endH <= startHour) return null;
+              return (
+                <div
+                  key={it.id}
+                  className="pointer-events-auto absolute inset-x-1 truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm"
+                  style={{ top, height, background: it.color }}
+                  title={`${it.title} — ${it.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                >
+                  {it.title}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DayDetailDialog({
+  dayKey: dk, onClose, itemsByDay, locale,
+}: {
+  dayKey: string | null;
+  onClose: () => void;
+  itemsByDay: Map<string, CalItem[]>;
+  locale: string;
+}) {
+  const open = dk !== null;
+  const list = dk ? itemsByDay.get(dk) ?? [] : [];
+  const title = dk ? new Date(dk + "T00:00:00").toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "";
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="glass">
+        <DialogHeader><DialogTitle className="capitalize">{title}</DialogTitle></DialogHeader>
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          {list.length === 0 && <p className="text-sm text-muted-foreground">Sin actividad.</p>}
+          {list.map((it) => {
+            const Icon = TYPE_STYLES[it.type].icon;
+            return (
+              <div key={it.id} className="flex items-start gap-3 rounded-lg border border-border/40 p-2.5">
+                <span className="mt-1 inline-block size-3 shrink-0 rounded-full" style={{ background: it.color }} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Icon className="size-3.5 text-muted-foreground" />
+                    {it.title}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {it.allDay
+                      ? TYPE_STYLES[it.type].label + " · " + (locale.startsWith("es") ? "Todo el día" : "All day")
+                      : `${TYPE_STYLES[it.type].label} · ${it.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${it.endsAt ? ` – ${it.endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`}
+                    {it.location && <> · {it.location}</>}
+                  </div>
+                  {it.description && <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{it.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type EventRow = {
+  id: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+};
+
+type EventFormValue = {
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+};
+
+function ListView({
+  events, locale, lang, canWrite, onDelete, onEdit,
+}: {
+  events: EventRow[];
+  locale: string;
+  lang: string;
+  canWrite: boolean;
+  onDelete: (id: string) => void;
+  onEdit: (v: EventFormValue, id: string) => void;
+}) {
+  const { t } = useI18n();
+  const now = Date.now();
+  const upcoming = events.filter((e) => new Date(e.ends_at).getTime() >= now);
+  const past = events.filter((e) => new Date(e.ends_at).getTime() < now).slice(0, 20);
+  return (
+    <>
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("ag.upcoming")}</h2>
         {upcoming.length === 0 ? (
@@ -91,9 +499,9 @@ function Agenda() {
                     <EventDialog
                       initial={e}
                       trigger={<Button variant="ghost" size="icon"><Pencil className="size-4" /></Button>}
-                      onSubmit={(v) => upsertFn({ data: { ...v, id: e.id } }).then(() => { refresh(); toast.success("✓"); }).catch((err: Error) => toast.error(err.message))}
+                      onSubmit={(v) => onEdit(v, e.id)}
                     />
-                    <Button variant="ghost" size="icon" onClick={() => delFn({ data: { id: e.id } }).then(refresh)}><Trash2 className="size-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(e.id)}><Trash2 className="size-4" /></Button>
                   </>
                 )}
               </div>
@@ -115,7 +523,7 @@ function Agenda() {
           </div>
         </section>
       )}
-    </div>
+    </>
   );
 }
 

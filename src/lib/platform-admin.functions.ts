@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { assertPlatformOwner } from "./platform-security.functions";
 
 export const listPlatformUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -23,6 +24,7 @@ export const listPlatformUsers = createServerFn({ method: "GET" })
 export const listPlatformOrganizations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await assertPlatformOwner(context.supabase, context.userId);
     const { data: orgs, error } = await context.supabase
       .from("organizations")
       .select("id,name,slug,created_at,created_by,industry,business_type")

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function assertPlatformOwner(supabase: any, userId: string) {
+export async function assertPlatformOwner(supabase: any, userId: string) {
   const { data } = await (supabase.rpc as any)("is_platform_owner", { _user_id: userId });
   if (!data) throw new Error("Forbidden");
 }
