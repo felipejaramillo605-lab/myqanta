@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_comments: {
+        Row: {
+          approval_id: string
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          org_id: string
+        }
+        Insert: {
+          approval_id: string
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          org_id: string
+        }
+        Update: {
+          approval_id?: string
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_comments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approvals: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          decided_at: string | null
+          description: string | null
+          entity_id: string | null
+          id: string
+          module: string
+          org_id: string
+          rejection_reason: string | null
+          requested_by: string
+          status: Database["public"]["Enums"]["approval_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          decided_at?: string | null
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          module: string
+          org_id: string
+          rejection_reason?: string | null
+          requested_by: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          decided_at?: string | null
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          module?: string
+          org_id?: string
+          rejection_reason?: string | null
+          requested_by?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approvals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_activities: {
         Row: {
           body: string | null
@@ -1845,6 +1943,9 @@ export type Database = {
       }
       tasks: {
         Row: {
+          approval_id: string | null
+          approval_status: Database["public"]["Enums"]["approval_status"] | null
+          assigned_to: string | null
           completed_at: string | null
           created_at: string
           description: string | null
@@ -1853,6 +1954,7 @@ export type Database = {
           org_id: string
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string | null
+          source_module: string | null
           status: Database["public"]["Enums"]["task_status"]
           tags: string[] | null
           title: string
@@ -1860,6 +1962,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approval_id?: string | null
+          approval_status?:
+            | Database["public"]["Enums"]["approval_status"]
+            | null
+          assigned_to?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string | null
@@ -1868,6 +1975,7 @@ export type Database = {
           org_id: string
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
+          source_module?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: string[] | null
           title: string
@@ -1875,6 +1983,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approval_id?: string | null
+          approval_status?:
+            | Database["public"]["Enums"]["approval_status"]
+            | null
+          assigned_to?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string | null
@@ -1883,6 +1996,7 @@ export type Database = {
           org_id?: string
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
+          source_module?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: string[] | null
           title?: string
@@ -1890,6 +2004,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_org_id_fkey"
             columns: ["org_id"]
@@ -2273,6 +2394,7 @@ export type Database = {
     }
     Enums: {
       app_role: "user" | "admin_manager" | "platform_owner"
+      approval_status: "pending" | "in_review" | "approved" | "rejected"
       crm_activity_kind: "note" | "call" | "email" | "meeting" | "task"
       crm_deal_stage:
         | "lead"
@@ -2429,6 +2551,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["user", "admin_manager", "platform_owner"],
+      approval_status: ["pending", "in_review", "approved", "rejected"],
       crm_activity_kind: ["note", "call", "email", "meeting", "task"],
       crm_deal_stage: [
         "lead",
