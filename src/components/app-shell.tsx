@@ -23,7 +23,7 @@ import {
   UserCog,
   FolderOpen,
 } from "lucide-react";
-import { BarChart3, Building2 } from "lucide-react";
+import { BarChart3, Building2, MoreHorizontal, CheckSquare, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
@@ -31,6 +31,7 @@ import { OrgSwitcher } from "@/components/org-switcher";
 import { BusinessOnboardingDialog } from "@/components/business-onboarding-dialog";
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 
 const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", key: "nav.dashboard", icon: LayoutDashboard },
@@ -40,6 +41,7 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/crm", key: "nav.crm", icon: Contact2 },
   { to: "/projects", key: "nav.projects", icon: Briefcase },
   { to: "/hr", key: "nav.hr", icon: UserCog },
+  { to: "/approvals", key: "nav.approvals", icon: CheckSquare },
   { to: "/documents", key: "nav.documents", icon: FolderOpen },
   { to: "/reports", key: "nav.reports", icon: BarChart3 },
   { to: "/habits", key: "nav.productivity", icon: Repeat },
@@ -47,6 +49,9 @@ const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
   { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
   { to: "/team", key: "nav.team", icon: Users },
 ];
+
+// Fase 0: bottom nav móvil = 5 accesos rápidos + botón "Más" con Sheet.
+const MOBILE_PRIMARY = ["/dashboard", "/sales", "/inventory", "/hr", "/agenda"] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
@@ -56,6 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [profileOpen, setProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const handleSignOut = async () => {
     await qc.cancelQueries();
@@ -68,6 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Admin Manager (owner) keeps full access to all modules plus the admin dashboard.
   const navItems = NAV;
+  const primary = NAV.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
+  const secondary = NAV.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
 
   return (
     <div className="min-h-screen">
@@ -263,8 +271,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
 
         {/* Mobile bottom nav */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-border/50 bg-background/80 px-2 py-2 backdrop-blur-xl lg:hidden">
-          {navItems.map((item) => {
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 items-center gap-1 border-t border-border/50 bg-background/85 px-2 py-2 backdrop-blur-xl lg:hidden"
+          aria-label="Navegación móvil"
+        >
+          {primary.map((item) => {
             const Icon = item.icon;
             const active = path === item.to || path.startsWith(item.to + "/");
             return (
@@ -272,15 +283,84 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to as never}
                 className={
-                  "flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[10px] " +
+                  "flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[10px] leading-none " +
                   (active ? "text-primary" : "text-muted-foreground")
                 }
               >
                 <Icon className="size-5" />
-                {t(item.key as never)}
+                <span className="truncate max-w-full">{t(item.key as never)}</span>
               </Link>
             );
           })}
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-label="Más módulos"
+                className={
+                  "flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[10px] leading-none " +
+                  (secondary.some((s) => path === s.to || path.startsWith(s.to + "/"))
+                    ? "text-primary"
+                    : "text-muted-foreground")
+                }
+              >
+                <MoreHorizontal className="size-5" />
+                <span>Más</span>
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl">
+              <SheetHeader className="flex-row items-center justify-between">
+                <SheetTitle>Módulos</SheetTitle>
+                <SheetClose asChild>
+                  <Button variant="ghost" size="icon" aria-label="Cerrar">
+                    <X className="size-4" />
+                  </Button>
+                </SheetClose>
+              </SheetHeader>
+              <div className="mt-2 grid grid-cols-2 gap-2 pb-6">
+                {secondary.map((item) => {
+                  const Icon = item.icon;
+                  const active = path === item.to || path.startsWith(item.to + "/");
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to as never}
+                      onClick={() => setMoreOpen(false)}
+                      className={
+                        "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
+                        (active ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
+                      }
+                    >
+                      <Icon className="size-5 shrink-0" />
+                      <span className="truncate">{t(item.key as never)}</span>
+                    </Link>
+                  );
+                })}
+                <Link
+                  to={"/settings/company" as never}
+                  onClick={() => setMoreOpen(false)}
+                  className={
+                    "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
+                    (path.startsWith("/settings/company") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
+                  }
+                >
+                  <Building2 className="size-5 shrink-0" />
+                  <span className="truncate">{t("nav.company")}</span>
+                </Link>
+                <Link
+                  to={"/settings/team" as never}
+                  onClick={() => setMoreOpen(false)}
+                  className={
+                    "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
+                    (path.startsWith("/settings/team") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
+                  }
+                >
+                  <Users className="size-5 shrink-0" />
+                  <span className="truncate">Equipo</span>
+                </Link>
+              </div>
+            </SheetContent>
+          </Sheet>
         </nav>
         <div className="h-16 lg:hidden" />
       </main>
