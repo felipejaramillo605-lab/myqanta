@@ -101,6 +101,27 @@ Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
 
 ---
 
+## Nuevo plan maestro ERP (SAP/Siigo-style) — subido por el usuario
+
+Referencia: `user-uploads://qanta-plan-erp.md`. Fases enviadas una a la vez.
+
+- **Fase 0 — Nav móvil** ✅ entregado. Bottom nav = 5 accesos rápidos (Panel, Ventas, Compras, RRHH, Agenda) + botón "Más" que abre `Sheet` con el resto en grid 2 col. Desktop sin cambios.
+- **Fase 1 — Motor de aprobaciones + Tareas ClickUp** ✅ entregado.
+  - Tablas `approvals` (module, entity_id, status, assigned_to, requested_by, rejection_reason) y `approval_comments`.
+  - Extensión de `tasks`: `assigned_to`, `approval_id`, `source_module`, `approval_status`.
+  - Server fns en `src/lib/approvals.functions.ts` — `createApproval` (auto-crea task ligada), `decideApproval` (solo el `assigned_to`), `addApprovalComment`, `listApprovalComments`, `deleteApproval`.
+  - Ruta `/approvals` con kanban (pendiente / en revisión / aprobado / rechazado) + vista lista + filtros (Para aprobar / Mis solicitudes / Todo).
+  - Regla de negocio validada: solo el aprobador asignado cambia el estado; el resto ve y comenta. Rechazo exige motivo.
+- **Fase 2 — Perfil de negocio ampliado (aprobadores por módulo + régimen tributario)** pendiente.
+- **Fase 3 — Categorías de navegación estilo SAP** pendiente.
+- **Fase 4 — Finanzas expandida (asientos, terceros, bancos, impuestos)** pendiente.
+- **Fase 5 — Conciliación bancaria automatizada** pendiente.
+- **Fase 6 — RRHH expandido (organigrama, asistencia QR)** pendiente.
+- **Fase 7 — Legal (contratos, compliance, aprobación jurídica)** pendiente — conectará al motor de Fase 1.
+- **Fase 8 — Operaciones (pedido de compra, 3-way match)** pendiente — conectará al motor de Fase 1.
+
+---
+
 ## Preguntas antes de arrancar
 
 1. ¿Empiezo por **Fase A** (seguridad + tráfico) y luego iteramos ERP módulo a módulo, o quieres que ejecute **A + B2 (Ventas)** en la misma entrega?
