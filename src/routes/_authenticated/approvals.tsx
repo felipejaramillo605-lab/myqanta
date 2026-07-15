@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -371,11 +371,10 @@ function ApprovalDialog({
   const meta = STATUS_META[approval.status as ApprovalStatus];
   const canModify = approval.status === "pending" || approval.status === "in_review";
 
-  const commentsQuery = {
+  const { data: comments = [], isLoading: commentsLoading } = useQuery({
     queryKey: ["approvals", "comments", approval.id] as const,
     queryFn: () => listApprovalComments({ data: { approval_id: approval.id } }),
-  };
-  const { data: comments = [], isLoading: commentsLoading } = useSuspenseQuery(commentsQuery);
+  });
 
   const commentMut = useMutation({
     mutationFn: (body: string) => addCommentFn({ data: { approval_id: approval.id, body } }),
