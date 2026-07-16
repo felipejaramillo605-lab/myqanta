@@ -1182,6 +1182,7 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null
+          approvers_by_module: Json
           business_type: string | null
           contact_email: string | null
           created_at: string
@@ -1190,6 +1191,8 @@ export type Database = {
           default_vat_rate: number | null
           description: string | null
           goals: string | null
+          ica_rate: number
+          ica_responsible: boolean
           id: string
           industry: string | null
           invoice_footer: string | null
@@ -1197,15 +1200,18 @@ export type Database = {
           logo_url: string | null
           name: string
           onboarded_at: string | null
+          other_retentions: string | null
           phone: string | null
           slug: string | null
           tax_id: string | null
           team_size: string | null
           updated_at: string
+          vat_responsible: boolean
           website: string | null
         }
         Insert: {
           address?: string | null
+          approvers_by_module?: Json
           business_type?: string | null
           contact_email?: string | null
           created_at?: string
@@ -1214,6 +1220,8 @@ export type Database = {
           default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
+          ica_rate?: number
+          ica_responsible?: boolean
           id?: string
           industry?: string | null
           invoice_footer?: string | null
@@ -1221,15 +1229,18 @@ export type Database = {
           logo_url?: string | null
           name: string
           onboarded_at?: string | null
+          other_retentions?: string | null
           phone?: string | null
           slug?: string | null
           tax_id?: string | null
           team_size?: string | null
           updated_at?: string
+          vat_responsible?: boolean
           website?: string | null
         }
         Update: {
           address?: string | null
+          approvers_by_module?: Json
           business_type?: string | null
           contact_email?: string | null
           created_at?: string
@@ -1238,6 +1249,8 @@ export type Database = {
           default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
+          ica_rate?: number
+          ica_responsible?: boolean
           id?: string
           industry?: string | null
           invoice_footer?: string | null
@@ -1245,11 +1258,13 @@ export type Database = {
           logo_url?: string | null
           name?: string
           onboarded_at?: string | null
+          other_retentions?: string | null
           phone?: string | null
           slug?: string | null
           tax_id?: string | null
           team_size?: string | null
           updated_at?: string
+          vat_responsible?: boolean
           website?: string | null
         }
         Relationships: []
