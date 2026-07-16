@@ -122,3 +122,73 @@ export const updateCompanySettings = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const profileSchema = z.object({
+  approvers_by_module: z.record(
+    z.enum(APPROVAL_MODULES),
+    z.array(z.string().uuid()).max(4),
+  ).default({}),
+  vat_responsible: z.boolean().default(false),
+  ica_responsible: z.boolean().default(false),
+  ica_rate: z.number().min(0).max(100).default(0),
+  other_retentions: z.string().trim().max(600).optional().default(""),
+});
+
+export const updateBusinessProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => profileSchema.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
+
+    // Validate every listed approver is a member of the active org and dedupe.
+    const allIds = Array.from(new Set(
+      Object.values(data.approvers_by_module).flat().filter(Boolean) as string[],
+    ));
+    if (allIds.length) {
+      const { data: members, error: mErr } = await context.supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("org_id", orgId)
+        .in("user_id", allIds);
+      if (mErr) throw new Error(mErr.message);
+      const memberSet = new Set((members ?? []).map((m) => m.user_id));
+      const invalid = allIds.filter((id) => !memberSet.has(id));
+      if (invalid.length) throw new Error("Some approvers are not members of this organization");
+    }
+
+    // Clean: drop empty arrays; keep uniqueness within each module.
+    const cleaned: ApproversByModule = {};
+    for (const [mod, ids] of Object.entries(data.approvers_by_module) as [ApprovalModule, string[]][]) {
+      const uniq = Array.from(new Set(ids)).slice(0, 4);
+      if (uniq.length) cleaned[mod] = uniq;
+    }
+
+    const { error } = await context.supabase
+      .from("organizations")
+      .update({
+        approvers_by_module: cleaned,
+        vat_responsible: data.vat_responsible,
+        ica_responsible: data.ica_responsible,
+        ica_rate: data.ica_responsible ? data.ica_rate : 0,
+        other_retentions: data.other_retentions || null,
+      })
+      .eq("id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getModuleApprovers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ module: z.enum(APPROVAL_MODULES) }).parse(d))
+  .handler(async ({ context, data }): Promise<string[]> => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data: row, error } = await context.supabase
+      .from("organizations")
+      .select("approvers_by_module")
+      .eq("id", orgId)
+      .single();
+    if (error) throw new Error(error.message);
+    const map = ((row as any)?.approvers_by_module ?? {}) as ApproversByModule;
+    return map[data.module] ?? [];
+  });
