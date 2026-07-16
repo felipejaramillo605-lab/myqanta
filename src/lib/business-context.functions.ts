@@ -127,7 +127,7 @@ const profileSchema = z.object({
   approvers_by_module: z.record(
     z.enum(APPROVAL_MODULES),
     z.array(z.string().uuid()).max(4),
-  ).default({}),
+  ).optional().default(() => ({}) as Record<ApprovalModule, string[]>),
   vat_responsible: z.boolean().default(false),
   ica_responsible: z.boolean().default(false),
   ica_rate: z.number().min(0).max(100).default(0),
