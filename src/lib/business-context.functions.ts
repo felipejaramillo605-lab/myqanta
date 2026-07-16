@@ -2,6 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
+import { assertOrgRole } from "./permissions";
+
+export const APPROVAL_MODULES = ["purchases", "legal", "finance", "hr"] as const;
+export type ApprovalModule = (typeof APPROVAL_MODULES)[number];
+export type ApproversByModule = Partial<Record<ApprovalModule, string[]>>;
 
 export type BusinessContext = {
   id: string;
@@ -22,6 +27,11 @@ export type BusinessContext = {
   invoice_prefix: string | null;
   invoice_footer: string | null;
   default_vat_rate: number | null;
+  approvers_by_module: ApproversByModule;
+  vat_responsible: boolean;
+  ica_responsible: boolean;
+  ica_rate: number;
+  other_retentions: string | null;
 };
 
 export const getBusinessContext = createServerFn({ method: "POST" })
@@ -30,11 +40,18 @@ export const getBusinessContext = createServerFn({ method: "POST" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("organizations")
-      .select("id,name,industry,business_type,description,goals,team_size,currency,onboarded_at,tax_id,address,phone,contact_email,website,logo_url,invoice_prefix,invoice_footer,default_vat_rate")
+      .select("id,name,industry,business_type,description,goals,team_size,currency,onboarded_at,tax_id,address,phone,contact_email,website,logo_url,invoice_prefix,invoice_footer,default_vat_rate,approvers_by_module,vat_responsible,ica_responsible,ica_rate,other_retentions")
       .eq("id", orgId)
       .single();
     if (error) throw new Error(error.message);
-    return data as BusinessContext;
+    const row = data as any;
+    return {
+      ...row,
+      approvers_by_module: (row.approvers_by_module ?? {}) as ApproversByModule,
+      vat_responsible: !!row.vat_responsible,
+      ica_responsible: !!row.ica_responsible,
+      ica_rate: Number(row.ica_rate ?? 0),
+    } as BusinessContext;
   });
 
 const updateSchema = z.object({
