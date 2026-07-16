@@ -112,7 +112,10 @@ Referencia: `user-uploads://qanta-plan-erp.md`. Fases enviadas una a la vez.
   - Server fns en `src/lib/approvals.functions.ts` — `createApproval` (auto-crea task ligada), `decideApproval` (solo el `assigned_to`), `addApprovalComment`, `listApprovalComments`, `deleteApproval`.
   - Ruta `/approvals` con kanban (pendiente / en revisión / aprobado / rechazado) + vista lista + filtros (Para aprobar / Mis solicitudes / Todo).
   - Regla de negocio validada: solo el aprobador asignado cambia el estado; el resto ve y comenta. Rechazo exige motivo.
-- **Fase 2 — Perfil de negocio ampliado (aprobadores por módulo + régimen tributario)** pendiente.
+- **Fase 2 — Perfil de negocio ampliado** ✅ entregado.
+  - Columnas nuevas en `organizations`: `approvers_by_module` (jsonb), `vat_responsible`, `ica_responsible`, `ica_rate`, `other_retentions`.
+  - `updateBusinessProfile` (server fn con `admin` role gate) valida que cada aprobador sea miembro activo de la org, deduplica y limita a 4 por módulo. `getModuleApprovers({module})` expone la lista al motor de la Fase 1.
+  - UI en `/settings/company`: sección "Aprobadores por módulo" (Compras, Legal, Finanzas, RRHH) con selector de 1 a 4 miembros por módulo, y "Régimen tributario" (IVA, ICA + tarifa, otras retenciones).
 - **Fase 3 — Categorías de navegación estilo SAP** pendiente.
 - **Fase 4 — Finanzas expandida (asientos, terceros, bancos, impuestos)** pendiente.
 - **Fase 5 — Conciliación bancaria automatizada** pendiente.
