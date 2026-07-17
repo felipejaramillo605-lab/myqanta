@@ -23,7 +23,7 @@ import {
   UserCog,
   FolderOpen,
 } from "lucide-react";
-import { BarChart3, Building2, MoreHorizontal, CheckSquare, X } from "lucide-react";
+import { BarChart3, Building2, MoreHorizontal, CheckSquare, X, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
@@ -32,26 +32,54 @@ import { BusinessOnboardingDialog } from "@/components/business-onboarding-dialo
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const NAV: { to: string; key: string; icon: typeof LayoutDashboard }[] = [
-  { to: "/dashboard", key: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/finance", key: "nav.finance", icon: Wallet },
-  { to: "/inventory", key: "nav.inventory", icon: ShoppingCart },
-  { to: "/sales", key: "nav.sales", icon: Receipt },
-  { to: "/crm", key: "nav.crm", icon: Contact2 },
-  { to: "/projects", key: "nav.projects", icon: Briefcase },
-  { to: "/hr", key: "nav.hr", icon: UserCog },
-  { to: "/approvals", key: "nav.approvals", icon: CheckSquare },
-  { to: "/documents", key: "nav.documents", icon: FolderOpen },
-  { to: "/reports", key: "nav.reports", icon: BarChart3 },
-  { to: "/habits", key: "nav.productivity", icon: Repeat },
-  { to: "/agenda", key: "nav.agenda", icon: Calendar },
-  { to: "/reminders", key: "nav.reminders", icon: MessageCircle },
-  { to: "/team", key: "nav.team", icon: Users },
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
+
+// Items sueltos (sin categoría).
+const STANDALONE: NavItem[] = [
+  { to: "/dashboard", label: "Panel", icon: LayoutDashboard },
+  { to: "/crm", label: "CRM", icon: Contact2 },
+  { to: "/projects", label: "Proyectos", icon: Briefcase },
+  { to: "/approvals", label: "Aprobaciones", icon: CheckSquare },
+  { to: "/reminders", label: "Recordatorios", icon: MessageCircle },
+  { to: "/reports", label: "Reportes", icon: BarChart3 },
 ];
 
-// Fase 0: bottom nav móvil = 5 accesos rápidos + botón "Más" con Sheet.
+const CATEGORIES: NavCategory[] = [
+  {
+    key: "finance", label: "Finanzas", icon: Wallet, items: [
+      { to: "/finance", label: "Resumen", icon: Wallet },
+      { to: "/finance/journal", label: "Asientos contables", icon: BookOpen },
+      { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen },
+      { to: "/finance/parties", label: "Matriz de terceros", icon: Contact2 },
+      { to: "/finance/banks", label: "Bancos", icon: Landmark },
+      { to: "/finance/taxes", label: "Impuestos", icon: Percent },
+      { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge },
+      { to: "/inventory", label: "Compras", icon: ShoppingCart },
+      { to: "/sales", label: "Ventas", icon: Receipt },
+    ],
+  },
+  {
+    key: "hr", label: "RRHH", icon: UserCog, items: [
+      { to: "/hr", label: "Personal / Ausencias / Nómina", icon: UserCog },
+      { to: "/agenda", label: "Agenda", icon: Calendar },
+      { to: "/habits", label: "Hábitos", icon: Repeat },
+      { to: "/documents", label: "Documentos", icon: FolderOpen },
+      { to: "/team", label: "Equipo", icon: Users },
+    ],
+  },
+  { key: "legal", label: "Legal", icon: Scale, items: [], placeholder: "Próximamente" },
+  { key: "ops", label: "Operaciones", icon: Cog, items: [], placeholder: "Próximamente" },
+];
+
+// Bottom nav móvil = 5 accesos rápidos + "Más".
 const MOBILE_PRIMARY = ["/dashboard", "/sales", "/inventory", "/hr", "/agenda"] as const;
+
+function isActive(path: string, to: string): boolean {
+  return path === to || path.startsWith(to + "/");
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
@@ -72,10 +100,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const initials = (user?.user_metadata?.full_name as string | undefined)?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "?";
 
-  // Admin Manager (owner) keeps full access to all modules plus the admin dashboard.
-  const navItems = NAV;
-  const primary = NAV.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
-  const secondary = NAV.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
+  // Flat list for mobile Sheet + bottom nav.
+  const allItems: NavItem[] = [
+    ...STANDALONE,
+    ...CATEGORIES.flatMap((c) => c.items),
+  ];
+  const primary = allItems.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
+  const secondary = allItems.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
 
   return (
     <div className="min-h-screen">
@@ -88,10 +119,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="font-mono text-lg tracking-tight">{t("app.name")}</span>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
-          {navItems.map((item) => {
+        <nav className="flex-1 space-y-1 px-3 overflow-y-auto">
+          {STANDALONE.map((item) => {
             const Icon = item.icon;
-            const active = path === item.to || path.startsWith(item.to + "/");
+            const active = isActive(path, item.to);
             return (
               <Link
                 key={item.to}
@@ -104,14 +135,58 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }
               >
                 <Icon className="size-4" />
-                {t(item.key as never)}
+                {item.label}
               </Link>
             );
           })}
+
+          {CATEGORIES.map((cat) => {
+            const CatIcon = cat.icon;
+            const hasActive = cat.items.some((i) => isActive(path, i.to));
+            return (
+              <Collapsible key={cat.key} defaultOpen={hasActive}>
+                <CollapsibleTrigger className={
+                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+                  (hasActive ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+                }>
+                  <CatIcon className="size-4" />
+                  <span className="flex-1 text-left">{cat.label}</span>
+                  <ChevronDown className="size-3 transition-transform data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 mt-1">
+                  {cat.placeholder && !cat.items.length && (
+                    <div className="ml-7 rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+                      {cat.placeholder}
+                    </div>
+                  )}
+                  {cat.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(path, item.to);
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to as never}
+                        className={
+                          "ml-4 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors " +
+                          (active
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+                        }
+                      >
+                        <Icon className="size-3.5" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+
           <Link
             to={"/settings/team" as never}
             className={
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+              "mt-3 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
               (path.startsWith("/settings/team")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
