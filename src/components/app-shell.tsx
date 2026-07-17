@@ -363,7 +363,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }
               >
                 <Icon className="size-5" />
-                <span className="truncate max-w-full">{t(item.key as never)}</span>
+                <span className="truncate max-w-full">{item.label}</span>
               </Link>
             );
           })}
@@ -407,7 +407,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       }
                     >
                       <Icon className="size-5 shrink-0" />
-                      <span className="truncate">{t(item.key as never)}</span>
+                      <span className="truncate">{item.label}</span>
                     </Link>
                   );
                 })}
