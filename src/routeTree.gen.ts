@@ -33,6 +33,12 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
+import { Route as AuthenticatedFinanceTaxesRouteImport } from './routes/_authenticated/finance.taxes'
+import { Route as AuthenticatedFinanceReconciliationRouteImport } from './routes/_authenticated/finance.reconciliation'
+import { Route as AuthenticatedFinancePoliciesRouteImport } from './routes/_authenticated/finance.policies'
+import { Route as AuthenticatedFinancePartiesRouteImport } from './routes/_authenticated/finance.parties'
+import { Route as AuthenticatedFinanceJournalRouteImport } from './routes/_authenticated/finance.journal'
+import { Route as AuthenticatedFinanceBanksRouteImport } from './routes/_authenticated/finance.banks'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
@@ -165,6 +171,42 @@ const AuthenticatedSettingsCompanyRoute =
     path: '/settings/company',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinanceTaxesRoute =
+  AuthenticatedFinanceTaxesRouteImport.update({
+    id: '/taxes',
+    path: '/taxes',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedFinanceReconciliationRoute =
+  AuthenticatedFinanceReconciliationRouteImport.update({
+    id: '/reconciliation',
+    path: '/reconciliation',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedFinancePoliciesRoute =
+  AuthenticatedFinancePoliciesRouteImport.update({
+    id: '/policies',
+    path: '/policies',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedFinancePartiesRoute =
+  AuthenticatedFinancePartiesRouteImport.update({
+    id: '/parties',
+    path: '/parties',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedFinanceJournalRoute =
+  AuthenticatedFinanceJournalRouteImport.update({
+    id: '/journal',
+    path: '/journal',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedFinanceBanksRoute =
+  AuthenticatedFinanceBanksRouteImport.update({
+    id: '/banks',
+    path: '/banks',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
 const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   id: '/admin/theme',
   path: '/admin/theme',
@@ -224,7 +266,7 @@ export interface FileRoutesByFullPath {
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
-  '/finance': typeof AuthenticatedFinanceRoute
+  '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
   '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
@@ -240,6 +282,12 @@ export interface FileRoutesByFullPath {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/banks': typeof AuthenticatedFinanceBanksRoute
+  '/finance/journal': typeof AuthenticatedFinanceJournalRoute
+  '/finance/parties': typeof AuthenticatedFinancePartiesRoute
+  '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
+  '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
+  '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -257,7 +305,7 @@ export interface FileRoutesByTo {
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
-  '/finance': typeof AuthenticatedFinanceRoute
+  '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
   '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
@@ -273,6 +321,12 @@ export interface FileRoutesByTo {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/banks': typeof AuthenticatedFinanceBanksRoute
+  '/finance/journal': typeof AuthenticatedFinanceJournalRoute
+  '/finance/parties': typeof AuthenticatedFinancePartiesRoute
+  '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
+  '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
+  '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -292,7 +346,7 @@ export interface FileRoutesById {
   '/_authenticated/crm': typeof AuthenticatedCrmRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
-  '/_authenticated/finance': typeof AuthenticatedFinanceRoute
+  '/_authenticated/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/hr': typeof AuthenticatedHrRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
@@ -308,6 +362,12 @@ export interface FileRoutesById {
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/_authenticated/finance/banks': typeof AuthenticatedFinanceBanksRoute
+  '/_authenticated/finance/journal': typeof AuthenticatedFinanceJournalRoute
+  '/_authenticated/finance/parties': typeof AuthenticatedFinancePartiesRoute
+  '/_authenticated/finance/policies': typeof AuthenticatedFinancePoliciesRoute
+  '/_authenticated/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
+  '/_authenticated/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -343,6 +403,12 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/banks'
+    | '/finance/journal'
+    | '/finance/parties'
+    | '/finance/policies'
+    | '/finance/reconciliation'
+    | '/finance/taxes'
     | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
@@ -376,6 +442,12 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/banks'
+    | '/finance/journal'
+    | '/finance/parties'
+    | '/finance/policies'
+    | '/finance/reconciliation'
+    | '/finance/taxes'
     | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
@@ -410,6 +482,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
+    | '/_authenticated/finance/banks'
+    | '/_authenticated/finance/journal'
+    | '/_authenticated/finance/parties'
+    | '/_authenticated/finance/policies'
+    | '/_authenticated/finance/reconciliation'
+    | '/_authenticated/finance/taxes'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/api/public/hooks/log-request'
@@ -601,6 +679,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance/taxes': {
+      id: '/_authenticated/finance/taxes'
+      path: '/taxes'
+      fullPath: '/finance/taxes'
+      preLoaderRoute: typeof AuthenticatedFinanceTaxesRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/finance/reconciliation': {
+      id: '/_authenticated/finance/reconciliation'
+      path: '/reconciliation'
+      fullPath: '/finance/reconciliation'
+      preLoaderRoute: typeof AuthenticatedFinanceReconciliationRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/finance/policies': {
+      id: '/_authenticated/finance/policies'
+      path: '/policies'
+      fullPath: '/finance/policies'
+      preLoaderRoute: typeof AuthenticatedFinancePoliciesRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/finance/parties': {
+      id: '/_authenticated/finance/parties'
+      path: '/parties'
+      fullPath: '/finance/parties'
+      preLoaderRoute: typeof AuthenticatedFinancePartiesRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/finance/journal': {
+      id: '/_authenticated/finance/journal'
+      path: '/journal'
+      fullPath: '/finance/journal'
+      preLoaderRoute: typeof AuthenticatedFinanceJournalRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/finance/banks': {
+      id: '/_authenticated/finance/banks'
+      path: '/banks'
+      fullPath: '/finance/banks'
+      preLoaderRoute: typeof AuthenticatedFinanceBanksRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
     '/_authenticated/admin/theme': {
       id: '/_authenticated/admin/theme'
       path: '/admin/theme'
@@ -660,13 +780,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedFinanceRouteChildren {
+  AuthenticatedFinanceBanksRoute: typeof AuthenticatedFinanceBanksRoute
+  AuthenticatedFinanceJournalRoute: typeof AuthenticatedFinanceJournalRoute
+  AuthenticatedFinancePartiesRoute: typeof AuthenticatedFinancePartiesRoute
+  AuthenticatedFinancePoliciesRoute: typeof AuthenticatedFinancePoliciesRoute
+  AuthenticatedFinanceReconciliationRoute: typeof AuthenticatedFinanceReconciliationRoute
+  AuthenticatedFinanceTaxesRoute: typeof AuthenticatedFinanceTaxesRoute
+}
+
+const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
+  AuthenticatedFinanceBanksRoute: AuthenticatedFinanceBanksRoute,
+  AuthenticatedFinanceJournalRoute: AuthenticatedFinanceJournalRoute,
+  AuthenticatedFinancePartiesRoute: AuthenticatedFinancePartiesRoute,
+  AuthenticatedFinancePoliciesRoute: AuthenticatedFinancePoliciesRoute,
+  AuthenticatedFinanceReconciliationRoute:
+    AuthenticatedFinanceReconciliationRoute,
+  AuthenticatedFinanceTaxesRoute: AuthenticatedFinanceTaxesRoute,
+}
+
+const AuthenticatedFinanceRouteWithChildren =
+  AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedCrmRoute: typeof AuthenticatedCrmRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
-  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
+  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRouteWithChildren
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedHrRoute: typeof AuthenticatedHrRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
@@ -689,7 +831,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmRoute: AuthenticatedCrmRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
-  AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
+  AuthenticatedFinanceRoute: AuthenticatedFinanceRouteWithChildren,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedHrRoute: AuthenticatedHrRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,

@@ -112,6 +112,117 @@ export type Database = {
           },
         ]
       }
+      bank_accounts: {
+        Row: {
+          account_number_masked: string
+          active: boolean
+          bank_name: string
+          created_at: string
+          currency: string
+          current_balance: number
+          id: string
+          notes: string | null
+          opening_balance: number
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_number_masked: string
+          active?: boolean
+          bank_name: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: string
+          notes?: string | null
+          opening_balance?: number
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_number_masked?: string
+          active?: boolean
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: string
+          notes?: string | null
+          opening_balance?: number
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_transactions: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          created_at: string
+          description: string | null
+          id: string
+          occurred_on: string
+          org_id: string
+          reconciled_entry_id: string | null
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          occurred_on: string
+          org_id: string
+          reconciled_entry_id?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          occurred_on?: string
+          org_id?: string
+          reconciled_entry_id?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_reconciled_entry_id_fkey"
+            columns: ["reconciled_entry_id"]
+            isOneToOne: false
+            referencedRelation: "fin_journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_activities: {
         Row: {
           body: string | null
@@ -415,6 +526,182 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_accounts: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          parent_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+          parent_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          parent_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_accounts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_journal_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          entry_date: string
+          entry_no: number
+          id: string
+          org_id: string
+          receipt_document_id: string | null
+          related_invoice_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_date?: string
+          entry_no: number
+          id?: string
+          org_id: string
+          receipt_document_id?: string | null
+          related_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_date?: string
+          entry_no?: number
+          id?: string
+          org_id?: string
+          receipt_document_id?: string | null
+          related_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_journal_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_journal_lines: {
+        Row: {
+          account_id: string
+          bank_account_id: string | null
+          created_at: string
+          credit: number
+          debit: number
+          description: string | null
+          entry_id: string
+          id: string
+          org_id: string
+          third_party_id: string | null
+        }
+        Insert: {
+          account_id: string
+          bank_account_id?: string | null
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          entry_id: string
+          id?: string
+          org_id: string
+          third_party_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          bank_account_id?: string | null
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          entry_id?: string
+          id?: string
+          org_id?: string
+          third_party_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_journal_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_journal_lines_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_journal_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "fin_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_journal_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_journal_lines_third_party_id_fkey"
+            columns: ["third_party_id"]
+            isOneToOne: false
+            referencedRelation: "third_parties"
             referencedColumns: ["id"]
           },
         ]
@@ -1436,6 +1723,61 @@ export type Database = {
           },
         ]
       }
+      reconciliation_matches: {
+        Row: {
+          auto: boolean
+          bank_transaction_id: string
+          diff: number
+          id: string
+          journal_entry_id: string
+          matched_at: string
+          matched_by: string | null
+          org_id: string
+        }
+        Insert: {
+          auto?: boolean
+          bank_transaction_id: string
+          diff?: number
+          id?: string
+          journal_entry_id: string
+          matched_at?: string
+          matched_by?: string | null
+          org_id: string
+        }
+        Update: {
+          auto?: boolean
+          bank_transaction_id?: string
+          diff?: number
+          id?: string
+          journal_entry_id?: string
+          matched_at?: string
+          matched_by?: string | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_matches_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_matches_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "fin_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_matches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           attempts: number
@@ -2042,6 +2384,53 @@ export type Database = {
           },
         ]
       }
+      tax_drafts: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          notes: string | null
+          org_id: string
+          period_end: string
+          period_start: string
+          status: string
+          tax_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          notes?: string | null
+          org_id: string
+          period_end: string
+          period_start: string
+          status?: string
+          tax_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          notes?: string | null
+          org_id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          tax_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_drafts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           archived: boolean
@@ -2169,6 +2558,65 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      third_parties: {
+        Row: {
+          address: string | null
+          applicable_taxes: Json
+          contract_document_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          org_id: string
+          phone: string | null
+          tax_id: string | null
+          tax_regime: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          applicable_taxes?: Json
+          contract_document_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          kind: string
+          name: string
+          notes?: string | null
+          org_id: string
+          phone?: string | null
+          tax_id?: string | null
+          tax_regime?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          applicable_taxes?: Json
+          contract_document_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          phone?: string | null
+          tax_id?: string | null
+          tax_regime?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "third_parties_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       time_entries: {
         Row: {
@@ -2342,6 +2790,7 @@ export type Database = {
         }[]
       }
       next_invoice_number: { Args: { _org_id: string }; Returns: number }
+      next_journal_entry_no: { Args: { _org_id: string }; Returns: number }
       platform_add_watch: {
         Args: { _ip_hash: string; _reason?: string }
         Returns: undefined
