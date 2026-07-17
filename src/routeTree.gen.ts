@@ -33,6 +33,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
+import { Route as AuthenticatedFinanceJournalRouteImport } from './routes/_authenticated/finance.journal'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
@@ -165,6 +166,12 @@ const AuthenticatedSettingsCompanyRoute =
     path: '/settings/company',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinanceJournalRoute =
+  AuthenticatedFinanceJournalRouteImport.update({
+    id: '/journal',
+    path: '/journal',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
 const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   id: '/admin/theme',
   path: '/admin/theme',
@@ -224,7 +231,7 @@ export interface FileRoutesByFullPath {
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
-  '/finance': typeof AuthenticatedFinanceRoute
+  '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
   '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -257,7 +265,7 @@ export interface FileRoutesByTo {
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
-  '/finance': typeof AuthenticatedFinanceRoute
+  '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
   '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
@@ -273,6 +281,7 @@ export interface FileRoutesByTo {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -292,7 +301,7 @@ export interface FileRoutesById {
   '/_authenticated/crm': typeof AuthenticatedCrmRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
-  '/_authenticated/finance': typeof AuthenticatedFinanceRoute
+  '/_authenticated/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/hr': typeof AuthenticatedHrRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
@@ -308,6 +317,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/_authenticated/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/journal'
     | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
@@ -376,6 +387,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/journal'
     | '/settings/company'
     | '/settings/team'
     | '/api/public/hooks/log-request'
@@ -410,6 +422,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
+    | '/_authenticated/finance/journal'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/api/public/hooks/log-request'
@@ -601,6 +614,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance/journal': {
+      id: '/_authenticated/finance/journal'
+      path: '/journal'
+      fullPath: '/finance/journal'
+      preLoaderRoute: typeof AuthenticatedFinanceJournalRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
     '/_authenticated/admin/theme': {
       id: '/_authenticated/admin/theme'
       path: '/admin/theme'
@@ -660,13 +680,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedFinanceRouteChildren {
+  AuthenticatedFinanceJournalRoute: typeof AuthenticatedFinanceJournalRoute
+}
+
+const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
+  AuthenticatedFinanceJournalRoute: AuthenticatedFinanceJournalRoute,
+}
+
+const AuthenticatedFinanceRouteWithChildren =
+  AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedCrmRoute: typeof AuthenticatedCrmRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
-  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
+  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRouteWithChildren
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedHrRoute: typeof AuthenticatedHrRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
@@ -689,7 +720,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmRoute: AuthenticatedCrmRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
-  AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
+  AuthenticatedFinanceRoute: AuthenticatedFinanceRouteWithChildren,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedHrRoute: AuthenticatedHrRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
