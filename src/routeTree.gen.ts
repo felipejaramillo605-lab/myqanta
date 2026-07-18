@@ -34,6 +34,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
+import { Route as AuthenticatedHrOrgChartRouteImport } from './routes/_authenticated/hr.org-chart'
 import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr.attendance'
 import { Route as AuthenticatedFinanceTaxesRouteImport } from './routes/_authenticated/finance.taxes'
 import { Route as AuthenticatedFinanceReconciliationRouteImport } from './routes/_authenticated/finance.reconciliation'
@@ -179,6 +180,11 @@ const AuthenticatedSettingsCompanyRoute =
     path: '/settings/company',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHrOrgChartRoute = AuthenticatedHrOrgChartRouteImport.update({
+  id: '/org-chart',
+  path: '/org-chart',
+  getParentRoute: () => AuthenticatedHrRoute,
+} as any)
 const AuthenticatedHrAttendanceRoute =
   AuthenticatedHrAttendanceRouteImport.update({
     id: '/attendance',
@@ -308,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
@@ -350,6 +357,7 @@ export interface FileRoutesByTo {
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
@@ -394,6 +402,7 @@ export interface FileRoutesById {
   '/_authenticated/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/_authenticated/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/_authenticated/hr/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/_authenticated/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/finance/reconciliation'
     | '/finance/taxes'
     | '/hr/attendance'
+    | '/hr/org-chart'
     | '/settings/company'
     | '/settings/team'
     | '/attendance/$orgId/$token'
@@ -480,6 +490,7 @@ export interface FileRouteTypes {
     | '/finance/reconciliation'
     | '/finance/taxes'
     | '/hr/attendance'
+    | '/hr/org-chart'
     | '/settings/company'
     | '/settings/team'
     | '/attendance/$orgId/$token'
@@ -523,6 +534,7 @@ export interface FileRouteTypes {
     | '/_authenticated/finance/reconciliation'
     | '/_authenticated/finance/taxes'
     | '/_authenticated/hr/attendance'
+    | '/_authenticated/hr/org-chart'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
@@ -725,6 +737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/hr/org-chart': {
+      id: '/_authenticated/hr/org-chart'
+      path: '/org-chart'
+      fullPath: '/hr/org-chart'
+      preLoaderRoute: typeof AuthenticatedHrOrgChartRouteImport
+      parentRoute: typeof AuthenticatedHrRoute
+    }
     '/_authenticated/hr/attendance': {
       id: '/_authenticated/hr/attendance'
       path: '/attendance'
@@ -864,10 +883,12 @@ const AuthenticatedFinanceRouteWithChildren =
 
 interface AuthenticatedHrRouteChildren {
   AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
+  AuthenticatedHrOrgChartRoute: typeof AuthenticatedHrOrgChartRoute
 }
 
 const AuthenticatedHrRouteChildren: AuthenticatedHrRouteChildren = {
   AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
+  AuthenticatedHrOrgChartRoute: AuthenticatedHrOrgChartRoute,
 }
 
 const AuthenticatedHrRouteWithChildren = AuthenticatedHrRoute._addFileChildren(
