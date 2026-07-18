@@ -153,6 +153,7 @@ function HrPage() {
                 <tr>
                   <th className="px-3 py-2">Nombre</th>
                   <th className="px-3 py-2">Puesto</th>
+                  <th className="px-3 py-2">Cédula</th>
                   <th className="px-3 py-2">Contrato</th>
                   <th className="px-3 py-2">Salario base</th>
                   <th className="px-3 py-2">Ingreso</th>
@@ -165,6 +166,7 @@ function HrPage() {
                   <tr key={m.id} className="border-t border-border/40">
                     <td className="px-3 py-2">{m.full_name}</td>
                     <td className="px-3 py-2 text-muted-foreground">{m.position ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono">{m.cedula ?? "—"}</td>
                     <td className="px-3 py-2">{m.contract_type ?? "—"}</td>
                     <td className="px-3 py-2 font-mono">{m.salary_base != null ? Number(m.salary_base).toFixed(2) : "—"}</td>
                     <td className="px-3 py-2 font-mono">{m.hire_date ?? "—"}</td>
@@ -175,7 +177,7 @@ function HrPage() {
                   </tr>
                 ))}
                 {members.length === 0 && (
-                  <tr><td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">Añade personas en Equipo primero.</td></tr>
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Añade personas en Equipo primero.</td></tr>
                 )}
               </tbody>
             </table>
@@ -366,6 +368,10 @@ function HrPage() {
                 <Label>Tipo de contrato</Label>
                 <Input value={editingMember.contract_type ?? ""} onChange={(e) => setEditingMember({ ...editingMember, contract_type: e.target.value })} placeholder="Indefinido, temporal, becario…" />
               </div>
+              <div>
+                <Label>Cédula (para marcar asistencia)</Label>
+                <Input value={editingMember.cedula ?? ""} onChange={(e) => setEditingMember({ ...editingMember, cedula: e.target.value })} placeholder="Número de identificación" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Salario base</Label>
@@ -392,6 +398,7 @@ function HrPage() {
                   salary_base: editingMember.salary_base ?? null,
                   hire_date: editingMember.hire_date || null,
                   vacation_days_available: editingMember.vacation_days_available ?? 0,
+                  cedula: editingMember.cedula?.trim() || null,
                 })
               }
               disabled={saveMember.isPending}
