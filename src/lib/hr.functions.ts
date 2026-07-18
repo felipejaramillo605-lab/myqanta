@@ -224,7 +224,7 @@ export const listHrMembers = createServerFn({ method: "GET" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("team_members")
-      .select("id, full_name, position, email, archived, contract_type, salary_base, hire_date, vacation_days_available")
+      .select("id, full_name, position, email, archived, contract_type, salary_base, hire_date, vacation_days_available, cedula" as never)
       .eq("org_id", orgId)
       .order("full_name");
     if (error) throw new Error(error.message);
@@ -237,20 +237,121 @@ const HrMemberInput = z.object({
   salary_base: z.number().nonnegative().nullable().optional(),
   hire_date: z.string().nullable().optional(),
   vacation_days_available: z.number().int().min(0).max(365).nullable().optional(),
+  cedula: z.string().trim().max(40).nullable().optional(),
 });
 
 export const updateHrMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => HrMemberInput.parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
     const { id, ...rest } = data;
     const { data: out, error } = await context.supabase
       .from("team_members")
       .update(rest as never)
       .eq("id", id)
+      .eq("org_id", orgId)
       .select()
       .single();
     if (error) throw new Error(error.message);
     return out;
+  });
+
+// ==================== Org chart ====================
+
+const OrgNodeInput = z.object({
+  id: z.string().uuid().optional(),
+  member_id: z.string().uuid().nullable().optional(),
+  label: z.string().trim().min(1).max(160),
+  position_title: z.string().trim().max(160).nullable().optional(),
+  parent_id: z.string().uuid().nullable().optional(),
+  pos_x: z.number().default(0),
+  pos_y: z.number().default(0),
+});
+
+export const listOrgNodes = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("org_nodes" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as any[];
+  });
+
+export const saveOrgNode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => OrgNodeInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    if (data.id) {
+      const { data: existing } = await context.supabase
+        .from("org_nodes" as never).select("org_id").eq("id", data.id).single();
+      if (!existing || (existing as any).org_id !== orgId) throw new Error("Nodo no encontrado");
+    }
+    const payload = {
+      ...data,
+      org_id: orgId,
+      member_id: data.member_id ?? null,
+      parent_id: data.parent_id ?? null,
+      position_title: data.position_title ?? null,
+    };
+    const { data: out, error } = await context.supabase
+      .from("org_nodes" as never).upsert(payload as never).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteOrgNode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const { error } = await context.supabase.from("org_nodes" as never)
+      .delete().eq("id", data.id).eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ==================== Attendance ====================
+
+// Daily QR token: sha256(salt + org_id + YYYY-MM-DD) truncated.
+// Reuses APP_METRICS_SALT so no extra secret is required.
+async function computeDayToken(orgId: string, dateISO: string): Promise<string> {
+  const salt = process.env.APP_METRICS_SALT ?? "";
+  const { createHash } = await import("node:crypto");
+  return createHash("sha256").update(`${salt}|${orgId}|${dateISO}`).digest("hex").slice(0, 20);
+}
+
+export const getAttendanceQrInfo = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const today = new Date().toISOString().slice(0, 10);
+    const token = await computeDayToken(orgId, today);
+    return { orgId, date: today, token, path: `/attendance/${orgId}/${token}` };
+  });
+
+export const listAttendance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      from: z.string().optional(),
+      to: z.string().optional(),
+      member_id: z.string().uuid().optional(),
+    }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    let q = context.supabase.from("attendance_marks" as never)
+      .select("*").eq("org_id", orgId).order("occurred_at", { ascending: false }).limit(500);
+    if (data.from) q = q.gte("occurred_at", data.from);
+    if (data.to) q = q.lte("occurred_at", data.to);
+    if (data.member_id) q = q.eq("member_id", data.member_id);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as any[];
   });

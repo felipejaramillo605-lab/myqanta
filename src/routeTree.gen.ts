@@ -31,8 +31,11 @@ import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
+import { Route as AuthenticatedHrOrgChartRouteImport } from './routes/_authenticated/hr_.org-chart'
+import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr_.attendance'
 import { Route as AuthenticatedFinanceTaxesRouteImport } from './routes/_authenticated/finance.taxes'
 import { Route as AuthenticatedFinanceReconciliationRouteImport } from './routes/_authenticated/finance.reconciliation'
 import { Route as AuthenticatedFinancePoliciesRouteImport } from './routes/_authenticated/finance.policies'
@@ -47,6 +50,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicHooksProcessRemindersRouteImport } from './routes/api/public/hooks/process-reminders'
 import { Route as ApiPublicHooksLogRequestRouteImport } from './routes/api/public/hooks/log-request'
+import { Route as ApiPublicAttendanceMarkRouteImport } from './routes/api/public/attendance/mark'
 
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
@@ -159,6 +163,11 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AttendanceOrgIdTokenRoute = AttendanceOrgIdTokenRouteImport.update({
+  id: '/attendance/$orgId/$token',
+  path: '/attendance/$orgId/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/settings/team',
@@ -169,6 +178,17 @@ const AuthenticatedSettingsCompanyRoute =
   AuthenticatedSettingsCompanyRouteImport.update({
     id: '/settings/company',
     path: '/settings/company',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedHrOrgChartRoute = AuthenticatedHrOrgChartRouteImport.update({
+  id: '/hr_/org-chart',
+  path: '/hr/org-chart',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHrAttendanceRoute =
+  AuthenticatedHrAttendanceRouteImport.update({
+    id: '/hr_/attendance',
+    path: '/hr/attendance',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedFinanceTaxesRoute =
@@ -253,6 +273,11 @@ const ApiPublicHooksLogRequestRoute =
     path: '/api/public/hooks/log-request',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAttendanceMarkRoute = ApiPublicAttendanceMarkRouteImport.update({
+  id: '/api/public/attendance/mark',
+  path: '/api/public/attendance/mark',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -288,8 +313,12 @@ export interface FileRoutesByFullPath {
   '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
+  '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -327,8 +356,12 @@ export interface FileRoutesByTo {
   '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
+  '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -368,8 +401,12 @@ export interface FileRoutesById {
   '/_authenticated/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/_authenticated/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/_authenticated/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
+  '/_authenticated/hr_/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/_authenticated/hr_/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -409,8 +446,12 @@ export interface FileRouteTypes {
     | '/finance/policies'
     | '/finance/reconciliation'
     | '/finance/taxes'
+    | '/hr/attendance'
+    | '/hr/org-chart'
     | '/settings/company'
     | '/settings/team'
+    | '/attendance/$orgId/$token'
+    | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   fileRoutesByTo: FileRoutesByTo
@@ -448,8 +489,12 @@ export interface FileRouteTypes {
     | '/finance/policies'
     | '/finance/reconciliation'
     | '/finance/taxes'
+    | '/hr/attendance'
+    | '/hr/org-chart'
     | '/settings/company'
     | '/settings/team'
+    | '/attendance/$orgId/$token'
+    | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   id:
@@ -488,8 +533,12 @@ export interface FileRouteTypes {
     | '/_authenticated/finance/policies'
     | '/_authenticated/finance/reconciliation'
     | '/_authenticated/finance/taxes'
+    | '/_authenticated/hr_/attendance'
+    | '/_authenticated/hr_/org-chart'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
+    | '/attendance/$orgId/$token'
+    | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   fileRoutesById: FileRoutesById
@@ -505,6 +554,8 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
+  ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
   ApiPublicHooksProcessRemindersRoute: typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -665,6 +716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/attendance/$orgId/$token': {
+      id: '/attendance/$orgId/$token'
+      path: '/attendance/$orgId/$token'
+      fullPath: '/attendance/$orgId/$token'
+      preLoaderRoute: typeof AttendanceOrgIdTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings/team': {
       id: '/_authenticated/settings/team'
       path: '/settings/team'
@@ -677,6 +735,20 @@ declare module '@tanstack/react-router' {
       path: '/settings/company'
       fullPath: '/settings/company'
       preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hr_/org-chart': {
+      id: '/_authenticated/hr_/org-chart'
+      path: '/hr/org-chart'
+      fullPath: '/hr/org-chart'
+      preLoaderRoute: typeof AuthenticatedHrOrgChartRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hr_/attendance': {
+      id: '/_authenticated/hr_/attendance'
+      path: '/hr/attendance'
+      fullPath: '/hr/attendance'
+      preLoaderRoute: typeof AuthenticatedHrAttendanceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/finance/taxes': {
@@ -777,6 +849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksLogRequestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/attendance/mark': {
+      id: '/api/public/attendance/mark'
+      path: '/api/public/attendance/mark'
+      fullPath: '/api/public/attendance/mark'
+      preLoaderRoute: typeof ApiPublicAttendanceMarkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -821,6 +900,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
+  AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
+  AuthenticatedHrOrgChartRoute: typeof AuthenticatedHrOrgChartRoute
   AuthenticatedSettingsCompanyRoute: typeof AuthenticatedSettingsCompanyRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
@@ -844,6 +925,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
+  AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
+  AuthenticatedHrOrgChartRoute: AuthenticatedHrOrgChartRoute,
   AuthenticatedSettingsCompanyRoute: AuthenticatedSettingsCompanyRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
@@ -863,6 +946,8 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
+  ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
   ApiPublicHooksProcessRemindersRoute: ApiPublicHooksProcessRemindersRoute,
 }

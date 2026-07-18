@@ -112,6 +112,57 @@ export type Database = {
           },
         ]
       }
+      attendance_marks: {
+        Row: {
+          cedula_used: string
+          created_at: string
+          day_token: string | null
+          id: string
+          ip_hash: string | null
+          kind: string
+          member_id: string
+          occurred_at: string
+          org_id: string
+        }
+        Insert: {
+          cedula_used: string
+          created_at?: string
+          day_token?: string | null
+          id?: string
+          ip_hash?: string | null
+          kind: string
+          member_id: string
+          occurred_at?: string
+          org_id: string
+        }
+        Update: {
+          cedula_used?: string
+          created_at?: string
+          day_token?: string | null
+          id?: string
+          ip_hash?: string | null
+          kind?: string
+          member_id?: string
+          occurred_at?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_marks_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_marks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_number_masked: string
@@ -1384,6 +1435,67 @@ export type Database = {
         }
         Relationships: []
       }
+      org_nodes: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          member_id: string | null
+          org_id: string
+          parent_id: string | null
+          pos_x: number
+          pos_y: number
+          position_title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          member_id?: string | null
+          org_id: string
+          parent_id?: string | null
+          pos_x?: number
+          pos_y?: number
+          position_title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          member_id?: string | null
+          org_id?: string
+          parent_id?: string | null
+          pos_x?: number
+          pos_y?: number
+          position_title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_nodes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_nodes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "org_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_invites: {
         Row: {
           accepted_at: string | null
@@ -2434,6 +2546,7 @@ export type Database = {
       team_members: {
         Row: {
           archived: boolean
+          cedula: string | null
           code: string
           contract_type: string | null
           created_at: string
@@ -2452,6 +2565,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          cedula?: string | null
           code: string
           contract_type?: string | null
           created_at?: string
@@ -2470,6 +2584,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          cedula?: string | null
           code?: string
           contract_type?: string | null
           created_at?: string
