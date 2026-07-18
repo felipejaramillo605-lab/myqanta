@@ -34,8 +34,8 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
-import { Route as AuthenticatedHrOrgChartRouteImport } from './routes/_authenticated/hr.org-chart'
-import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr.attendance'
+import { Route as AuthenticatedHrOrgChartRouteImport } from './routes/_authenticated/hr_.org-chart'
+import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr_.attendance'
 import { Route as AuthenticatedFinanceTaxesRouteImport } from './routes/_authenticated/finance.taxes'
 import { Route as AuthenticatedFinanceReconciliationRouteImport } from './routes/_authenticated/finance.reconciliation'
 import { Route as AuthenticatedFinancePoliciesRouteImport } from './routes/_authenticated/finance.policies'
@@ -181,15 +181,15 @@ const AuthenticatedSettingsCompanyRoute =
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedHrOrgChartRoute = AuthenticatedHrOrgChartRouteImport.update({
-  id: '/org-chart',
-  path: '/org-chart',
-  getParentRoute: () => AuthenticatedHrRoute,
+  id: '/hr_/org-chart',
+  path: '/hr/org-chart',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHrAttendanceRoute =
   AuthenticatedHrAttendanceRouteImport.update({
-    id: '/attendance',
-    path: '/attendance',
-    getParentRoute: () => AuthenticatedHrRoute,
+    id: '/hr_/attendance',
+    path: '/hr/attendance',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedFinanceTaxesRoute =
   AuthenticatedFinanceTaxesRouteImport.update({
@@ -293,7 +293,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof AuthenticatedDocumentsRoute
   '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
-  '/hr': typeof AuthenticatedHrRouteWithChildren
+  '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/reminders': typeof AuthenticatedRemindersRoute
@@ -336,7 +336,7 @@ export interface FileRoutesByTo {
   '/documents': typeof AuthenticatedDocumentsRoute
   '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/habits': typeof AuthenticatedHabitsRoute
-  '/hr': typeof AuthenticatedHrRouteWithChildren
+  '/hr': typeof AuthenticatedHrRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/reminders': typeof AuthenticatedRemindersRoute
@@ -381,7 +381,7 @@ export interface FileRoutesById {
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
-  '/_authenticated/hr': typeof AuthenticatedHrRouteWithChildren
+  '/_authenticated/hr': typeof AuthenticatedHrRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
@@ -401,8 +401,8 @@ export interface FileRoutesById {
   '/_authenticated/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/_authenticated/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
   '/_authenticated/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
-  '/_authenticated/hr/attendance': typeof AuthenticatedHrAttendanceRoute
-  '/_authenticated/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
+  '/_authenticated/hr_/attendance': typeof AuthenticatedHrAttendanceRoute
+  '/_authenticated/hr_/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
@@ -533,8 +533,8 @@ export interface FileRouteTypes {
     | '/_authenticated/finance/policies'
     | '/_authenticated/finance/reconciliation'
     | '/_authenticated/finance/taxes'
-    | '/_authenticated/hr/attendance'
-    | '/_authenticated/hr/org-chart'
+    | '/_authenticated/hr_/attendance'
+    | '/_authenticated/hr_/org-chart'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
@@ -737,19 +737,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsCompanyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/hr/org-chart': {
-      id: '/_authenticated/hr/org-chart'
-      path: '/org-chart'
+    '/_authenticated/hr_/org-chart': {
+      id: '/_authenticated/hr_/org-chart'
+      path: '/hr/org-chart'
       fullPath: '/hr/org-chart'
       preLoaderRoute: typeof AuthenticatedHrOrgChartRouteImport
-      parentRoute: typeof AuthenticatedHrRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/hr/attendance': {
-      id: '/_authenticated/hr/attendance'
-      path: '/attendance'
+    '/_authenticated/hr_/attendance': {
+      id: '/_authenticated/hr_/attendance'
+      path: '/hr/attendance'
       fullPath: '/hr/attendance'
       preLoaderRoute: typeof AuthenticatedHrAttendanceRouteImport
-      parentRoute: typeof AuthenticatedHrRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/finance/taxes': {
       id: '/_authenticated/finance/taxes'
@@ -881,20 +881,6 @@ const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
 const AuthenticatedFinanceRouteWithChildren =
   AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
 
-interface AuthenticatedHrRouteChildren {
-  AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
-  AuthenticatedHrOrgChartRoute: typeof AuthenticatedHrOrgChartRoute
-}
-
-const AuthenticatedHrRouteChildren: AuthenticatedHrRouteChildren = {
-  AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
-  AuthenticatedHrOrgChartRoute: AuthenticatedHrOrgChartRoute,
-}
-
-const AuthenticatedHrRouteWithChildren = AuthenticatedHrRoute._addFileChildren(
-  AuthenticatedHrRouteChildren,
-)
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
@@ -903,7 +889,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRouteWithChildren
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
-  AuthenticatedHrRoute: typeof AuthenticatedHrRouteWithChildren
+  AuthenticatedHrRoute: typeof AuthenticatedHrRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
   AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
@@ -914,6 +900,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
+  AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
+  AuthenticatedHrOrgChartRoute: typeof AuthenticatedHrOrgChartRoute
   AuthenticatedSettingsCompanyRoute: typeof AuthenticatedSettingsCompanyRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
@@ -926,7 +914,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedFinanceRoute: AuthenticatedFinanceRouteWithChildren,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
-  AuthenticatedHrRoute: AuthenticatedHrRouteWithChildren,
+  AuthenticatedHrRoute: AuthenticatedHrRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
   AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
@@ -937,6 +925,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
+  AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
+  AuthenticatedHrOrgChartRoute: AuthenticatedHrOrgChartRoute,
   AuthenticatedSettingsCompanyRoute: AuthenticatedSettingsCompanyRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }

@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/hr/org-chart")({
+export const Route = createFileRoute("/_authenticated/hr_/org-chart")({
   head: () => ({ meta: [
     { title: "Qanta — Organigrama" },
     { name: "description", content: "Estructura organizacional editable con drag & drop." },

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/hr/attendance")({
+export const Route = createFileRoute("/_authenticated/hr_/attendance")({
   head: () => ({ meta: [
     { title: "Qanta — Asistencia" },
     { name: "description", content: "Marcas de entrada y salida vía QR diario." },
