@@ -64,6 +64,8 @@ const CATEGORIES: NavCategory[] = [
   {
     key: "hr", label: "RRHH", icon: UserCog, items: [
       { to: "/hr", label: "Personal / Ausencias / Nómina", icon: UserCog },
+      { to: "/hr/org-chart", label: "Organigrama", icon: GitMerge },
+      { to: "/hr/attendance", label: "Asistencia", icon: CheckSquare },
       { to: "/agenda", label: "Agenda", icon: Calendar },
       { to: "/habits", label: "Hábitos", icon: Repeat },
       { to: "/documents", label: "Documentos", icon: FolderOpen },
