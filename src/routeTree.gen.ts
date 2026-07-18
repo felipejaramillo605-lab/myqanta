@@ -31,6 +31,7 @@ import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
 import { Route as AuthenticatedFinanceTaxesRouteImport } from './routes/_authenticated/finance.taxes'
@@ -160,6 +161,11 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AttendanceOrgIdTokenRoute = AttendanceOrgIdTokenRouteImport.update({
+  id: '/attendance/$orgId/$token',
+  path: '/attendance/$orgId/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/settings/team',
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   '/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/_authenticated/finance/taxes': typeof AuthenticatedFinanceTaxesRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
@@ -420,6 +429,7 @@ export interface FileRouteTypes {
     | '/finance/taxes'
     | '/settings/company'
     | '/settings/team'
+    | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -460,6 +470,7 @@ export interface FileRouteTypes {
     | '/finance/taxes'
     | '/settings/company'
     | '/settings/team'
+    | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -501,6 +512,7 @@ export interface FileRouteTypes {
     | '/_authenticated/finance/taxes'
     | '/_authenticated/settings/company'
     | '/_authenticated/settings/team'
+    | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
   ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
   ApiPublicHooksProcessRemindersRoute: typeof ApiPublicHooksProcessRemindersRoute
@@ -676,6 +689,13 @@ declare module '@tanstack/react-router' {
       path: '/.mcp/list-tools'
       fullPath: '/.mcp/list-tools'
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attendance/$orgId/$token': {
+      id: '/attendance/$orgId/$token'
+      path: '/attendance/$orgId/$token'
+      fullPath: '/attendance/$orgId/$token'
+      preLoaderRoute: typeof AttendanceOrgIdTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings/team': {
@@ -883,6 +903,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
   ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
   ApiPublicHooksProcessRemindersRoute: ApiPublicHooksProcessRemindersRoute,
