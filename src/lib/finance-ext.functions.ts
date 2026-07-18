@@ -137,7 +137,8 @@ export const saveJournalEntry = createServerFn({ method: "POST" })
         } as never)
         .eq("id", entryId).eq("org_id", orgId);
       if (error) throw new Error(error.message);
-      await context.supabase.from("fin_journal_lines" as never).delete().eq("entry_id", entryId);
+      await context.supabase.from("fin_journal_lines" as never)
+        .delete().eq("entry_id", entryId).eq("org_id", orgId);
     }
 
     const rows = data.lines.map((l) => ({
