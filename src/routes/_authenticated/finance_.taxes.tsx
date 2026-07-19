@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/finance/taxes")({
+export const Route = createFileRoute("/_authenticated/finance_/taxes")({
   head: () => ({ meta: [{ title: "Qanta — Impuestos" }] }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({ queryKey: ["tax_drafts"], queryFn: () => listTaxDrafts() });

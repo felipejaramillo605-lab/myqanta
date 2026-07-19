@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FileText, ExternalLink } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/finance/policies")({
+export const Route = createFileRoute("/_authenticated/finance_/policies")({
   head: () => ({ meta: [{ title: "Qanta — Políticas contables" }] }),
   component: PoliciesPage,
 });
