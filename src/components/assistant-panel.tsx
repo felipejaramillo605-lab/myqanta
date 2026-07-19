@@ -1,14 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, Send, RefreshCw } from "lucide-react";
+import { Sparkles, Send, RefreshCw, Wrench } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chatWithAssistant } from "@/lib/assistant.functions";
 import { useI18n } from "@/lib/i18n";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type ActionRecord = {
+  tool: string;
+  params: Record<string, unknown>;
+  result: Record<string, unknown>;
+  status: "ok" | "error";
+};
+type Msg = { role: "user" | "assistant"; content: string; actions?: ActionRecord[] };
+type ChatReply = { reply: string; actions?: ActionRecord[] };
 
 export function AssistantPanel() {
   const { t, lang } = useI18n();
@@ -20,19 +27,25 @@ export function AssistantPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const mut = useMutation({
-    mutationFn: (history: Msg[]) => fn({ data: { messages: history, lang } }),
-    onSuccess: (res) => setMessages((m) => [...m, { role: "assistant", content: res.reply }]),
+    mutationFn: (history: Msg[]) =>
+      fn({ data: { messages: history.map(({ role, content }) => ({ role, content })), lang } }) as Promise<ChatReply>,
+    onSuccess: (res) =>
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: res.reply, actions: res.actions ?? [] },
+      ]),
     onError: (e: Error) =>
       setMessages((m) => [...m, { role: "assistant", content: "⚠️ " + e.message }]),
   });
 
   const regen = useMutation({
-    mutationFn: () => fn({ data: { messages: [{ role: "user", content: t("ai.regen.prompt") }], lang } }),
+    mutationFn: () =>
+      fn({ data: { messages: [{ role: "user", content: t("ai.regen.prompt") }], lang } }) as Promise<ChatReply>,
     onSuccess: (res) => {
       setMessages((m) => [
         ...m,
         { role: "user", content: t("ai.regen") },
-        { role: "assistant", content: res.reply },
+        { role: "assistant", content: res.reply, actions: res.actions ?? [] },
       ]);
       setLastRegenAt(new Date());
     },
@@ -102,16 +115,36 @@ export function AssistantPanel() {
             <div className="glass rounded-lg p-3 text-xs text-muted-foreground">{t("ai.intro")}</div>
           )}
           {messages.map((m, i) => (
-            <div
-              key={i}
-              className={
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed " +
-                (m.role === "user"
-                  ? "ml-auto bg-primary text-primary-foreground"
-                  : "bg-secondary/60 text-foreground")
-              }
-            >
-              {m.content}
+            <div key={i} className="space-y-2">
+              <div
+                className={
+                  "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed " +
+                  (m.role === "user"
+                    ? "ml-auto bg-primary text-primary-foreground"
+                    : "bg-secondary/60 text-foreground")
+                }
+              >
+                {m.content}
+              </div>
+              {m.actions?.map((a, j) => (
+                <div
+                  key={j}
+                  className={
+                    "max-w-[90%] rounded-md border px-3 py-2 text-xs " +
+                    (a.status === "ok"
+                      ? "border-primary/30 bg-primary/5 text-foreground"
+                      : "border-destructive/40 bg-destructive/5 text-destructive")
+                  }
+                >
+                  <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider">
+                    <Wrench className="size-3" />
+                    {a.status === "ok" ? "Acción ejecutada" : "Acción fallida"}: {a.tool}
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
+                    {JSON.stringify(a.status === "ok" ? a.result : { params: a.params, error: a.result }, null, 2)}
+                  </pre>
+                </div>
+              ))}
             </div>
           ))}
           {mut.isPending && (
