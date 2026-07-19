@@ -10,8 +10,8 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Qanta — Centro de mando financiero y operativo" },
       { name: "description", content: "ERP ligero que combina finanzas (EBITDA), inventario, hábitos y agenda con IA." },
-      { property: "og:title", content: "Qanta" },
-      { property: "og:description", content: "ERP ligero con IA: finanzas, inventario, hábitos y agenda." },
+      { property: "og:title", content: "Qanta — Centro de mando financiero y operativo" },
+      { property: "og:description", content: "ERP ligero que combina finanzas (EBITDA), inventario, hábitos y agenda con IA." },
     ],
   }),
   component: Index,

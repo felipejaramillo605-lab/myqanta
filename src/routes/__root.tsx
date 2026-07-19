@@ -86,11 +86,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Qanta — ERP personal y empresarial" },
-      { name: "description", content: "Qanta unifica finanzas (EBITDA), inventario, hábitos y agenda en un solo centro de mando." },
+      { title: "Qanta — Centro de mando financiero y operativo" },
+      { name: "description", content: "ERP ligero que combina finanzas (EBITDA), inventario, hábitos y agenda con IA." },
       { name: "author", content: "Qanta" },
-      { property: "og:title", content: "Qanta — ERP personal y empresarial" },
-      { property: "og:description", content: "Centro de mando financiero y operativo con IA." },
+      { property: "og:title", content: "Qanta — Centro de mando financiero y operativo" },
+      { property: "og:description", content: "ERP ligero que combina finanzas (EBITDA), inventario, hábitos y agenda con IA." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -98,6 +98,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Qanta" },
+      { name: "twitter:title", content: "Qanta — Centro de mando financiero y operativo" },
+      { name: "twitter:description", content: "ERP ligero que combina finanzas (EBITDA), inventario, hábitos y agenda con IA." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/19451fec-6e3b-4f1a-b0ba-0477586a68a0" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/19451fec-6e3b-4f1a-b0ba-0477586a68a0" },
     ],
     links: [
       {
