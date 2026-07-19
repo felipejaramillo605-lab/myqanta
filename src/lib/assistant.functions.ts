@@ -13,7 +13,13 @@ const messageSchema = z.object({
   content: z.string().min(1).max(4000),
 });
 
-type ActionRecord = { tool: string; params: unknown; result: unknown; status: "ok" | "error" };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+type ActionRecord = {
+  tool: string;
+  params: Record<string, JsonValue>;
+  result: Record<string, JsonValue>;
+  status: "ok" | "error";
+};
 
 async function logAction(
   supabase: SupabaseClient<Database>,
