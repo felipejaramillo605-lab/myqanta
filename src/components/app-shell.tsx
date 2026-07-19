@@ -195,7 +195,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             }
           >
             <Users className="size-4" />
-            {t("nav.team")}
+            Organización y accesos
           </Link>
           <Link
             to={"/settings/company" as never}
@@ -433,7 +433,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   }
                 >
                   <Users className="size-5 shrink-0" />
-                  <span className="truncate">Equipo</span>
+                  <span className="truncate">Organización y accesos</span>
                 </Link>
               </div>
             </SheetContent>
