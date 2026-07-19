@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const Route = createFileRoute("/_authenticated/finance/banks")({
+export const Route = createFileRoute("/_authenticated/finance_/banks")({
   head: () => ({ meta: [{ title: "Qanta — Bancos" }] }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({ queryKey: ["banks"], queryFn: () => listBankAccounts() });

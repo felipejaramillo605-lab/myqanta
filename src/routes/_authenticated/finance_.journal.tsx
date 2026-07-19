@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const Route = createFileRoute("/_authenticated/finance/journal")({
+export const Route = createFileRoute("/_authenticated/finance_/journal")({
   head: () => ({ meta: [{ title: "Qanta — Asientos contables" }] }),
   loader: async ({ context }) => {
     await Promise.all([

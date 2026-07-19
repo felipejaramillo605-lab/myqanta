@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/_authenticated/finance/parties")({
+export const Route = createFileRoute("/_authenticated/finance_/parties")({
   head: () => ({ meta: [{ title: "Qanta — Matriz de terceros" }] }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({ queryKey: ["third_parties"], queryFn: () => listThirdParties() });

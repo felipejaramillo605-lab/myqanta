@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const Route = createFileRoute("/_authenticated/finance/reconciliation")({
+export const Route = createFileRoute("/_authenticated/finance_/reconciliation")({
   head: () => ({ meta: [{ title: "Qanta — Conciliación bancaria" }] }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({ queryKey: ["recon"], queryFn: () => listReconciliation() });
