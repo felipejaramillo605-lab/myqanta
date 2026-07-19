@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_actions: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          params: Json
+          result: Json
+          status: string
+          tool_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          params?: Json
+          result?: Json
+          status?: string
+          tool_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          params?: Json
+          result?: Json
+          status?: string
+          tool_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_actions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_comments: {
         Row: {
           approval_id: string
