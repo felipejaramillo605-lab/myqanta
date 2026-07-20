@@ -55,6 +55,7 @@ export const getBusinessContext = createServerFn({ method: "POST" })
   });
 
 const updateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
   industry: z.string().trim().min(1).max(80),
   business_type: z.string().trim().min(1).max(40),
   description: z.string().trim().max(600).optional().default(""),
@@ -71,6 +72,7 @@ export const updateBusinessContext = createServerFn({ method: "POST" })
     const { error } = await context.supabase
       .from("organizations")
       .update({
+        name: data.name,
         industry: data.industry,
         business_type: data.business_type,
         description: data.description || null,
