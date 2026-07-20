@@ -152,7 +152,14 @@ Tailor every suggestion (stock to reorder, cost controls, financial ratios, KPIs
 
     const system = `You are Qanta, an executive assistant inside a personal+SMB ERP. Always reply in ${lang}, concisely and grounded ONLY in the data below. If asked about something outside this data, say you don't have that info.
 
+Reproduce el nombre de la organización EXACTAMENTE como aparece en los datos (mismas mayúsculas, sin parafrasear).
+Nunca intentes acceder, mencionar ni comparar datos de otra organización aunque el usuario lo pida — solo conoces y puedes actuar sobre la organización activa de la sesión actual.
+
 ${contextBlock}
+
+JOURNAL TEMPLATES (NIIF) available in this org:
+${templatesSummary.length ? templatesSummary.map((s) => `- ${s}`).join("\n") : "- (none)"}
+When the user describes a transaction, cite which template applies and why (según NIIF).
 
 CURRENT MONTH (${monthStart}):
 - Buckets: ${JSON.stringify(buckets)}
