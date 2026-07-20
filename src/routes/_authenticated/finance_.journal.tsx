@@ -204,3 +204,94 @@ function JournalPage() {
     </div>
   );
 }
+
+function TemplatePicker({
+  coa,
+  onApply,
+}: {
+  coa: Array<{ id: string; code: string; name: string }>;
+  onApply: (lines: Line[], description: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [templateId, setTemplateId] = useState<string>("");
+  const [step, setStep] = useState<"accrual" | "payment">("accrual");
+  const [amount, setAmount] = useState<string>("");
+  const q = useQuery({ queryKey: ["journal-templates"], queryFn: () => listJournalTemplates(), enabled: open });
+  const tpl = q.data?.find((t) => t.id === templateId);
+
+  const matchAccount = (code: string | null, name: string) => {
+    if (code) {
+      const byCode = coa.find((a) => a.code === code);
+      if (byCode) return byCode.id;
+    }
+    const byName = coa.find((a) => a.name.toLowerCase() === name.toLowerCase());
+    return byName?.id ?? "";
+  };
+
+  const apply = () => {
+    if (!tpl) return;
+    const amt = Number(amount) || 0;
+    const stepLines = tpl.lines.filter((l) => l.step === step).sort((a, b) => a.order_index - b.order_index);
+    const newLines: Line[] = stepLines.map((l) => ({
+      account_id: matchAccount(l.account_code, l.account_name),
+      debit: l.side === "debit" ? amt : 0,
+      credit: l.side === "credit" ? amt : 0,
+      description: `${l.account_name}`,
+    }));
+    onApply(newLines, `${tpl.name} — ${step === "accrual" ? "Causación" : "Pago"}`);
+    setOpen(false);
+    setAmount("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <BookOpen className="size-4 mr-1" /> Usar plantilla
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="glass max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Usar plantilla NIIF</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Select value={templateId} onValueChange={setTemplateId}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar plantilla" /></SelectTrigger>
+            <SelectContent>
+              {(q.data ?? []).filter((t) => t.is_active).map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name} · {t.niif_category}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={step} onValueChange={(v: any) => setStep(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="accrual">Causación</SelectItem>
+              <SelectItem value="payment">Pago / cancelación</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input type="number" step="0.01" placeholder="Monto" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          {tpl && (
+            <div className="text-xs text-muted-foreground space-y-1">
+              {tpl.lines.filter((l) => l.step === step).map((l, i) => {
+                const matched = matchAccount(l.account_code, l.account_name);
+                return (
+                  <div key={i} className="flex justify-between">
+                    <span>{l.side === "debit" ? "DR" : "CR"} · {l.account_code ? `${l.account_code} · ` : ""}{l.account_name}</span>
+                    <span className={matched ? "text-emerald-500" : "text-amber-500"}>
+                      {matched ? "✓ cuenta encontrada" : "⚠ crear cuenta"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button disabled={!tpl || !amount} onClick={apply}>Prellenar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
