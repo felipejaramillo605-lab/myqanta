@@ -68,3 +68,40 @@ export const amIBlocked = createServerFn({ method: "GET" })
     if (error) return false;
     return Boolean(data);
   });
+
+export const listOrgMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ org_id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await assertPlatformOwner(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: members, error } = await supabaseAdmin
+      .from("organization_members")
+      .select("user_id, role, created_at")
+      .eq("org_id", data.org_id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    const ids = (members ?? []).map((m) => m.user_id);
+    let profByUser = new Map<string, { full_name: string | null; is_blocked: boolean }>();
+    let emailByUser = new Map<string, string>();
+    if (ids.length) {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, is_blocked")
+        .in("id", ids);
+      for (const p of profs ?? []) {
+        profByUser.set(p.id, { full_name: p.full_name, is_blocked: Boolean((p as any).is_blocked) });
+      }
+      const { data: users } = await (supabaseAdmin.auth.admin as any).listUsers({ page: 1, perPage: 1000 });
+      const usersArr: any[] = users?.users ?? [];
+      for (const u of usersArr) if (ids.includes(u.id)) emailByUser.set(u.id, u.email ?? "");
+    }
+    return (members ?? []).map((m) => ({
+      user_id: m.user_id,
+      role: m.role,
+      joined_at: m.created_at,
+      full_name: profByUser.get(m.user_id)?.full_name ?? null,
+      email: emailByUser.get(m.user_id) ?? null,
+      is_blocked: profByUser.get(m.user_id)?.is_blocked ?? false,
+    }));
+  });
