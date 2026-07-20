@@ -183,7 +183,7 @@ export function BusinessOnboardingDialog({ open: controlledOpen, onOpenChange, a
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={mut.isPending || !form.industry.trim()}>
+            <Button type="submit" disabled={mut.isPending || !form.industry.trim() || !form.name.trim()}>
               {mut.isPending ? t("onboarding.saving") : t("onboarding.save")}
             </Button>
           </DialogFooter>
