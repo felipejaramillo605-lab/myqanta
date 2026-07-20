@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, BookOpen } from "lucide-react";
 import {
   listAccountsCoa, upsertAccount, deleteAccount,
   listJournalEntries, saveJournalEntry, deleteJournalEntry,
 } from "@/lib/finance-ext.functions";
+import { listJournalTemplates } from "@/lib/journal-templates.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,6 +100,13 @@ function JournalPage() {
               <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
               <Input placeholder="ID comprobante (UUID de documento)" value={receiptId} onChange={(e) => setReceiptId(e.target.value)} />
             </div>
+            <TemplatePicker
+              coa={coa.data as any[]}
+              onApply={(newLines, desc) => {
+                setLines(newLines);
+                if (desc && !description) setDescription(desc);
+              }}
+            />
             <div className="space-y-2">
               {lines.map((l, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 items-center">
