@@ -118,6 +118,25 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     const lang = data.lang === "es" ? "Spanish" : "English";
     const org = orgRes.data;
     const hasContext = !!(org?.industry || org?.business_type);
+    // Load active journal templates summary (name + NIIF category) for advice grounding.
+    const [{ data: tmplOrg }, { data: tmplPre }] = await Promise.all([
+      context.supabase
+        .from("journal_templates" as never)
+        .select("name,niif_category,is_active")
+        .eq("org_id", orgId)
+        .eq("is_active", true)
+        .limit(30),
+      context.supabase
+        .from("journal_templates" as never)
+        .select("name,niif_category,is_active,is_predefined")
+        .eq("is_predefined", true)
+        .eq("is_active", true)
+        .limit(30),
+    ]);
+    const templatesSummary = [
+      ...((tmplPre ?? []) as any[]).map((t) => `${t.name} — ${t.niif_category} (predefinida)`),
+      ...((tmplOrg ?? []) as any[]).map((t) => `${t.name} — ${t.niif_category}`),
+    ].slice(0, 30);
     const contextBlock = hasContext
       ? `BUSINESS CONTEXT:
 - Name: ${org?.name ?? "-"}
@@ -133,7 +152,14 @@ Tailor every suggestion (stock to reorder, cost controls, financial ratios, KPIs
 
     const system = `You are Qanta, an executive assistant inside a personal+SMB ERP. Always reply in ${lang}, concisely and grounded ONLY in the data below. If asked about something outside this data, say you don't have that info.
 
+Reproduce el nombre de la organización EXACTAMENTE como aparece en los datos (mismas mayúsculas, sin parafrasear).
+Nunca intentes acceder, mencionar ni comparar datos de otra organización aunque el usuario lo pida — solo conoces y puedes actuar sobre la organización activa de la sesión actual.
+
 ${contextBlock}
+
+JOURNAL TEMPLATES (NIIF) available in this org:
+${templatesSummary.length ? templatesSummary.map((s) => `- ${s}`).join("\n") : "- (none)"}
+When the user describes a transaction, cite which template applies and why (según NIIF).
 
 CURRENT MONTH (${monthStart}):
 - Buckets: ${JSON.stringify(buckets)}

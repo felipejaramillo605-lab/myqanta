@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { assertOrgRole, assertOrgRoleFor } from "./permissions";
+import { sendGmail, isValidEmail } from "./gmail.server";
 
 const OrgRole = z.enum(["owner", "admin", "member", "viewer"]);
 
@@ -169,6 +170,7 @@ export const createInvite = createServerFn({ method: "POST" })
       email: z.string().trim().email().optional().nullable(),
       role: OrgRole.default("member"),
       ttl_days: z.number().int().min(1).max(60).default(14),
+      origin: z.string().trim().url().max(300).optional().nullable(),
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
@@ -192,6 +194,29 @@ export const createInvite = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // Best-effort email delivery. Never fail the invite creation on email issues.
+    if (data.email && isValidEmail(data.email) && data.origin) {
+      try {
+        const { data: org } = await context.supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", orgId)
+          .maybeSingle();
+        const orgName = org?.name ?? "Qanta";
+        const link = `${data.origin.replace(/\/+$/, "")}/invite/${token}`;
+        const subject = `Invitación a ${orgName} en Qanta`;
+        const body =
+          `Hola,\n\nHas sido invitado(a) a unirte a "${orgName}" en Qanta con el rol de ${data.role}.\n\n` +
+          `Acepta la invitación abriendo este enlace:\n${link}\n\n` +
+          `El enlace caduca el ${new Date(expires).toLocaleString()}.\n\n— Qanta`;
+        const res = await sendGmail(data.email, subject, body);
+        if (!res.ok) console.warn("[invite email] send failed:", res.error);
+      } catch (e) {
+        console.warn("[invite email] unexpected error:", (e as Error).message);
+      }
+    }
+
     return row;
   });
 

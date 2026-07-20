@@ -1476,6 +1476,94 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_template_lines: {
+        Row: {
+          account_code: string | null
+          account_name: string
+          amount_formula: string
+          created_at: string
+          id: string
+          order_index: number
+          side: string
+          step: string
+          template_id: string
+        }
+        Insert: {
+          account_code?: string | null
+          account_name: string
+          amount_formula?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          side: string
+          step: string
+          template_id: string
+        }
+        Update: {
+          account_code?: string | null
+          account_name?: string
+          amount_formula?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          side?: string
+          step?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_template_lines_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "journal_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_predefined: boolean
+          name: string
+          niif_category: string
+          org_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_predefined?: boolean
+          name: string
+          niif_category: string
+          org_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_predefined?: boolean
+          name?: string
+          niif_category?: string
+          org_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_nodes: {
         Row: {
           created_at: string

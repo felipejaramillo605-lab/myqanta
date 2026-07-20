@@ -38,6 +38,7 @@ export function BusinessOnboardingDialog({ open: controlledOpen, onOpenChange, a
   };
 
   const [form, setForm] = useState({
+    name: "",
     industry: "",
     business_type: "personal",
     description: "",
@@ -49,6 +50,7 @@ export function BusinessOnboardingDialog({ open: controlledOpen, onOpenChange, a
   useEffect(() => {
     if (data) {
       setForm({
+        name: data.name ?? "",
         industry: data.industry ?? "",
         business_type: data.business_type ?? "personal",
         description: data.description ?? "",
@@ -90,6 +92,20 @@ export function BusinessOnboardingDialog({ open: controlledOpen, onOpenChange, a
             mut.mutate();
           }}
         >
+          <div className="grid gap-1.5">
+            <Label htmlFor="bname">Nombre del negocio</Label>
+            <Input
+              id="bname"
+              required
+              placeholder="Ej. Panadería La Espiga, Consultora Andes…"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Así verás tu organización en toda la app y en los reportes.
+            </p>
+          </div>
+
           <div className="grid gap-1.5">
             <Label htmlFor="industry">{t("onboarding.industry")}</Label>
             <Input
@@ -167,7 +183,7 @@ export function BusinessOnboardingDialog({ open: controlledOpen, onOpenChange, a
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={mut.isPending || !form.industry.trim()}>
+            <Button type="submit" disabled={mut.isPending || !form.industry.trim() || !form.name.trim()}>
               {mut.isPending ? t("onboarding.saving") : t("onboarding.save")}
             </Button>
           </DialogFooter>

@@ -77,7 +77,14 @@ function TeamPage() {
 
   const createInviteM = useMutation({
     mutationFn: () =>
-      createInvite({ data: { email: inviteEmail || null, role: inviteRole, ttl_days: 14 } }),
+      createInvite({
+        data: {
+          email: inviteEmail || null,
+          role: inviteRole,
+          ttl_days: 14,
+          origin: typeof window !== "undefined" ? window.location.origin : null,
+        },
+      }),
     onSuccess: (row) => {
       setInviteEmail("");
       const link = `${window.location.origin}/invite/${row.token}`;

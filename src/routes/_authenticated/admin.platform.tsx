@@ -7,6 +7,7 @@ import {
   listPlatformUsers,
   listPlatformOrganizations,
   setUserBlocked,
+  listOrgMembers,
 } from "@/lib/platform-admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Ban, CheckCircle2, Search, Users, Building2 } from "lucide-react";
+import { Ban, CheckCircle2, Search, Users, Building2, ChevronDown, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/platform")({
   ssr: false,
@@ -171,6 +172,7 @@ function PlatformAdminPage() {
             <table className="w-full text-sm">
               <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
                 <tr>
+                  <th className="p-3 w-8"></th>
                   <th className="p-3 text-left">Organización</th>
                   <th className="p-3 text-left">Industria</th>
                   <th className="p-3 text-left">Miembros</th>
@@ -179,18 +181,10 @@ function PlatformAdminPage() {
               </thead>
               <tbody>
                 {orgs.map((o) => (
-                  <tr key={o.id} className="border-t border-border/40">
-                    <td className="p-3">
-                      <div className="font-medium">{o.name}</div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{o.slug}</div>
-                    </td>
-                    <td className="p-3 text-muted-foreground">{o.industry ?? "—"}</td>
-                    <td className="p-3">{o.member_count}</td>
-                    <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</td>
-                  </tr>
+                  <OrgRow key={o.id} org={o} onToggleBlock={(user_id, blocked, reason) => toggle.mutate({ user_id, blocked, reason })} toggling={toggle.isPending} />
                 ))}
                 {!orgsQ.isLoading && orgs.length === 0 && (
-                  <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Sin resultados.</td></tr>
+                  <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Sin resultados.</td></tr>
                 )}
               </tbody>
             </table>
@@ -198,6 +192,75 @@ function PlatformAdminPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function OrgRow({
+  org,
+  onToggleBlock,
+  toggling,
+}: {
+  org: { id: string; name: string; slug: string | null; industry: string | null; member_count: number; created_at: string };
+  onToggleBlock: (user_id: string, blocked: boolean, reason: string | null) => void;
+  toggling: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const membersQ = useQuery({
+    queryKey: ["org-members", org.id],
+    queryFn: () => listOrgMembers({ data: { org_id: org.id } }),
+    enabled: open,
+  });
+  return (
+    <>
+      <tr className="border-t border-border/40 cursor-pointer hover:bg-secondary/20" onClick={() => setOpen((o) => !o)}>
+        <td className="p-3">{open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}</td>
+        <td className="p-3">
+          <div className="font-medium">{org.name}</div>
+          <div className="font-mono text-[10px] text-muted-foreground">{org.slug}</div>
+        </td>
+        <td className="p-3 text-muted-foreground">{org.industry ?? "—"}</td>
+        <td className="p-3">{org.member_count}</td>
+        <td className="p-3 text-muted-foreground">{new Date(org.created_at).toLocaleDateString()}</td>
+      </tr>
+      {open && (
+        <tr className="border-t border-border/40 bg-secondary/10">
+          <td colSpan={5} className="p-3">
+            {membersQ.isLoading && <div className="text-xs text-muted-foreground">Cargando integrantes…</div>}
+            {membersQ.data && membersQ.data.length === 0 && <div className="text-xs text-muted-foreground">Sin integrantes.</div>}
+            <div className="grid gap-2">
+              {(membersQ.data ?? []).map((m) => (
+                <div key={m.user_id} className="flex items-center justify-between rounded-md border border-border/40 p-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{m.full_name ?? m.email ?? m.user_id}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground truncate">{m.email ?? m.user_id}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{m.role}</Badge>
+                    <span className="text-[10px] text-muted-foreground">Ingresó {new Date(m.joined_at).toLocaleDateString()}</span>
+                    {m.is_blocked ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={toggling}
+                        onClick={(e) => { e.stopPropagation(); onToggleBlock(m.user_id, false, null); }}
+                      >
+                        <CheckCircle2 className="size-4" /> Reactivar
+                      </Button>
+                    ) : (
+                      <BlockDialog onConfirm={(reason) => onToggleBlock(m.user_id, true, reason)}>
+                        <Button size="sm" variant="destructive" onClick={(e) => e.stopPropagation()}>
+                          <Ban className="size-4" /> Bloquear
+                        </Button>
+                      </BlockDialog>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
