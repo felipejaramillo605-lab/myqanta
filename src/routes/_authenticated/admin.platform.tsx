@@ -200,7 +200,7 @@ function OrgRow({
   onToggleBlock,
   toggling,
 }: {
-  org: { id: string; name: string; slug: string; industry: string | null; member_count: number; created_at: string };
+  org: { id: string; name: string; slug: string | null; industry: string | null; member_count: number; created_at: string };
   onToggleBlock: (user_id: string, blocked: boolean, reason: string | null) => void;
   toggling: boolean;
 }) {
