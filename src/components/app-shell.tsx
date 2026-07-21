@@ -450,6 +450,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Users className="size-5 shrink-0" />
                   <span className="truncate">Organización y accesos</span>
                 </Link>
+                {isAdmin && (
+                  <Link
+                    to={"/settings/roles" as never}
+                    onClick={() => setMoreOpen(false)}
+                    className={
+                      "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
+                      (path.startsWith("/settings/roles") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
+                    }
+                  >
+                    <KeyRound className="size-5 shrink-0" />
+                    <span className="truncate">Roles y permisos</span>
+                  </Link>
+                )}
               </div>
             </SheetContent>
           </Sheet>
