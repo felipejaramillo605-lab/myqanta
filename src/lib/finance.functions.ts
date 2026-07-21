@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 import { parseNumberWithSeparator } from "./categories";
 
 const BUCKETS = [
@@ -233,7 +233,7 @@ export const createTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TxInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error, data: row } = await context.supabase
       .from("finance_transactions")
       .insert({ ...data, user_id: context.userId, org_id: orgId, source: "manual" })
@@ -247,7 +247,7 @@ export const deleteTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("finance_transactions").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -267,7 +267,7 @@ export const updateTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TxUpdateInput.parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { id, ...patch } = data;
     const { error, data: row } = await context.supabase
       .from("finance_transactions")
@@ -311,7 +311,7 @@ export const analyzeStatement = createServerFn({ method: "POST" })
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     // Anyone (incl. viewers) can preview the analysis; writes require member+
     const orgId = data.commit
-      ? await resolveOrgWithRole(context.supabase, context.userId, "member")
+      ? await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member")
       : await resolveActiveOrgId(context.supabase, context.userId);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
@@ -560,7 +560,7 @@ export const applyExtractedTransactions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ApplyExtractedInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const rows = data.transactions.map((t) => ({
       user_id: context.userId,
       org_id: orgId,

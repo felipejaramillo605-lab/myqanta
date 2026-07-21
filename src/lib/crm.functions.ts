@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 export const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"] as const;
 export type DealStage = (typeof DEAL_STAGES)[number];
@@ -42,7 +42,7 @@ export const upsertContact = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ContactInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const payload: Record<string, unknown> = {
       ...data,
       email: data.email || null,
@@ -63,7 +63,7 @@ export const deleteContact = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const { error } = await context.supabase.from("crm_contacts" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -108,7 +108,7 @@ export const upsertDeal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => DealInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const payload: Record<string, unknown> = {
       ...data,
       org_id: orgId,
@@ -134,7 +134,7 @@ export const moveDealStage = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), stage: z.enum(DEAL_STAGES), position: z.number().int().optional() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const patch: Record<string, unknown> = { stage: data.stage };
     if (typeof data.position === "number") patch.position = data.position;
     if (data.stage === "won" || data.stage === "lost") patch.closed_at = new Date().toISOString();
@@ -148,7 +148,7 @@ export const deleteDeal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const { error } = await context.supabase.from("crm_deals" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -187,7 +187,7 @@ export const addActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ActivityInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const payload: Record<string, unknown> = {
       ...data,
       org_id: orgId,
@@ -207,7 +207,7 @@ export const deleteActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const { error } = await context.supabase.from("crm_activities" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

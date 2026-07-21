@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 export const LEAVE_KINDS = ["vacation", "sick", "permission", "unpaid"] as const;
 export const LEAVE_STATUSES = ["pending", "approved", "rejected"] as const;
@@ -67,7 +67,7 @@ export const upsertLeave = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => LeaveInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const days = data.days > 0
       ? data.days
       : Math.max(
@@ -100,7 +100,7 @@ export const deleteLeave = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const { error } = await context.supabase.from("hr_leaves" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -133,7 +133,7 @@ export const generatePayrollRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PayrollInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
     const { data: members, error: mErr } = await context.supabase
       .from("team_members")
       .select("id, full_name, salary_base, archived")
@@ -172,7 +172,7 @@ export const finalizePayrollRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
     const { data: run, error: rErr } = await context.supabase
       .from("hr_payroll_runs" as never)
       .select("*")
@@ -211,7 +211,7 @@ export const deletePayrollRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
     const { error } = await context.supabase.from("hr_payroll_runs" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -244,7 +244,7 @@ export const updateHrMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => HrMemberInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
     const { id, ...rest } = data;
     const { data: out, error } = await context.supabase
       .from("team_members")
@@ -286,7 +286,7 @@ export const saveOrgNode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => OrgNodeInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     if (data.id) {
       const { data: existing } = await context.supabase
         .from("org_nodes" as never).select("org_id").eq("id", data.id).single();
@@ -309,7 +309,7 @@ export const deleteOrgNode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const { error } = await context.supabase.from("org_nodes" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);

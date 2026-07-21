@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 import { computeNextOccurrence } from "./reminders-recurrence";
 
 const SourceType = z.enum(["task", "habit", "event", "custom"]);
@@ -98,7 +98,7 @@ export const createReminder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/reminders", "member");
     if (data.channel === "email" && !data.email) throw new Error("Falta el correo de destino.");
     if (data.channel === "whatsapp" && !data.phone_e164) throw new Error("Falta el número de WhatsApp.");
     const { data: settings } = await context.supabase

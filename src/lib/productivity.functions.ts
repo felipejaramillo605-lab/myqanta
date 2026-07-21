@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 // ===== Tasks =====
 const TaskStatus = z.enum(["todo", "doing", "done", "archived"]);
@@ -37,7 +37,7 @@ export const upsertTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TaskInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const payload = {
       ...data,
       user_id: context.userId,
@@ -54,7 +54,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), status: TaskStatus }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase
       .from("tasks")
       .update({ status: data.status, completed_at: data.status === "done" ? new Date().toISOString() : null })
@@ -67,7 +67,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -101,7 +101,7 @@ export const createHabit = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { data: out, error } = await context.supabase
       .from("habits").insert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
@@ -120,7 +120,7 @@ export const updateHabit = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { id, ...patch } = data;
     const { data: out, error } = await context.supabase
       .from("habits").update(patch).eq("id", id).select().single();
@@ -138,7 +138,7 @@ export const toggleHabitToday = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const target = data.date ?? new Date().toISOString().slice(0, 10);
     // Rechaza fechas futuras — con 1 día de tolerancia para diferencias de
     // zona horaria entre el navegador del usuario y UTC del servidor.
@@ -163,7 +163,7 @@ export const deleteHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase.from("habits").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -200,7 +200,7 @@ export const upsertEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EventInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { data: out, error } = await context.supabase
       .from("events").upsert({ ...data, user_id: context.userId, org_id: orgId }).select().single();
     if (error) throw new Error(error.message);
@@ -211,7 +211,7 @@ export const deleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase.from("events").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
