@@ -513,6 +513,47 @@ export type Database = {
           },
         ]
       }
+      custom_roles: {
+        Row: {
+          allowed_modules: string[]
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_modules?: string[]
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_modules?: string[]
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -1678,6 +1719,7 @@ export type Database = {
       organization_members: {
         Row: {
           created_at: string
+          custom_role_id: string | null
           id: string
           org_id: string
           role: Database["public"]["Enums"]["org_role"]
@@ -1685,6 +1727,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_role_id?: string | null
           id?: string
           org_id: string
           role?: Database["public"]["Enums"]["org_role"]
@@ -1692,12 +1735,20 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_role_id?: string | null
           id?: string
           org_id?: string
           role?: Database["public"]["Enums"]["org_role"]
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_members_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_members_org_id_fkey"
             columns: ["org_id"]
@@ -2990,6 +3041,10 @@ export type Database = {
       }
       detect_and_log_suspicious: { Args: never; Returns: undefined }
       get_active_org: { Args: { _user_id: string }; Returns: string }
+      has_module_access: {
+        Args: { _module: string; _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_org_role: {
         Args: {
           _min_role: Database["public"]["Enums"]["org_role"]
