@@ -50,3 +50,41 @@ export async function assertOrgRoleFor(
 ): Promise<void> {
   await assertOrgRole(supabase, userId, orgId, minRole);
 }
+
+/**
+ * Throws if the user cannot access `moduleKey` in the given org.
+ * owner/admin always pass. member/viewer pass only if they have no
+ * custom_role assigned (legacy behavior) or their custom_role's
+ * allowed_modules includes moduleKey.
+ */
+export async function assertModuleAccess(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  orgId: string,
+  moduleKey: string,
+): Promise<void> {
+  const { data, error } = await (supabase.rpc as any)("has_module_access", {
+    _org_id: orgId,
+    _user_id: userId,
+    _module: moduleKey,
+  });
+  if (error) throw new Error(error.message);
+  if (!data) {
+    throw new Error(`Forbidden: no tienes acceso al módulo "${moduleKey}"`);
+  }
+}
+
+/**
+ * Resolves the active org, asserts at least `minRole`, and additionally
+ * asserts access to `moduleKey` via custom roles.
+ */
+export async function resolveOrgWithModuleAccess(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  moduleKey: string,
+  minRole: OrgRole = "member",
+): Promise<string> {
+  const orgId = await resolveOrgWithRole(supabase, userId, minRole);
+  await assertModuleAccess(supabase, userId, orgId, moduleKey);
+  return orgId;
+}
