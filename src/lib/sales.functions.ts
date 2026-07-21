@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 // ===== Customers =====
 const CustomerInput = z.object({
@@ -36,7 +36,7 @@ export const upsertCustomer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CustomerInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const payload: Record<string, unknown> = {
       ...data,
       email: data.email || null,
@@ -56,7 +56,7 @@ export const deleteCustomer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { error } = await context.supabase.from("sales_customers" as never).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -130,7 +130,7 @@ export const saveInvoiceDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InvoiceInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const totals = computeTotals(data.items);
     const base = {
       org_id: orgId,
@@ -179,7 +179,7 @@ export const issueInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data: inv, error } = await context.supabase
       .from("sales_invoices" as never).select("*").eq("id", data.id).single();
     if (error) throw new Error(error.message);
@@ -224,7 +224,7 @@ export const voidInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { error } = await context.supabase.from("sales_invoices" as never)
       .update({ status: "void" } as never).eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -235,7 +235,7 @@ export const deleteInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data: inv } = await context.supabase
       .from("sales_invoices" as never).select("status").eq("id", data.id).single();
     if ((inv as { status: string } | null)?.status !== "draft") {
@@ -260,7 +260,7 @@ export const addPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PaymentInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data: inv, error } = await context.supabase
       .from("sales_invoices" as never).select("*").eq("id", data.invoice_id).single();
     if (error) throw new Error(error.message);
@@ -311,7 +311,7 @@ export const deletePayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithRole(context.supabase, context.userId, "member");
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data: pay } = await context.supabase
       .from("sales_payments" as never).select("invoice_id, amount, finance_transaction_id")
       .eq("id", data.id).single();

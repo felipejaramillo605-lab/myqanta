@@ -24,6 +24,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { BarChart3, Building2, MoreHorizontal, CheckSquare, X, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
@@ -197,6 +198,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Users className="size-4" />
             Organización y accesos
           </Link>
+          {isAdmin && (
+            <Link
+              to={"/settings/roles" as never}
+              className={
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+                (path.startsWith("/settings/roles")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+              }
+            >
+              <KeyRound className="size-4" />
+              Roles y permisos
+            </Link>
+          )}
           <Link
             to={"/settings/company" as never}
             className={
@@ -435,6 +450,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Users className="size-5 shrink-0" />
                   <span className="truncate">Organización y accesos</span>
                 </Link>
+                {isAdmin && (
+                  <Link
+                    to={"/settings/roles" as never}
+                    onClick={() => setMoreOpen(false)}
+                    className={
+                      "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
+                      (path.startsWith("/settings/roles") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
+                    }
+                  >
+                    <KeyRound className="size-5 shrink-0" />
+                    <span className="truncate">Roles y permisos</span>
+                  </Link>
+                )}
               </div>
             </SheetContent>
           </Sheet>

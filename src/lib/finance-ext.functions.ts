@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 // -------------------- Chart of accounts --------------------
 
@@ -32,7 +32,7 @@ export const upsertAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AccountInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     if (data.id) {
       const { data: existing } = await context.supabase
         .from("fin_accounts" as never).select("org_id").eq("id", data.id).single();
@@ -49,7 +49,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("fin_accounts" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -95,7 +95,7 @@ export const saveJournalEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EntryInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
 
     // Enforce balance debit == credit
     const totalD = data.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
@@ -160,7 +160,7 @@ export const deleteJournalEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("fin_journal_entries" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -197,7 +197,7 @@ export const upsertThirdParty = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ThirdPartyInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const payload: any = {
       ...data,
       email: data.email || null,
@@ -213,7 +213,7 @@ export const deleteThirdParty = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("third_parties" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -247,7 +247,7 @@ export const upsertBankAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => BankInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const payload = { ...data, org_id: orgId };
     const { data: out, error } = await context.supabase.from("bank_accounts" as never)
       .upsert(payload as never).select().single();
@@ -259,7 +259,7 @@ export const deleteBankAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("bank_accounts" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -294,7 +294,7 @@ export const upsertBankTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => BankTxInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const payload = { ...data, org_id: orgId };
     const { data: out, error } = await context.supabase.from("bank_transactions" as never)
       .upsert(payload as never).select().single();
@@ -306,7 +306,7 @@ export const deleteBankTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("bank_transactions" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -345,7 +345,7 @@ export const generateTaxDraft = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: org } = await context.supabase.from("organizations")
       .select("vat_responsible, ica_responsible, ica_rate, other_retentions")
       .eq("id", orgId).single();
@@ -390,7 +390,7 @@ export const upsertTaxDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TaxDraftInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: out, error } = await context.supabase.from("tax_drafts" as never)
       .upsert({ ...data, org_id: orgId } as never).select().single();
     if (error) throw new Error(error.message);
@@ -401,7 +401,7 @@ export const deleteTaxDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { error } = await context.supabase.from("tax_drafts" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
@@ -433,7 +433,7 @@ export const autoReconcile = createServerFn({ method: "POST" })
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: txs } = await context.supabase.from("bank_transactions" as never)
       .select("*").eq("org_id", orgId).is("reconciled_entry_id", null);
     const { data: entries } = await context.supabase.from("fin_journal_entries" as never)
@@ -485,7 +485,7 @@ export const manualReconcile = createServerFn({ method: "POST" })
     z.object({ bank_transaction_id: z.string().uuid(), journal_entry_id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     await context.supabase.from("reconciliation_matches" as never).upsert({
       org_id: orgId,
       bank_transaction_id: data.bank_transaction_id,
@@ -504,7 +504,7 @@ export const unmatchReconciliation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ bank_transaction_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     await context.supabase.from("reconciliation_matches" as never).delete()
       .eq("bank_transaction_id", data.bank_transaction_id).eq("org_id", orgId);
     await context.supabase.from("bank_transactions" as never)

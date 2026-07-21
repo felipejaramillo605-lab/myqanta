@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole } from "./permissions";
+import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 
 export type DocumentRow = {
   id: string;
@@ -57,7 +57,7 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
     const safe = sanitize(data.name);
     const path = `${orgId}/${Date.now()}-${crypto.randomUUID()}-${safe}`;
     const { data: signed, error } = await context.supabase.storage
@@ -82,7 +82,7 @@ export const registerDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => RegisterInput.parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
     // Enforce that storage_path lives under this org's folder.
     if (!data.storage_path.startsWith(`${orgId}/`)) {
       throw new Error("Ruta de almacenamiento inválida");
@@ -129,7 +129,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
     const { data: doc, error: gErr } = await context.supabase
       .from("documents" as never)
       .select("storage_path, org_id")

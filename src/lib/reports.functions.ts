@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
+import { assertModuleAccess } from "./permissions";
 
 export type ReportRange = { from: string; to: string };
 
@@ -56,6 +57,7 @@ export const getConsolidatedReport = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => rangeSchema.parse(d))
   .handler(async ({ context, data }): Promise<ConsolidatedReport> => {
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertModuleAccess(context.supabase, context.userId, orgId, "/reports");
     const s = context.supabase;
     const { from, to } = data;
 
