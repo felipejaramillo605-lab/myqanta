@@ -3,8 +3,36 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveOrgWithRole, assertOrgRole } from "./permissions";
 import { MODULE_KEYS } from "./module-registry";
 import { z } from "zod";
+import { resolveActiveOrgId } from "./org-helpers";
 
 const ModuleKey = z.enum(MODULE_KEYS as [string, ...string[]]);
+
+export const getMyModuleAccess = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ unrestricted: boolean; allowed_modules: string[] | null }> => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data: member, error } = await context.supabase
+      .from("organization_members")
+      .select("role, custom_role_id")
+      .eq("org_id", orgId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!member) return { unrestricted: true, allowed_modules: null };
+    if (member.role === "owner" || member.role === "admin" || !member.custom_role_id) {
+      return { unrestricted: true, allowed_modules: null };
+    }
+    const { data: role, error: rErr } = await context.supabase
+      .from("custom_roles")
+      .select("allowed_modules")
+      .eq("id", member.custom_role_id)
+      .maybeSingle();
+    if (rErr) throw new Error(rErr.message);
+    return {
+      unrestricted: false,
+      allowed_modules: ((role?.allowed_modules as string[] | null) ?? []),
+    };
+  });
 
 export const listCustomRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
