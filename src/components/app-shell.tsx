@@ -335,6 +335,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")} title={t("onboarding.open")}>
               <Briefcase className="size-4" />
             </Button>
+            <Button variant="ghost" size="icon" onClick={() => setGuideOpen(true)} aria-label="Guía de uso" title="Guía de uso">
+              <HelpCircle className="size-4" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={toggleMode} aria-label="toggle mode">
               {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
@@ -503,6 +506,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <BusinessOnboardingDialog autoOpenIfMissing />
+      <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
   );
 }
