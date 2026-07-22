@@ -41,6 +41,7 @@ export const listApprovalComments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ approval_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/approvals", "member");
     const { data: rows, error } = await context.supabase
       .from("approval_comments")
       .select("*")
