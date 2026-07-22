@@ -46,7 +46,7 @@ const TemplateInput = z.object({
 export const listJournalTemplates = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<JournalTemplate[]> => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance/policies", "member");
     // RLS returns predefined + this org.
     const { data: templates, error } = await context.supabase
       .from("journal_templates" as never)
