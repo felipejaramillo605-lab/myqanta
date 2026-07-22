@@ -25,7 +25,7 @@ export type AffectedRow = {
 export const listScanBatches = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
     const { data, error } = await context.supabase
       .from("scan_batches")
       .select("id,kind,source_name,summary,item_count,total,currency,created_at,undone_at")

@@ -26,7 +26,7 @@ const CreateInput = z.object({
 export const listApprovals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/approvals", "member");
     const { data, error } = await context.supabase
       .from("approvals")
       .select("*")
@@ -166,7 +166,7 @@ export const addApprovalComment = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/approvals", "member");
     // Ensure the approval belongs to the caller's active org.
     const { data: approval, error } = await context.supabase
       .from("approvals")

@@ -24,7 +24,7 @@ const ContactInput = z.object({
 export const listContacts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const { data, error } = await context.supabase
       .from("crm_contacts" as never)
       .select("*")
@@ -88,7 +88,7 @@ const DealInput = z.object({
 export const listDeals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     const { data, error } = await context.supabase
       .from("crm_deals" as never)
       .select("*")
@@ -171,7 +171,7 @@ export const listActivities = createServerFn({ method: "GET" })
     z.object({ deal_id: z.string().uuid().optional(), contact_id: z.string().uuid().optional() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
     let q = context.supabase.from("crm_activities" as never).select("*").eq("org_id", orgId);
     if (data.deal_id) q = q.eq("deal_id", data.deal_id);
     if (data.contact_id) q = q.eq("contact_id", data.contact_id);

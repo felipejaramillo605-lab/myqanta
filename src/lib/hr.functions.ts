@@ -52,7 +52,7 @@ const LeaveInput = z.object({
 export const listLeaves = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const { data, error } = await context.supabase
       .from("hr_leaves" as never)
       .select("*")
@@ -116,7 +116,7 @@ const PayrollInput = z.object({
 export const listPayrollRuns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const { data, error } = await context.supabase
       .from("hr_payroll_runs" as never)
       .select("*")
@@ -221,7 +221,7 @@ export const deletePayrollRun = createServerFn({ method: "POST" })
 export const listHrMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
     const { data, error } = await context.supabase
       .from("team_members")
       .select("id, full_name, position, email, archived, contract_type, salary_base, hire_date, vacation_days_available, cedula" as never)
@@ -272,7 +272,7 @@ const OrgNodeInput = z.object({
 export const listOrgNodes = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr/org-chart", "member");
     const { data, error } = await context.supabase
       .from("org_nodes" as never)
       .select("*")
@@ -329,7 +329,7 @@ async function computeDayToken(orgId: string, dateISO: string): Promise<string> 
 export const getAttendanceQrInfo = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr/attendance", "member");
     const today = new Date().toISOString().slice(0, 10);
     const token = await computeDayToken(orgId, today);
     return { orgId, date: today, token, path: `/attendance/${orgId}/${token}` };
@@ -345,7 +345,7 @@ export const listAttendance = createServerFn({ method: "GET" })
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr/attendance", "member");
     let q = context.supabase.from("attendance_marks" as never)
       .select("*").eq("org_id", orgId).order("occurred_at", { ascending: false }).limit(500);
     if (data.from) q = q.gte("occurred_at", data.from);

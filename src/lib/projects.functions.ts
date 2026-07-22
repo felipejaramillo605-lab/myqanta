@@ -44,7 +44,7 @@ export type ProjectRow = {
 export const listProjects = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/projects", "member");
     const { data, error } = await context.supabase
       .from("projects" as never)
       .select("*")
@@ -132,7 +132,7 @@ export const listTimeEntries = createServerFn({ method: "GET" })
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/projects", "member");
     let q = context.supabase
       .from("time_entries" as never)
       .select("*")
@@ -183,7 +183,7 @@ export const deleteTimeEntry = createServerFn({ method: "POST" })
 export const projectStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/projects", "member");
     const since = new Date(Date.now() - 90 * 86400 * 1000).toISOString().slice(0, 10);
     const { data, error } = await context.supabase
       .from("time_entries" as never)

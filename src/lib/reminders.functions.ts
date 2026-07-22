@@ -67,7 +67,7 @@ export const upsertWhatsappSettings = createServerFn({ method: "POST" })
 export const listReminders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/reminders", "member");
     const { data, error } = await context.supabase
       .from("reminders")
       .select("*")
@@ -229,7 +229,7 @@ export const sendReminderNow = createServerFn({ method: "POST" })
 export const listReminderSources = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/reminders", "member");
     const now = new Date().toISOString();
     const [tasks, events, habits, team] = await Promise.all([
       context.supabase
