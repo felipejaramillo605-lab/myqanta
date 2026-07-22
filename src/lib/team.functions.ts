@@ -20,7 +20,7 @@ const MemberInput = z.object({
 export const listTeamMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/team", "member");
     const { data, error } = await context.supabase
       .from("team_members")
       .select("*")

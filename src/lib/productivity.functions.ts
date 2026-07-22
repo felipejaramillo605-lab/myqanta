@@ -11,7 +11,7 @@ const TaskPriority = z.enum(["low", "medium", "high", "urgent"]);
 export const listTasks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { data, error } = await context.supabase
       .from("tasks")
       .select("*")
@@ -77,7 +77,7 @@ export const deleteTask = createServerFn({ method: "POST" })
 export const listHabits = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const today = new Date().toISOString().slice(0, 10);
     const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const [{ data: habits, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
@@ -176,7 +176,7 @@ export const listEvents = createServerFn({ method: "GET" })
     z.object({ from: z.string().optional(), to: z.string().optional() }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     let q = context.supabase.from("events").select("*").eq("org_id", orgId).order("starts_at");
     if (data.from) q = q.gte("starts_at", data.from);
     if (data.to) q = q.lt("starts_at", data.to);
@@ -221,7 +221,7 @@ export const deleteEvent = createServerFn({ method: "POST" })
 export const getHabitsHeatmap = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - 364);
     const fromStr = from.toISOString().slice(0, 10);

@@ -35,7 +35,7 @@ function signedAmount(bucket: string, amount: number): number {
 export const listTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase
       .from("finance_transactions")
       .select("*")
@@ -49,7 +49,7 @@ export const listTransactions = createServerFn({ method: "GET" })
 export const listAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase
       .from("finance_accounts")
       .select("id, name, currency, kind")
@@ -69,7 +69,7 @@ export const getKpis = createServerFn({ method: "GET" })
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: rows, error } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,occurred_on")
@@ -119,7 +119,7 @@ export const getEbitdaSeries = createServerFn({ method: "GET" })
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - (data.months - 1), 1);
     const startStr = start.toISOString().slice(0, 10);
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: rows, error } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,occurred_on")
@@ -167,7 +167,7 @@ export const monthlyClosingSummary = createServerFn({ method: "POST" })
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: rows } = await context.supabase
       .from("finance_transactions")
       .select("amount,bucket,description,occurred_on")
@@ -413,7 +413,7 @@ export const scanStatement = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
 
     // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
     const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);

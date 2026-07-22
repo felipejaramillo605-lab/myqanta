@@ -9,7 +9,7 @@ import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 export const listAccountsCoa = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase
       .from("fin_accounts" as never)
       .select("*")
@@ -61,7 +61,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
 export const listJournalEntries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase
       .from("fin_journal_entries" as never)
       .select("*, lines:fin_journal_lines(*)")
@@ -172,7 +172,7 @@ export const deleteJournalEntry = createServerFn({ method: "POST" })
 export const listThirdParties = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase.from("third_parties" as never)
       .select("*").eq("org_id", orgId).order("name");
     if (error) throw new Error(error.message);
@@ -225,7 +225,7 @@ export const deleteThirdParty = createServerFn({ method: "POST" })
 export const listBankAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase.from("bank_accounts" as never)
       .select("*").eq("org_id", orgId).order("bank_name");
     if (error) throw new Error(error.message);
@@ -272,7 +272,7 @@ export const listBankTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ bank_account_id: z.string().uuid().optional() }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     let q = context.supabase.from("bank_transactions" as never)
       .select("*").eq("org_id", orgId).order("occurred_on", { ascending: false }).limit(500);
     if (data.bank_account_id) q = q.eq("bank_account_id", data.bank_account_id);
@@ -318,7 +318,7 @@ export const deleteBankTransaction = createServerFn({ method: "POST" })
 export const listTaxDrafts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data, error } = await context.supabase.from("tax_drafts" as never)
       .select("*").eq("org_id", orgId).order("period_start", { ascending: false });
     if (error) throw new Error(error.message);
@@ -413,7 +413,7 @@ export const deleteTaxDraft = createServerFn({ method: "POST" })
 export const listReconciliation = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: matches } = await context.supabase.from("reconciliation_matches" as never)
       .select("*").eq("org_id", orgId);
     const { data: txs } = await context.supabase.from("bank_transactions" as never)

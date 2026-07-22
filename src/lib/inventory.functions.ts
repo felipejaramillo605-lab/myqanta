@@ -9,7 +9,7 @@ import { EXPENSE_CATEGORIES, parseNumberWithSeparator, suggestCategory, type Dec
 export const listProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member");
     const { data, error } = await context.supabase
       .from("inv_products")
       .select("*")
@@ -22,7 +22,7 @@ export const listProducts = createServerFn({ method: "GET" })
 export const listLowStock = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member");
     const { data, error } = await context.supabase
       .from("inv_products")
       .select("id,name,sku,unit,stock,min_stock,category,cost")
@@ -194,7 +194,7 @@ export const createPurchaseOrder = createServerFn({ method: "POST" })
 export const listMovements = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member");
     const { data, error } = await context.supabase
       .from("inv_movements")
       .select("*, inv_products(name,sku,unit)")
@@ -212,7 +212,7 @@ export const getStockHistory = createServerFn({ method: "GET" })
     z.object({ product_id: z.string().uuid(), days: z.number().int().min(7).max(365).default(90) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member");
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - (data.days - 1));
     const fromStr = from.toISOString().slice(0, 10);
@@ -680,7 +680,7 @@ export const getCategorySummary = createServerFn({ method: "GET" })
     z.object({ days: z.number().int().min(7).max(365).default(90) }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member");
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - data.days);
     const fromIso = from.toISOString();

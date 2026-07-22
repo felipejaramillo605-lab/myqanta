@@ -32,7 +32,7 @@ export const listDocuments = createServerFn({ method: "GET" })
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
     let q = context.supabase
       .from("documents" as never)
       .select("*")

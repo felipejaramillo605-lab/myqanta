@@ -19,7 +19,7 @@ const CustomerInput = z.object({
 export const listCustomers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data, error } = await context.supabase
       .from("sales_customers" as never)
       .select("*")
@@ -100,7 +100,7 @@ function computeTotals(items: z.infer<typeof ItemInput>[]) {
 export const listInvoices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data, error } = await context.supabase
       .from("sales_invoices" as never)
       .select("*")
@@ -115,7 +115,7 @@ export const getInvoice = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveActiveOrgId(context.supabase, context.userId);
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/sales", "member");
     const { data: inv, error } = await context.supabase
       .from("sales_invoices" as never).select("*").eq("id", data.id).single();
     if (error) throw new Error(error.message);
