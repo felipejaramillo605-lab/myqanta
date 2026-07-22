@@ -17,7 +17,7 @@ function fakeSupabase(
     rpc: vi.fn(async (name: string, args: any) => {
       if (name === "has_org_role") {
         if (!actualRole) return { data: false, error: null };
-        return { data: RANK[actualRole] >= RANK[args._min_role], error: null };
+        return { data: RANK[actualRole] >= RANK[args._min_role as OrgRole], error: null };
       }
       if (name === "has_module_access") {
         if (!actualRole) return { data: false, error: null };
