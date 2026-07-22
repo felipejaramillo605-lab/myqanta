@@ -25,7 +25,11 @@ import {
 } from "lucide-react";
 import { BarChart3, Building2, MoreHorizontal, CheckSquare, X, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
 import { KeyRound } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { HelpCircle } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getMyModuleAccess } from "@/lib/custom-roles.functions";
+import { AppGuideDialog } from "@/components/app-guide-dialog";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantPanel } from "@/components/assistant-panel";
 import { OrgSwitcher } from "@/components/org-switcher";
@@ -93,6 +97,31 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [profileOpen, setProfileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  const fetchAccess = useServerFn(getMyModuleAccess);
+  const accessQuery = useQuery({
+    queryKey: ["my-module-access"],
+    queryFn: () => fetchAccess(),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+  const access = accessQuery.data;
+  const canSeeModule = (key: string): boolean => {
+    if (!access) return true; // while loading, don't hide
+    if (access.unrestricted) return true;
+    return (access.allowed_modules ?? []).includes(key);
+  };
+  const MODULE_KEY_SET = new Set([
+    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation",
+    "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/habits","/documents","/team",
+    "/crm","/projects","/approvals","/reminders","/reports",
+  ]);
+  const filterItems = (items: NavItem[]) => items.filter((i) => !MODULE_KEY_SET.has(i.to) || canSeeModule(i.to));
+  const filteredStandalone = filterItems(STANDALONE);
+  const filteredCategories = CATEGORIES
+    .map((c) => ({ ...c, items: filterItems(c.items) }))
+    .filter((c) => c.items.length > 0 || c.placeholder);
 
   const handleSignOut = async () => {
     await qc.cancelQueries();
@@ -105,8 +134,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Flat list for mobile Sheet + bottom nav.
   const allItems: NavItem[] = [
-    ...STANDALONE,
-    ...CATEGORIES.flatMap((c) => c.items),
+    ...filteredStandalone,
+    ...filteredCategories.flatMap((c) => c.items),
   ];
   const primary = allItems.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
   const secondary = allItems.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
@@ -123,7 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 overflow-y-auto">
-          {STANDALONE.map((item) => {
+          {filteredStandalone.map((item) => {
             const Icon = item.icon;
             const active = isActive(path, item.to);
             return (
@@ -143,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
 
-          {CATEGORIES.map((cat) => {
+          {filteredCategories.map((cat) => {
             const CatIcon = cat.icon;
             const hasActive = cat.items.some((i) => isActive(path, i.to));
             return (
@@ -327,6 +356,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-1">
           <NotificationBell />
           <AssistantPanel />
+          <Button variant="ghost" size="icon" onClick={() => setGuideOpen(true)} aria-label="Guía de uso" title="Guía de uso">
+            <HelpCircle className="size-4" />
+          </Button>
           {isPlatformOwner && (
             <>
               <Link
