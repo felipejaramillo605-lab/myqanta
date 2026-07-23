@@ -3,12 +3,10 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, Bell, ChevronLeft, ChevronRight, CheckSquare, Repeat } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Plus, Trash2, MapPin, Calendar as CalendarIcon, Pencil, ChevronLeft, ChevronRight, CheckSquare, Repeat } from "lucide-react";
 
 import { deleteEvent, listEvents, upsertEvent } from "@/lib/productivity.functions";
 import { listTasks, listHabits } from "@/lib/productivity.functions";
-import { listReminders } from "@/lib/reminders.functions";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/use-permissions";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
@@ -18,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ReminderPromptDialog, type ReminderPromptPayload } from "@/components/reminder-prompt-dialog";
+import { TasksPanel, HabitsPanel } from "@/components/productivity-panels";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({ meta: [{ title: "Qanta — Agenda" }] }),
@@ -26,7 +26,8 @@ export const Route = createFileRoute("/_authenticated/agenda")({
       context.queryClient.ensureQueryData({ queryKey: ["agenda", "events"], queryFn: () => listEvents({ data: {} }) }),
       context.queryClient.ensureQueryData({ queryKey: ["agenda", "tasks"], queryFn: () => listTasks() }),
       context.queryClient.ensureQueryData({ queryKey: ["agenda", "habits"], queryFn: () => listHabits() }),
-      context.queryClient.ensureQueryData({ queryKey: ["agenda", "reminders"], queryFn: () => listReminders() }),
+      context.queryClient.ensureQueryData({ queryKey: ["pro", "tasks"], queryFn: () => listTasks() }),
+      context.queryClient.ensureQueryData({ queryKey: ["pro", "habits"], queryFn: () => listHabits() }),
     ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 
 type CalItem = {
   id: string;
-  type: "event" | "task" | "habit" | "reminder";
+  type: "event" | "task" | "habit";
   title: string;
   date: Date;
   endsAt?: Date;
@@ -50,7 +51,6 @@ const TYPE_STYLES: Record<CalItem["type"], { color: string; label: string; icon:
   event: { color: "#6366f1", label: "Evento", icon: CalendarIcon },
   task: { color: "#f59e0b", label: "Tarea", icon: CheckSquare },
   habit: { color: "#10b981", label: "Hábito", icon: Repeat },
-  reminder: { color: "#ef4444", label: "Recordatorio", icon: Bell },
 };
 
 function dayKey(d: Date | string) {
@@ -73,13 +73,11 @@ function Agenda() {
   const fn = useServerFn(listEvents);
   const tasksFn = useServerFn(listTasks);
   const habitsFn = useServerFn(listHabits);
-  const remindersFn = useServerFn(listReminders);
   const upsertFn = useServerFn(upsertEvent);
   const delFn = useServerFn(deleteEvent);
   const { data: events } = useSuspenseQuery({ queryKey: ["agenda", "events"], queryFn: () => fn({ data: {} }) });
   const { data: tasks } = useSuspenseQuery({ queryKey: ["agenda", "tasks"], queryFn: () => tasksFn() });
   const { data: habitData } = useSuspenseQuery({ queryKey: ["agenda", "habits"], queryFn: () => habitsFn() });
-  const { data: reminders } = useSuspenseQuery({ queryKey: ["agenda", "reminders"], queryFn: () => remindersFn() });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agenda"] });
   const locale = lang === "es" ? "es-ES" : "en-US";
@@ -110,11 +108,8 @@ function Agenda() {
       const d = new Date((log as any).logged_on + "T09:00:00");
       arr.push({ id: `habit:${(log as any).id}`, type: "habit", title: h.name, date: d, allDay: true, color: h.color || TYPE_STYLES.habit.color });
     }
-    for (const r of reminders as Array<{ id: string; title: string; scheduled_at: string; status?: string }>) {
-      arr.push({ id: `reminder:${r.id}`, type: "reminder", title: r.title, date: new Date(r.scheduled_at), color: TYPE_STYLES.reminder.color });
-    }
     return arr;
-  }, [events, tasks, habitData, reminders]);
+  }, [events, tasks, habitData]);
 
   const itemsByDay = useMemo(() => {
     const m = new Map<string, CalItem[]>();
@@ -131,6 +126,7 @@ function Agenda() {
   const [view, setView] = useState<"month" | "week" | "list">("month");
   const [cursor, setCursor] = useState(() => new Date());
   const [dayDetail, setDayDetail] = useState<string | null>(null);
+  const [reminderPrompt, setReminderPrompt] = useState<ReminderPromptPayload | null>(null);
 
   return (
     <div className="space-y-8">
@@ -152,7 +148,21 @@ function Agenda() {
               </button>
             ))}
           </div>
-          {canWrite && <EventDialog onSubmit={(v) => upsertFn({ data: v }).then(() => { refresh(); toast.success("✓"); }).catch((e: Error) => toast.error(e.message))} />}
+          {canWrite && (
+            <EventDialog
+              onSubmit={(v) =>
+                upsertFn({ data: v })
+                  .then((row: { id: string } | null | undefined) => {
+                    refresh();
+                    toast.success("✓");
+                    if (row?.id) {
+                      setReminderPrompt({ source_type: "event", source_id: row.id, title: v.title });
+                    }
+                  })
+                  .catch((e: Error) => toast.error(e.message))
+              }
+            />
+          )}
         </div>
       </header>
 
@@ -191,6 +201,22 @@ function Agenda() {
       )}
 
       <DayDetailDialog dayKey={dayDetail} onClose={() => setDayDetail(null)} itemsByDay={itemsByDay} locale={locale} />
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {lang === "es" ? "Tareas" : "Tasks"}
+        </h2>
+        <TasksPanel />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {lang === "es" ? "Hábitos" : "Habits"}
+        </h2>
+        <HabitsPanel />
+      </section>
+
+      <ReminderPromptDialog payload={reminderPrompt} onClose={() => setReminderPrompt(null)} />
     </div>
   );
 }
@@ -486,14 +512,6 @@ function ListView({
                   </div>
                   {e.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{e.description}</p>}
                 </div>
-                <Link
-                  to={"/reminders" as never}
-                  aria-label="Crear recordatorio"
-                  title="Crear recordatorio"
-                  className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
-                >
-                  <Bell className="size-4" />
-                </Link>
                 {canWrite && (
                   <>
                     <EventDialog
