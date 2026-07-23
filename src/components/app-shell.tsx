@@ -23,7 +23,7 @@ import {
   UserCog,
   FolderOpen,
 } from "lucide-react";
-import { BarChart3, Building2, MoreHorizontal, CheckSquare, X, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
+import { BarChart3, Building2, MoreHorizontal, CheckSquare, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
 import { KeyRound } from "lucide-react";
 import { HelpCircle } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -36,7 +36,7 @@ import { OrgSwitcher } from "@/components/org-switcher";
 import { BusinessOnboardingDialog } from "@/components/business-onboarding-dialog";
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
@@ -72,7 +72,6 @@ const CATEGORIES: NavCategory[] = [
       { to: "/hr/org-chart", label: "Organigrama", icon: GitMerge },
       { to: "/hr/attendance", label: "Asistencia", icon: CheckSquare },
       { to: "/agenda", label: "Agenda", icon: Calendar },
-      { to: "/habits", label: "Hábitos", icon: Repeat },
       { to: "/documents", label: "Documentos", icon: FolderOpen },
       { to: "/team", label: "Equipo", icon: Users },
     ],
@@ -114,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
   const MODULE_KEY_SET = new Set([
     "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation",
-    "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/habits","/documents","/team",
+    "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reminders","/reports",
   ]);
   const filterItems = (items: NavItem[]) => items.filter((i) => !MODULE_KEY_SET.has(i.to) || canSeeModule(i.to));
@@ -436,13 +435,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl">
-              <SheetHeader className="flex-row items-center justify-between">
+              <SheetHeader>
                 <SheetTitle>Módulos</SheetTitle>
-                <SheetClose asChild>
-                  <Button variant="ghost" size="icon" aria-label="Cerrar">
-                    <X className="size-4" />
-                  </Button>
-                </SheetClose>
               </SheetHeader>
               <div className="mt-2 grid grid-cols-2 gap-2 pb-6">
                 {secondary.map((item) => {
