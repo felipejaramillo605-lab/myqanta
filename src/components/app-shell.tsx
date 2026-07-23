@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Wallet,
   ShoppingCart,
-  Repeat,
   Calendar,
   Settings,
   LogOut,
