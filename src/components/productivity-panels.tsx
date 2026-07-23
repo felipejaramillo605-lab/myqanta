@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -545,6 +545,3 @@ function HabitDatePicker({
     </Popover>
   );
 }
-
-// silence unused-mutation import
-export const __unused_mutation = useMutation;
