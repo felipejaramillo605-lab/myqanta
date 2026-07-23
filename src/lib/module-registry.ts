@@ -19,7 +19,6 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   { key: "/hr/org-chart", label: "Organigrama", group: "RRHH" },
   { key: "/hr/attendance", label: "Asistencia", group: "RRHH" },
   { key: "/agenda", label: "Agenda", group: "RRHH" },
-  { key: "/habits", label: "Hábitos", group: "RRHH" },
   { key: "/documents", label: "Documentos", group: "RRHH" },
   { key: "/team", label: "Equipo", group: "RRHH" },
   // Otros
