@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MessageCircle, Send, Trash2, XCircle, Plus, Phone, Mail } from "lucide-react";
 
@@ -32,6 +32,11 @@ import { describeRecurrence, type Recurrence } from "@/lib/reminders-recurrence"
 
 export const Route = createFileRoute("/_authenticated/reminders")({
   head: () => ({ meta: [{ title: "Qanta — Recordatorios WhatsApp" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    source_type: (search.source_type as "custom" | "task" | "habit" | "event" | undefined) ?? undefined,
+    source_id: (search.source_id as string | undefined) ?? undefined,
+    title: (search.title as string | undefined) ?? undefined,
+  }),
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.ensureQueryData({ queryKey: ["reminders"], queryFn: () => listReminders() }),
@@ -49,6 +54,7 @@ type Channel = "whatsapp" | "email";
 
 function RemindersPage() {
   const qc = useQueryClient();
+  const search = Route.useSearch();
   const listFn = useServerFn(listReminders);
   const settingsFn = useServerFn(getWhatsappSettings);
   const sourcesFn = useServerFn(listReminderSources);
@@ -97,6 +103,21 @@ function RemindersPage() {
   const [recurrence, setRecurrence] = useState<Recurrence>("none");
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
   const [recurrenceUntil, setRecurrenceUntil] = useState<string>("");
+
+  // Pre-fill from search params (e.g. arrived from Agenda "¿crear recordatorio?")
+  useEffect(() => {
+    if (search.source_type) {
+      setKind(search.source_type);
+    }
+    if (search.source_id) {
+      setSourceId(search.source_id);
+    }
+    if (search.title) {
+      setTitle(search.title);
+      setMessage(`⏰ Recordatorio: "${search.title}"`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onKindChange(next: SourceKind) {
     setKind(next);
