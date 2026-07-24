@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useNavigate } from "@tanstack/react-router";
+import { ReminderQuickCreateDialog } from "@/components/reminder-quick-create-dialog";
 
 export type ReminderPromptPayload = {
   source_type: "event" | "task" | "habit";
@@ -23,10 +24,11 @@ export function ReminderPromptDialog({
   payload: ReminderPromptPayload | null;
   onClose: () => void;
 }) {
-  const navigate = useNavigate();
-  const open = payload !== null;
+  const [creating, setCreating] = useState<ReminderPromptPayload | null>(null);
+  const promptOpen = payload !== null && creating === null;
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <>
+    <AlertDialog open={promptOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
       <AlertDialogContent className="glass">
         <AlertDialogHeader>
           <AlertDialogTitle>¿Crear un recordatorio?</AlertDialogTitle>
@@ -40,17 +42,7 @@ export function ReminderPromptDialog({
           <AlertDialogCancel onClick={onClose}>No, gracias</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
-              if (payload) {
-                navigate({
-                  to: "/reminders",
-                  search: {
-                    source_type: payload.source_type,
-                    source_id: payload.source_id,
-                    title: payload.title,
-                  } as never,
-                });
-              }
-              onClose();
+              if (payload) setCreating(payload);
             }}
           >
             Sí, crear
@@ -58,5 +50,10 @@ export function ReminderPromptDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <ReminderQuickCreateDialog
+      payload={creating}
+      onClose={() => { setCreating(null); onClose(); }}
+    />
+    </>
   );
 }
