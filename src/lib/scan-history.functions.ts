@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import { resolveOrgWithRole, resolveOrgWithModuleAccess } from "./permissions";
 
 /**
  * scan_batches.affected stores an ordered list of objects describing rows
@@ -25,7 +24,10 @@ export type AffectedRow = {
 export const listScanBatches = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    // A batch can be an invoice (inventory) or statement (finance); allow any
+    // org member to see the list — the UI already gates by kind, and rows
+    // are filtered client-side inside the appropriate module page.
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data, error } = await context.supabase
       .from("scan_batches")
       .select("id,kind,source_name,summary,item_count,total,currency,created_at,undone_at")
@@ -40,15 +42,19 @@ export const undoScanBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    // Resolve org first with basic membership, then gate by the batch's kind.
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data: batch, error } = await context.supabase
       .from("scan_batches")
-      .select("id,org_id,affected,undone_at")
+      .select("id,org_id,kind,affected,undone_at")
       .eq("id", data.id)
       .eq("org_id", orgId)
       .single();
     if (error || !batch) throw new Error(error?.message ?? "Batch not found");
     if (batch.undone_at) return { ok: true, already: true };
+
+    const moduleKey = batch.kind === "invoice" ? "/inventory" : "/finance";
+    await resolveOrgWithModuleAccess(context.supabase, context.userId, moduleKey, "member");
 
     const affected = (batch.affected as AffectedRow[]) ?? [];
 
