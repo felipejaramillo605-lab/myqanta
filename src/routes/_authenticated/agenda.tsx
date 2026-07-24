@@ -170,6 +170,23 @@ function Agenda() {
 
       <Legend />
 
+      <div className="flex flex-wrap gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => document.getElementById("tasks-section")?.scrollIntoView({ behavior: "smooth" })}
+          className="rounded-md border border-border/50 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+        >
+          {lang === "es" ? "Ir a tareas" : "Go to tasks"}
+        </button>
+        <button
+          type="button"
+          onClick={() => document.getElementById("habits-section")?.scrollIntoView({ behavior: "smooth" })}
+          className="rounded-md border border-border/50 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+        >
+          {lang === "es" ? "Ir a hábitos" : "Go to habits"}
+        </button>
+      </div>
+
       {view === "month" && (
         <MonthView
           cursor={cursor}
@@ -202,14 +219,14 @@ function Agenda() {
 
       <DayDetailDialog dayKey={dayDetail} onClose={() => setDayDetail(null)} itemsByDay={itemsByDay} locale={locale} />
 
-      <section className="space-y-3">
+      <section id="tasks-section" className="space-y-3 scroll-mt-4">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {lang === "es" ? "Tareas" : "Tasks"}
         </h2>
         <TasksPanel />
       </section>
 
-      <section className="space-y-3">
+      <section id="habits-section" className="space-y-3 scroll-mt-4">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {lang === "es" ? "Hábitos" : "Habits"}
         </h2>
@@ -272,7 +289,8 @@ function MonthView({
           <Button variant="ghost" size="icon" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight className="size-4" /></Button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border/50 bg-border/50">
+      <div className="overflow-x-auto">
+      <div className="grid min-w-[560px] grid-cols-7 gap-px overflow-hidden rounded-lg border border-border/50 bg-border/50">
         {weekDays.map((d) => (
           <div key={d} className="bg-background/60 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{d}</div>
         ))}
@@ -307,6 +325,7 @@ function MonthView({
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );
