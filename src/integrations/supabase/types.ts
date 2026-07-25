@@ -1770,6 +1770,7 @@ export type Database = {
           default_vat_rate: number | null
           description: string | null
           goals: string | null
+          hidden_modules: string[]
           ica_rate: number
           ica_responsible: boolean
           id: string
@@ -1786,6 +1787,7 @@ export type Database = {
           team_size: string | null
           updated_at: string
           vat_responsible: boolean
+          view_mode: string
           website: string | null
         }
         Insert: {
@@ -1799,6 +1801,7 @@ export type Database = {
           default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
+          hidden_modules?: string[]
           ica_rate?: number
           ica_responsible?: boolean
           id?: string
@@ -1815,6 +1818,7 @@ export type Database = {
           team_size?: string | null
           updated_at?: string
           vat_responsible?: boolean
+          view_mode?: string
           website?: string | null
         }
         Update: {
@@ -1828,6 +1832,7 @@ export type Database = {
           default_vat_rate?: number | null
           description?: string | null
           goals?: string | null
+          hidden_modules?: string[]
           ica_rate?: number
           ica_responsible?: boolean
           id?: string
@@ -1844,6 +1849,7 @@ export type Database = {
           team_size?: string | null
           updated_at?: string
           vat_responsible?: boolean
+          view_mode?: string
           website?: string | null
         }
         Relationships: []
