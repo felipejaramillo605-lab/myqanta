@@ -13,6 +13,11 @@ import {
   type BusinessContext,
 } from "@/lib/business-context.functions";
 import { listMembers } from "@/lib/org.functions";
+import { getOrgViewPreferences, setViewMode } from "@/lib/custom-roles.functions";
+import { groupedModules } from "@/lib/module-registry";
+import { usePermissions } from "@/lib/use-permissions";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +55,33 @@ function CompanySettingsPage() {
   const qc = useQueryClient();
   const members = membersData.members;
   const nameOf = (id: string) => members.find((m) => m.user_id === id)?.full_name || id.slice(0, 8);
+  const { isOwner } = usePermissions();
+  const fetchPrefs = useServerFn(getOrgViewPreferences);
+  const saveViewFn = useServerFn(setViewMode);
+  const { data: prefs } = useQuery({
+    queryKey: ["org-view-preferences"],
+    queryFn: () => fetchPrefs(),
+  });
+  const [viewMode, setViewModeState] = useState<"business" | "personal">("business");
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => {
+    if (prefs) {
+      setViewModeState(prefs.view_mode);
+      setHidden(prefs.hidden_modules ?? []);
+    }
+  }, [prefs]);
+  const toggleHidden = (key: string) => {
+    setHidden((h) => (h.includes(key) ? h.filter((k) => k !== key) : [...h, key]));
+  };
+  const saveView = useMutation({
+    mutationFn: () => saveViewFn({ data: { view_mode: viewMode, hidden_modules: hidden } }),
+    onSuccess: () => {
+      toast.success("Vista actualizada");
+      qc.invalidateQueries({ queryKey: ["org-view-preferences"] });
+      qc.invalidateQueries({ queryKey: ["my-module-access"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const [form, setForm] = useState({
     name: data.name,
@@ -307,6 +339,64 @@ function CompanySettingsPage() {
           </Button>
         </div>
       </div>
+
+      {isOwner && (
+        <div className="glass space-y-5 rounded-2xl p-6">
+          <header>
+            <h2 className="text-lg font-semibold">Vista de la aplicación</h2>
+            <p className="text-sm text-muted-foreground">
+              Elige entre vista empresarial (todos los módulos) o personal (sólo agenda, hábitos, recordatorios, etc.). Aplica a todos los miembros de la organización.
+            </p>
+          </header>
+          <div className="flex items-center justify-between rounded-lg border border-border/40 p-3">
+            <div>
+              <div className="text-sm font-medium">Modo</div>
+              <div className="text-xs text-muted-foreground">
+                {viewMode === "business" ? "Empresarial" : "Personal"}
+              </div>
+            </div>
+            <Switch
+              checked={viewMode === "personal"}
+              onCheckedChange={(v) => setViewModeState(v ? "personal" : "business")}
+            />
+          </div>
+          {viewMode === "personal" && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Marca los módulos que quieres ocultar del menú.
+              </p>
+              {groupedModules().map(({ group, items }) => (
+                <div key={group} className="rounded-lg border border-border/40 p-3">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {group}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {items.map((m) => (
+                      <label key={m.key} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={hidden.includes(m.key)}
+                          onChange={() => toggleHidden(m.key)}
+                        />
+                        <span>{m.label}</span>
+                        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                          {m.key}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button onClick={() => saveView.mutate()} disabled={saveView.isPending}>
+              {saveView.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+              Guardar vista
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

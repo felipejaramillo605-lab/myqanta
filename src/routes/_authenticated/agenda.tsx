@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { ReminderPromptDialog, type ReminderPromptPayload } from "@/components/reminder-prompt-dialog";
 import { TasksPanel, HabitsPanel } from "@/components/productivity-panels";
+import { RemindersPanel } from "@/components/reminders-panel";
+import { listReminders } from "@/lib/reminders.functions";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({ meta: [{ title: "Qanta — Agenda" }] }),
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
       context.queryClient.ensureQueryData({ queryKey: ["agenda", "habits"], queryFn: () => listHabits() }),
       context.queryClient.ensureQueryData({ queryKey: ["pro", "tasks"], queryFn: () => listTasks() }),
       context.queryClient.ensureQueryData({ queryKey: ["pro", "habits"], queryFn: () => listHabits() }),
+      context.queryClient.ensureQueryData({ queryKey: ["reminders"], queryFn: () => listReminders() }),
     ]);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
@@ -185,6 +188,13 @@ function Agenda() {
         >
           {lang === "es" ? "Ir a hábitos" : "Go to habits"}
         </button>
+        <button
+          type="button"
+          onClick={() => document.getElementById("reminders-section")?.scrollIntoView({ behavior: "smooth" })}
+          className="rounded-md border border-border/50 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+        >
+          {lang === "es" ? "Ir a recordatorios" : "Go to reminders"}
+        </button>
       </div>
 
       {view === "month" && (
@@ -231,6 +241,13 @@ function Agenda() {
           {lang === "es" ? "Hábitos" : "Habits"}
         </h2>
         <HabitsPanel />
+      </section>
+
+      <section id="reminders-section" className="space-y-3 scroll-mt-4">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {lang === "es" ? "Recordatorios" : "Reminders"}
+        </h2>
+        <RemindersPanel />
       </section>
 
       <ReminderPromptDialog payload={reminderPrompt} onClose={() => setReminderPrompt(null)} />

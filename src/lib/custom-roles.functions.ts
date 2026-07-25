@@ -34,6 +34,39 @@ export const getMyModuleAccess = createServerFn({ method: "GET" })
     };
   });
 
+export const getOrgViewPreferences = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ view_mode: "business" | "personal"; hidden_modules: string[] }> => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("organizations")
+      .select("view_mode, hidden_modules")
+      .eq("id", orgId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const row = (data ?? {}) as { view_mode?: string | null; hidden_modules?: string[] | null };
+    const mode = row.view_mode === "personal" ? "personal" : "business";
+    return { view_mode: mode, hidden_modules: row.hidden_modules ?? [] };
+  });
+
+const ViewModeInput = z.object({
+  view_mode: z.enum(["business", "personal"]),
+  hidden_modules: z.array(z.string()).default([]),
+});
+
+export const setViewMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ViewModeInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "owner");
+    const { error } = await context.supabase
+      .from("organizations")
+      .update({ view_mode: data.view_mode, hidden_modules: data.hidden_modules })
+      .eq("id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const listCustomRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

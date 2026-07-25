@@ -25,7 +25,6 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   { key: "/crm", label: "CRM", group: "Otros" },
   { key: "/projects", label: "Proyectos", group: "Otros" },
   { key: "/approvals", label: "Aprobaciones", group: "Otros" },
-  { key: "/reminders", label: "Recordatorios", group: "Otros" },
   { key: "/reports", label: "Reportes", group: "Otros" },
 ];
 
