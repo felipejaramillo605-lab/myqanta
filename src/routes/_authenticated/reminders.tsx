@@ -1,43 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { MessageCircle, Send, Trash2, XCircle, Plus, Phone, Mail } from "lucide-react";
-
-import {
-  cancelReminder,
-  createReminder,
-  deleteReminder,
-  getWhatsappSettings,
-  listReminders,
-  listReminderSources,
-  sendReminderNow,
-  upsertWhatsappSettings,
-} from "@/lib/reminders.functions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { describeRecurrence, type Recurrence } from "@/lib/reminders-recurrence";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/reminders")({
-  head: () => ({ meta: [{ title: "Qanta — Recordatorios WhatsApp" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    source_type: (search.source_type as "custom" | "task" | "habit" | "event" | undefined) ?? undefined,
-    source_id: (search.source_id as string | undefined) ?? undefined,
-    title: (search.title as string | undefined) ?? undefined,
-  }),
-  loader: async ({ context }) => {
+  beforeLoad: () => { throw redirect({ to: "/agenda" }); },
+  component: () => null,
+});
     await Promise.all([
       context.queryClient.ensureQueryData({ queryKey: ["reminders"], queryFn: () => listReminders() }),
       context.queryClient.ensureQueryData({ queryKey: ["whatsapp-settings"], queryFn: () => getWhatsappSettings() }),
