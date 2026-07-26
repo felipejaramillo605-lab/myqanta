@@ -4,9 +4,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { acceptInvite } from "@/lib/org.functions";
+import { completeEmployeeProfile } from "@/lib/team.functions";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PhotoUpload } from "@/components/photo-upload";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/invite/$token")({
@@ -20,6 +24,9 @@ function InvitePage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
+  const [cedula, setCedula] = useState("");
+  const [position, setPosition] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
 
   const lookup = useQuery({
     queryKey: ["invite", token],
@@ -38,7 +45,20 @@ function InvitePage() {
   });
 
   const acceptM = useMutation({
-    mutationFn: () => acceptInvite({ data: { token } }),
+    mutationFn: async () => {
+      const res = await acceptInvite({ data: { token } });
+      if (res.org_id) {
+        await completeEmployeeProfile({
+          data: {
+            org_id: res.org_id,
+            cedula: cedula.trim(),
+            position: position.trim() || null,
+            photo_url: photoUrl || null,
+          },
+        });
+      }
+      return res;
+    },
     onSuccess: () => {
       setAccepted(true);
       toast.success(t("invite.accepted"));
@@ -95,9 +115,26 @@ function InvitePage() {
               </div>
             )}
             {user && !accepted && (
-              <Button className="w-full" onClick={() => acceptM.mutate()} disabled={acceptM.isPending}>
-                {acceptM.isPending ? <Loader2 className="size-4 animate-spin" /> : t("invite.accept")}
-              </Button>
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Cédula</Label>
+                    <Input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="1020304050" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Cargo</Label>
+                    <Input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Diseñador, Cajera…" />
+                  </div>
+                </div>
+                <PhotoUpload value={photoUrl || null} onUploaded={setPhotoUrl} label="Foto (opcional)" />
+                <Button
+                  className="w-full"
+                  onClick={() => acceptM.mutate()}
+                  disabled={acceptM.isPending || cedula.trim().length < 4}
+                >
+                  {acceptM.isPending ? <Loader2 className="size-4 animate-spin" /> : t("invite.accept")}
+                </Button>
+              </div>
             )}
             {accepted && (
               <p className="text-sm text-positive">{t("invite.redirecting")}</p>
