@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import { generateUniqueEmployeeId } from "./employee-id.server";
 
 const CodeRe = /^[A-Za-z0-9_-]{2,32}$/;
 
@@ -10,10 +11,12 @@ const MemberInput = z.object({
   id: z.string().uuid().optional(),
   code: z.string().regex(CodeRe, "Código: 2-32 caracteres alfanuméricos, _ o -"),
   full_name: z.string().trim().min(1).max(120),
+  cedula: z.string().trim().min(4).max(32),
   position: z.string().trim().max(120).nullable().optional(),
   phone_e164: z.string().trim().max(32).nullable().optional(),
   email: z.string().trim().email().max(255).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
+  photo_url: z.string().trim().max(2000).nullable().optional(),
   archived: z.boolean().optional(),
 });
 
