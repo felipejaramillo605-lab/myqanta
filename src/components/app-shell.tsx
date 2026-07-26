@@ -223,18 +223,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
 
-          <Link
-            to={"/settings/team" as never}
-            className={
-              "mt-3 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
-              (path.startsWith("/settings/team")
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
-            }
-          >
-            <Users className="size-4" />
-            Organización y accesos
-          </Link>
           {isAdmin && (
             <Link
               to={"/settings/roles" as never}
@@ -476,17 +464,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <Building2 className="size-5 shrink-0" />
                   <span className="truncate">{t("nav.company")}</span>
-                </Link>
-                <Link
-                  to={"/settings/team" as never}
-                  onClick={() => setMoreOpen(false)}
-                  className={
-                    "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                    (path.startsWith("/settings/team") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                  }
-                >
-                  <Users className="size-5 shrink-0" />
-                  <span className="truncate">Organización y accesos</span>
                 </Link>
                 {isAdmin && (
                   <Link
