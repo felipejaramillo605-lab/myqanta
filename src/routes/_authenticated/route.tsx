@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
+import { MustChangePasswordGate } from "@/components/must-change-password-dialog";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/_authenticated")({
   },
   component: () => (
     <AppShell>
+      <MustChangePasswordGate />
       <Outlet />
     </AppShell>
   ),
