@@ -2738,15 +2738,22 @@ export type Database = {
           created_at: string
           created_by: string
           email: string | null
+          employee_id: string | null
           full_name: string
           hire_date: string | null
           id: string
+          must_change_password: boolean
           notes: string | null
           org_id: string
           phone_e164: string | null
+          photo_url: string | null
           position: string | null
+          requested_by: string | null
+          requested_role: Database["public"]["Enums"]["org_role"] | null
           salary_base: number | null
+          status: string
           updated_at: string
+          user_id: string | null
           vacation_days_available: number | null
         }
         Insert: {
@@ -2757,15 +2764,22 @@ export type Database = {
           created_at?: string
           created_by: string
           email?: string | null
+          employee_id?: string | null
           full_name: string
           hire_date?: string | null
           id?: string
+          must_change_password?: boolean
           notes?: string | null
           org_id: string
           phone_e164?: string | null
+          photo_url?: string | null
           position?: string | null
+          requested_by?: string | null
+          requested_role?: Database["public"]["Enums"]["org_role"] | null
           salary_base?: number | null
+          status?: string
           updated_at?: string
+          user_id?: string | null
           vacation_days_available?: number | null
         }
         Update: {
@@ -2776,15 +2790,22 @@ export type Database = {
           created_at?: string
           created_by?: string
           email?: string | null
+          employee_id?: string | null
           full_name?: string
           hire_date?: string | null
           id?: string
+          must_change_password?: boolean
           notes?: string | null
           org_id?: string
           phone_e164?: string | null
+          photo_url?: string | null
           position?: string | null
+          requested_by?: string | null
+          requested_role?: Database["public"]["Enums"]["org_role"] | null
           salary_base?: number | null
+          status?: string
           updated_at?: string
+          user_id?: string | null
           vacation_days_available?: number | null
         }
         Relationships: [
