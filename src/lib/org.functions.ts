@@ -39,6 +39,7 @@ export const createOrganization = createServerFn({ method: "POST" })
       .from("organization_members")
       .insert({ org_id: org.id, user_id: context.userId, role: "owner" });
     if (mErr) throw new Error(mErr.message);
+    await (context.supabase.rpc as any)("seed_standard_puc", { _org_id: org.id });
     await context.supabase.from("profiles").update({ active_org_id: org.id }).eq("id", context.userId);
     return org;
   });
