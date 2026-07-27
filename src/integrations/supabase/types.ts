@@ -1563,6 +1563,7 @@ export type Database = {
       }
       journal_templates: {
         Row: {
+          code: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1574,6 +1575,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1585,6 +1587,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -3181,6 +3184,7 @@ export type Database = {
       }
       platform_traffic_summary: { Args: { _hours?: number }; Returns: Json }
       purge_old_request_metrics: { Args: never; Returns: undefined }
+      seed_standard_puc: { Args: { _org_id: string }; Returns: number }
     }
     Enums: {
       app_role: "user" | "admin_manager" | "platform_owner"

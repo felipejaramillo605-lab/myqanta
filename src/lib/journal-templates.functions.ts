@@ -18,6 +18,7 @@ export type JournalTemplate = {
   id: string;
   org_id: string | null;
   name: string;
+  code: string | null;
   niif_category: string;
   is_predefined: boolean;
   is_active: boolean;
@@ -38,6 +39,7 @@ const LineInput = z.object({
 const TemplateInput = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(160),
+  code: z.string().trim().max(40).nullable().optional(),
   niif_category: z.string().trim().min(1).max(120),
   is_active: z.boolean().default(true),
   lines: z.array(LineInput).min(2).max(30),
@@ -109,6 +111,7 @@ export const upsertJournalTemplate = createServerFn({ method: "POST" })
         .insert({
           org_id: orgId,
           name: data.name,
+          code: data.code ?? null,
           niif_category: data.niif_category,
           is_active: data.is_active,
           is_predefined: false,
@@ -123,6 +126,7 @@ export const upsertJournalTemplate = createServerFn({ method: "POST" })
         .from("journal_templates" as never)
         .update({
           name: data.name,
+          code: data.code ?? null,
           niif_category: data.niif_category,
           is_active: data.is_active,
         } as never)

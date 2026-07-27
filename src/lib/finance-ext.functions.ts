@@ -56,6 +56,15 @@ export const deleteAccount = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const seedStandardPuc = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    const { data, error } = await (context.supabase.rpc as any)("seed_standard_puc", { _org_id: orgId });
+    if (error) throw new Error(error.message);
+    return { inserted: (data as number) ?? 0 };
+  });
+
 // -------------------- Journal entries --------------------
 
 export const listJournalEntries = createServerFn({ method: "GET" })
