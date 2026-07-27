@@ -54,6 +54,14 @@ export const deleteAccount = createServerFn({ method: "POST" })
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    const { error } = await context.supabase.from("fin_accounts" as never)
+      .delete().eq("id", data.id).eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // -------------------- Journal entries --------------------
