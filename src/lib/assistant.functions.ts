@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { generateText, tool, stepCountIs } from "ai";
 import { resolveActiveOrgId } from "./org-helpers";
-import { resolveOrgWithRole, type OrgRole } from "./permissions";
+import { resolveOrgWithRole, resolveOrgWithModuleAccess, type OrgRole } from "./permissions";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -37,14 +37,8 @@ async function logAction(
   });
 }
 
-function slugCode(name: string) {
-  const base = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 20) || "emp";
-  return `${base}-${Math.random().toString(36).slice(2, 6)}`;
+function makeCode() {
+  return "EMP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
 }
 
 async function getActiveRole(
@@ -221,32 +215,40 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
 
           create_employee: tool({
             description:
-              "Add a new team member (employee) to the user's active organization. Only the resource fields are accepted — org is resolved server-side.",
+              "Create a PENDING employee request in the user's active organization. This does NOT create an active employee or a login account: the organization owner must approve the request afterwards, and only then is a temporary password and employee_id generated. Org is resolved server-side.",
             inputSchema: z.object({
               full_name: z.string().min(1).max(120),
               position: z.string().max(120).optional(),
-              email: z.string().email().max(255).optional(),
+              email: z.string().email().max(255),
+              cedula: z.string().min(4).max(32),
               phone_e164: z.string().max(32).optional(),
-              cedula: z.string().max(32).optional(),
               notes: z.string().max(500).optional(),
             }),
             execute: async (input) => {
-              const scopedOrg = await resolveOrgWithRole(context.supabase, context.userId, "admin");
-              const payload: Record<string, unknown> = {
-                org_id: scopedOrg,
-                created_by: context.userId,
-                code: slugCode(input.full_name),
-                full_name: input.full_name,
-                position: input.position ?? null,
-                email: input.email ?? null,
-                phone_e164: input.phone_e164 ?? null,
-                notes: input.notes ?? null,
-              };
-              if (input.cedula) payload.cedula = input.cedula;
+              const scopedOrg = await resolveOrgWithModuleAccess(
+                context.supabase,
+                context.userId,
+                "/team",
+                "admin",
+              );
               const { data: mem, error } = await context.supabase
                 .from("team_members")
-                .insert(payload as never)
-                .select("id,full_name,position,email")
+                .insert({
+                  org_id: scopedOrg,
+                  created_by: context.userId,
+                  code: makeCode(),
+                  full_name: input.full_name,
+                  cedula: input.cedula,
+                  position: input.position ?? null,
+                  phone_e164: input.phone_e164 ?? null,
+                  email: input.email,
+                  notes: input.notes ?? null,
+                  photo_url: null,
+                  status: "pending_approval",
+                  requested_role: "member",
+                  requested_by: context.userId,
+                })
+                .select("id,full_name,position,email,status")
                 .single();
               const rec: ActionRecord = error
                 ? { tool: "create_employee", params: input, result: { error: error.message }, status: "error" }
@@ -254,7 +256,13 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
               actions.push(rec);
               await logAction(context.supabase, scopedOrg, context.userId, rec);
               if (error) return { ok: false, error: error.message };
-              return { ok: true, member: mem };
+              return {
+                ok: true,
+                request: mem,
+                status: "pending_approval",
+                message:
+                  "Solicitud de alta enviada al propietario de la organización para su aprobación. El empleado todavía NO está activo y no tiene cuenta de acceso. Cuando el propietario apruebe, se generará su ID de empleado y una contraseña temporal que deberá cambiar en su primer ingreso.",
+              };
             },
           }),
 
@@ -353,7 +361,7 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
       : undefined;
 
     const toolsHint = canAct
-      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock. Only use them when the user clearly requests the action. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.`
+      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.`
       : `\n\nYou are in read-only mode for this user role. Do not offer to perform actions.`;
 
     const { text } = await generateText({
