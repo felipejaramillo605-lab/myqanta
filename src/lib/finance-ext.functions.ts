@@ -54,14 +54,15 @@ export const deleteAccount = createServerFn({ method: "POST" })
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const seedStandardPuc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
-    const { error } = await context.supabase.from("fin_accounts" as never)
-      .delete().eq("id", data.id).eq("org_id", orgId);
+    const { data, error } = await (context.supabase.rpc as any)("seed_standard_puc", { _org_id: orgId });
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { inserted: (data as number) ?? 0 };
   });
 
 // -------------------- Journal entries --------------------
