@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/finance_/journal")({
   head: () => ({ meta: [{ title: "Qanta — Asientos contables" }] }),
@@ -95,12 +96,12 @@ function JournalPage() {
   });
 
   // Accounts management
-  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string }>({
-    code: "", name: "", type: "asset", parent_id: "",
+  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean }>({
+    code: "", name: "", type: "asset", parent_id: "", is_current: false,
   });
   const saveAccMut = useMutation({
     mutationFn: (payload: any) => upsertAccount({ data: payload }),
-    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "" }); },
+    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "", is_current: false }); },
     onError: (e: any) => toast.error(e.message),
   });
   const delAccMut = useMutation({
@@ -315,7 +316,23 @@ function JournalPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button disabled={!acc.code || !acc.name} onClick={() => saveAccMut.mutate({ ...acc, parent_id: acc.parent_id || null })}>
+            {(acc.type === "asset" || acc.type === "liability") && (
+              <label className="flex items-center gap-2 text-sm px-1">
+                <Checkbox
+                  checked={acc.is_current}
+                  onCheckedChange={(v) => setAcc({ ...acc, is_current: v === true })}
+                />
+                Cuenta corriente
+              </label>
+            )}
+            <Button
+              disabled={!acc.code || !acc.name}
+              onClick={() => saveAccMut.mutate({
+                ...acc,
+                parent_id: acc.parent_id || null,
+                is_current: (acc.type === "asset" || acc.type === "liability") ? acc.is_current : null,
+              })}
+            >
               <Plus className="size-4 mr-1" /> Crear cuenta
             </Button>
           </div>

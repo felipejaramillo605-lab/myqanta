@@ -713,6 +713,7 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          is_current: boolean | null
           name: string
           org_id: string
           parent_id: string | null
@@ -724,6 +725,7 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          is_current?: boolean | null
           name: string
           org_id: string
           parent_id?: string | null
@@ -735,6 +737,7 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          is_current?: boolean | null
           name?: string
           org_id?: string
           parent_id?: string | null

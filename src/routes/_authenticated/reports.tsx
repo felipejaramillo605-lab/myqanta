@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Download, RefreshCw, Loader2 } from "lucide-react";
-import { getConsolidatedReport, type ConsolidatedReport } from "@/lib/reports.functions";
+import { getConsolidatedReport, getFinancialIndicators, type ConsolidatedReport, type FinancialIndicators } from "@/lib/reports.functions";
 import { getBusinessContext } from "@/lib/business-context.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { downloadCsv } from "@/lib/export-utils";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -27,15 +28,18 @@ function ReportsPage() {
   const [from, setFrom] = useState(firstOfMonth());
   const [to, setTo] = useState(today());
   const [report, setReport] = useState<ConsolidatedReport | null>(null);
+  const [indicators, setIndicators] = useState<FinancialIndicators | null>(null);
   const [currency, setCurrency] = useState("USD");
 
   const run = useMutation({
     mutationFn: async () => {
-      const [r, biz] = await Promise.all([
+      const [r, biz, ind] = await Promise.all([
         getConsolidatedReport({ data: { from, to } }),
         getBusinessContext().catch(() => null),
+        getFinancialIndicators().catch(() => null),
       ]);
       if (biz?.currency) setCurrency(biz.currency);
+      setIndicators(ind);
       return r;
     },
     onSuccess: (r) => setReport(r),
@@ -156,6 +160,49 @@ function ReportsPage() {
           )}
         </div>
       )}
+
+      {indicators && <IndicatorsSection data={indicators} />}
+    </div>
+  );
+}
+
+const INDICATOR_META: { key: keyof FinancialIndicators["indicators"]; label: string; percent: boolean }[] = [
+  { key: "razon_corriente", label: "Razón corriente", percent: false },
+  { key: "prueba_acida", label: "Prueba ácida", percent: false },
+  { key: "endeudamiento_total", label: "Endeudamiento total", percent: true },
+  { key: "razon_autonomia", label: "Razón de autonomía", percent: true },
+  { key: "roi", label: "ROI", percent: true },
+  { key: "roe", label: "ROE", percent: true },
+];
+
+function labelTone(label: string | null) {
+  if (!label) return "bg-muted text-muted-foreground";
+  if (["saludable", "bajo", "sólida", "positivo"].includes(label)) return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+  if (["ajustado", "moderado"].includes(label)) return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+  return "bg-destructive/15 text-destructive";
+}
+
+function IndicatorsSection({ data }: { data: FinancialIndicators }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="text-sm font-semibold text-muted-foreground">Indicadores financieros</h2>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {INDICATOR_META.map((m) => {
+          const ind = data.indicators[m.key];
+          const value = ind.value === null
+            ? "—"
+            : m.percent ? `${(ind.value * 100).toFixed(2)}%` : ind.value.toFixed(2);
+          return (
+            <div key={m.key} className="glass rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{m.label}</div>
+                <Badge variant="secondary" className={labelTone(ind.label)}>{ind.label ?? "sin datos"}</Badge>
+              </div>
+              <div className="mt-2 font-mono text-2xl">{value}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
