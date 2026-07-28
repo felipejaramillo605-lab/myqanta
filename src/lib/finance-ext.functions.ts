@@ -28,6 +28,7 @@ const AccountInput = z.object({
   active: z.boolean().default(true),
 });
 
+
 export const upsertAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AccountInput.parse(d))
