@@ -95,6 +95,17 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     z.object({
       messages: z.array(messageSchema).min(1).max(20),
       lang: z.enum(["es", "en"]).default("en"),
+      // Optional invoice/receipt the user attached in the chat composer. Kept
+      // out of the model's tool arguments (data URLs are far too large for a
+      // tool call) — the accounting tool reads it from the request instead.
+      attachment: z
+        .object({
+          data_url: z.string().startsWith("data:").max(12_000_000),
+          mime: z.string().max(120),
+          name: z.string().max(200).default("comprobante"),
+        })
+        .nullable()
+        .optional(),
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
