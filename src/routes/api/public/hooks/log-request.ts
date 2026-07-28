@@ -81,10 +81,10 @@ export const Route = createFileRoute("/api/public/hooks/log-request")({
             ua_hash: hash(ua),
             country,
           });
-          return new Response("ok", { status: 204 });
+          return new Response(null, { status: 204 });
         } catch (e) {
           console.error("[log-request] failed", e);
-          return new Response("ok", { status: 204 }); // never break app
+          return new Response(null, { status: 204 }); // never break app
         }
       },
     },
