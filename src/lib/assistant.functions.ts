@@ -402,6 +402,287 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
               return { ok: true, product: prod.name, new_stock: newStock, movement: mov };
             },
           }),
+
+          list_bank_accounts: tool({
+            description:
+              "List the bank accounts registered in the active organization (masked number, bank name). Use it before asking the user which account they paid from.",
+            inputSchema: z.object({}),
+            execute: async () => {
+              const scopedOrg = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+              const { data: accounts } = await context.supabase
+                .from("bank_accounts" as never)
+                .select("id,bank_name,account_number_masked,currency")
+                .eq("org_id", scopedOrg)
+                .eq("active", true);
+              return { ok: true, accounts: (accounts ?? []) as unknown as Record<string, unknown>[] };
+            },
+          }),
+
+          record_purchase_or_expense: tool({
+            description:
+              "Record a purchase or an operating expense as a double-entry journal entry in the active organization's chart of accounts. Only call it once you know: what was bought, the total amount, whether it was paid in cash or from a bank account (and which one, via list_bank_accounts), and whether the user has the invoice. Without an invoice the entry is saved as a DRAFT (accounting policy: a posted entry always requires a receipt). With an invoice attached in the chat, the receipt is stored and the entry is POSTED.",
+            inputSchema: z.object({
+              description: z.string().min(1).max(400).describe("What was bought or paid."),
+              amount: z.number().positive().describe("Total amount paid, taxes included."),
+              payment_method: z.enum(["cash", "bank"]),
+              bank_account_id: z
+                .string()
+                .uuid()
+                .optional()
+                .describe("Required when payment_method is 'bank'. Get it from list_bank_accounts."),
+              has_invoice: z.boolean().describe("Whether the user has the invoice/receipt available."),
+              kind: z
+                .enum(["inventory", "expense"])
+                .optional()
+                .describe("inventory = goods bought to resell; expense = operating cost. Leave empty to let the server infer it."),
+              vendor_name: z.string().max(200).optional(),
+              invoice_image_data_url: z
+                .string()
+                .optional()
+                .describe("Do NOT fill this. The attached invoice file is read server-side from the chat message."),
+            }),
+            execute: async (input) => {
+              const scopedOrg = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "admin");
+              const fail = async (error: string, extra?: Record<string, JsonValue>) => {
+                const rec: ActionRecord = {
+                  tool: "record_purchase_or_expense",
+                  params: { ...input, invoice_image_data_url: null } as Record<string, JsonValue>,
+                  result: { error, ...(extra ?? {}) },
+                  status: "error",
+                };
+                actions.push(rec);
+                await logAction(context.supabase, scopedOrg, context.userId, rec);
+                return { ok: false as const, error, ...(extra ?? {}) };
+              };
+
+              if (input.payment_method === "bank" && !input.bank_account_id) {
+                return fail("Falta la cuenta bancaria. Llama a list_bank_accounts y pregúntale al usuario cuál usó.");
+              }
+              const attachment = data.attachment ?? null;
+              if (input.has_invoice && !attachment) {
+                return fail(
+                  "El usuario dice tener factura pero no adjuntó el archivo. Pídele que adjunte la foto o PDF de la factura en el chat para continuar.",
+                );
+              }
+
+              // --- Decide destination account -------------------------------
+              let kind = input.kind;
+              if (!kind) {
+                const { data: prods } = await context.supabase
+                  .from("inv_products")
+                  .select("name,sku")
+                  .eq("org_id", scopedOrg)
+                  .limit(200);
+                const desc = input.description.toLowerCase();
+                const matches = (prods ?? []).some(
+                  (p) => desc.includes(String(p.name ?? "").toLowerCase()) || String(p.name ?? "").toLowerCase().includes(desc),
+                );
+                kind = matches ? "inventory" : "expense";
+              }
+              const category = suggestCategory(input.description);
+              const expenseCode =
+                category === "suscripciones" || category === "seguros" || category === "transferencias" ? "5195" : "5135";
+              const targetCode = kind === "inventory" ? "1435" : expenseCode;
+
+              const target = await findAccountByCode(context.supabase, scopedOrg, targetCode);
+              if (!target) {
+                return fail(
+                  `La cuenta ${targetCode} no existe en el plan de cuentas de la organización. Sugiere cargar el PUC estándar desde Finanzas → Asientos contables.`,
+                );
+              }
+              const payCode = input.payment_method === "cash" ? "1105" : "1110";
+              const payAcc = await findAccountByCode(context.supabase, scopedOrg, payCode);
+              if (!payAcc) {
+                return fail(`La cuenta ${payCode} no existe en el plan de cuentas de la organización.`);
+              }
+
+              type Line = {
+                account_id: string;
+                debit: number;
+                credit: number;
+                description: string | null;
+                third_party_id?: string | null;
+                bank_account_id?: string | null;
+              };
+              const bankRef = input.payment_method === "bank" ? (input.bank_account_id ?? null) : null;
+              const today = new Date().toISOString().slice(0, 10);
+
+              // --- Path A: no invoice → draft entry, no receipt -------------
+              if (!input.has_invoice) {
+                const lines: Line[] = [
+                  { account_id: target.id, debit: input.amount, credit: 0, description: input.description },
+                  { account_id: payAcc.id, debit: 0, credit: input.amount, description: input.description, bank_account_id: bankRef },
+                ];
+                const saved = await insertEntry(context.supabase, scopedOrg, context.userId, {
+                  entry_date: today,
+                  description: input.description,
+                  status: "draft",
+                  receipt_document_id: null,
+                  lines,
+                });
+                if ("error" in saved) return fail(saved.error);
+                const result = {
+                  status: "draft" as const,
+                  entry_id: saved.id,
+                  account: `${target.code} ${target.name}`,
+                  paid_from: `${payAcc.code} ${payAcc.name}`,
+                  amount: input.amount,
+                  payment_method: input.payment_method,
+                };
+                const rec: ActionRecord = {
+                  tool: "record_purchase_or_expense",
+                  params: { ...input, invoice_image_data_url: null } as Record<string, JsonValue>,
+                  result,
+                  status: "ok",
+                };
+                actions.push(rec);
+                await logAction(context.supabase, scopedOrg, context.userId, rec);
+                return {
+                  ok: true,
+                  ...result,
+                  message:
+                    "Registrado como BORRADOR pendiente de factura. Un asiento solo se puede publicar con comprobante adjunto: cuando consigas la factura, vuelve a este chat y adjúntala para publicarlo.",
+                };
+              }
+
+              // --- Path B: invoice attached → OCR + document + posted entry -
+              const key2 = process.env.LOVABLE_API_KEY;
+              if (!key2) return fail("Missing LOVABLE_API_KEY");
+              const att = attachment!;
+              const { extractInvoiceData } = await import("./invoice-ocr.server");
+              const extraction = await extractInvoiceData({
+                image_data_url: att.data_url,
+                mime: att.mime,
+                apiKey: key2,
+              });
+              if (!extraction.ok) return fail(`No se pudo leer la factura (${extraction.error}). Pide una imagen más nítida.`);
+              const inv = extraction.data;
+
+              // Store the receipt as a real document row (same bucket + path
+              // convention as documents.functions.ts uploads).
+              const decoded = decodeDataUrl(att.data_url);
+              if (!decoded) return fail("El archivo adjunto no es válido.");
+              const safeName = (att.name || "comprobante").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
+              const path = `${scopedOrg}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+              const { error: upErr } = await context.supabase.storage
+                .from("documents")
+                .upload(path, decoded.bytes, { contentType: decoded.mime, upsert: false });
+              if (upErr) return fail(`No se pudo guardar el comprobante: ${upErr.message}`);
+              const { data: doc, error: docErr } = await context.supabase
+                .from("documents" as never)
+                .insert({
+                  org_id: scopedOrg,
+                  name: safeName,
+                  description: `Comprobante de: ${input.description}`,
+                  mime_type: decoded.mime,
+                  size_bytes: decoded.bytes.byteLength,
+                  storage_path: path,
+                  tags: ["comprobante", "contabilidad"],
+                  entity_type: "journal_entry",
+                  uploaded_by: context.userId,
+                } as never)
+                .select("id")
+                .single();
+              if (docErr || !doc) return fail(`No se pudo registrar el comprobante: ${docErr?.message ?? "desconocido"}`);
+              const receiptId = (doc as unknown as { id: string }).id;
+
+              // Supplier (third party)
+              const supplierName = inv.supplier_name || input.vendor_name || null;
+              let thirdPartyId: string | null = null;
+              if (supplierName) {
+                const { data: existing } = await context.supabase
+                  .from("third_parties" as never)
+                  .select("id")
+                  .eq("org_id", scopedOrg)
+                  .ilike("name", supplierName)
+                  .maybeSingle();
+                if (existing) thirdPartyId = (existing as unknown as { id: string }).id;
+                else {
+                  const { data: created } = await context.supabase
+                    .from("third_parties" as never)
+                    .insert({
+                      org_id: scopedOrg,
+                      kind: "supplier",
+                      name: supplierName,
+                      tax_id: inv.supplier_tax_id ?? null,
+                      applicable_taxes: {},
+                    } as never)
+                    .select("id")
+                    .single();
+                  thirdPartyId = created ? (created as unknown as { id: string }).id : null;
+                }
+              }
+
+              // Amounts: prefer the OCR totals, fall back to what the user said.
+              const total = inv.total > 0 ? inv.total : input.amount;
+              const tax = inv.tax > 0 && inv.tax < total ? inv.tax : 0;
+              const base = Math.round((total - tax) * 100) / 100;
+
+              const lines: Line[] = [
+                { account_id: target.id, debit: base, credit: 0, description: input.description },
+              ];
+              if (tax > 0) {
+                let vat = await findAccountByCode(context.supabase, scopedOrg, "1365");
+                if (!vat) {
+                  const { data: createdAcc } = await context.supabase
+                    .from("fin_accounts" as never)
+                    .insert({
+                      org_id: scopedOrg,
+                      code: "1365",
+                      name: "IVA descontable",
+                      type: "asset",
+                      is_current: true,
+                      active: true,
+                    } as never)
+                    .select("id,code,name")
+                    .single();
+                  vat = (createdAcc as unknown as { id: string; code: string; name: string } | null) ?? null;
+                }
+                if (!vat) return fail("No se pudo crear la cuenta 1365 IVA descontable.");
+                lines.push({ account_id: vat.id, debit: tax, credit: 0, description: "IVA descontable" });
+              }
+              lines.push({
+                account_id: payAcc.id,
+                debit: 0,
+                credit: total,
+                description: input.description,
+                third_party_id: thirdPartyId,
+                bank_account_id: bankRef,
+              });
+
+              const saved = await insertEntry(context.supabase, scopedOrg, context.userId, {
+                entry_date: inv.invoice_date || today,
+                description: `${input.description}${inv.invoice_number ? ` · Factura ${inv.invoice_number}` : ""}`,
+                status: "posted",
+                receipt_document_id: receiptId,
+                lines,
+              });
+              if ("error" in saved) return fail(saved.error);
+
+              const result = {
+                status: "posted" as const,
+                entry_id: saved.id,
+                account: `${target.code} ${target.name}`,
+                paid_from: `${payAcc.code} ${payAcc.name}`,
+                base,
+                tax,
+                total,
+                payment_method: input.payment_method,
+                supplier: supplierName,
+                invoice_number: inv.invoice_number,
+                receipt_document_id: receiptId,
+              };
+              const rec: ActionRecord = {
+                tool: "record_purchase_or_expense",
+                params: { ...input, invoice_image_data_url: null } as Record<string, JsonValue>,
+                result: result as unknown as Record<string, JsonValue>,
+                status: "ok",
+              };
+              actions.push(rec);
+              await logAction(context.supabase, scopedOrg, context.userId, rec);
+              return { ok: true, ...result, message: "Asiento PUBLICADO con comprobante adjunto." };
+            },
+          }),
         }
       : undefined;
 
