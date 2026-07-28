@@ -12,6 +12,7 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   { key: "/finance/banks", label: "Bancos", group: "Finanzas" },
   { key: "/finance/taxes", label: "Impuestos", group: "Finanzas" },
   { key: "/finance/reconciliation", label: "Conciliación bancaria", group: "Finanzas" },
+  { key: "/finance/balances", label: "Balances", group: "Finanzas" },
   { key: "/inventory", label: "Compras / Inventario", group: "Finanzas" },
   { key: "/sales", label: "Ventas", group: "Finanzas" },
   // RRHH
