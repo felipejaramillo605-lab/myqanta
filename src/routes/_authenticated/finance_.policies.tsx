@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FileText, BookOpen, Plus, Trash2, Pencil, EyeOff, Eye, X, Sparkles, Globe2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -152,8 +152,11 @@ function PolicyEditorDialog({
   const qc = useQueryClient();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const key = initial?.id ?? "new";
-  useMemo(() => { setTitle(initial?.title ?? ""); setContent(initial?.content ?? ""); return key; }, [key, open]);
+  useEffect(() => {
+    if (!open) return;
+    setTitle(initial?.title ?? "");
+    setContent(initial?.content ?? "");
+  }, [open, initial]);
 
   const saveM = useMutation({
     mutationFn: () => upsertAccountingPolicy({
