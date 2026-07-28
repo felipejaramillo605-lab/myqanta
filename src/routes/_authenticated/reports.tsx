@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Download, RefreshCw, Loader2 } from "lucide-react";
-import { getConsolidatedReport, type ConsolidatedReport } from "@/lib/reports.functions";
+import { getConsolidatedReport, getFinancialIndicators, type ConsolidatedReport, type FinancialIndicators } from "@/lib/reports.functions";
 import { getBusinessContext } from "@/lib/business-context.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { downloadCsv } from "@/lib/export-utils";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -27,15 +28,18 @@ function ReportsPage() {
   const [from, setFrom] = useState(firstOfMonth());
   const [to, setTo] = useState(today());
   const [report, setReport] = useState<ConsolidatedReport | null>(null);
+  const [indicators, setIndicators] = useState<FinancialIndicators | null>(null);
   const [currency, setCurrency] = useState("USD");
 
   const run = useMutation({
     mutationFn: async () => {
-      const [r, biz] = await Promise.all([
+      const [r, biz, ind] = await Promise.all([
         getConsolidatedReport({ data: { from, to } }),
         getBusinessContext().catch(() => null),
+        getFinancialIndicators().catch(() => null),
       ]);
       if (biz?.currency) setCurrency(biz.currency);
+      setIndicators(ind);
       return r;
     },
     onSuccess: (r) => setReport(r),
