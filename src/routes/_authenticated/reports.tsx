@@ -164,6 +164,47 @@ function ReportsPage() {
   );
 }
 
+const INDICATOR_META: { key: keyof FinancialIndicators["indicators"]; label: string; percent: boolean }[] = [
+  { key: "razon_corriente", label: "Razón corriente", percent: false },
+  { key: "prueba_acida", label: "Prueba ácida", percent: false },
+  { key: "endeudamiento_total", label: "Endeudamiento total", percent: true },
+  { key: "razon_autonomia", label: "Razón de autonomía", percent: true },
+  { key: "roi", label: "ROI", percent: true },
+  { key: "roe", label: "ROE", percent: true },
+];
+
+function labelTone(label: string | null) {
+  if (!label) return "bg-muted text-muted-foreground";
+  if (["saludable", "bajo", "sólida", "positivo"].includes(label)) return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+  if (["ajustado", "moderado"].includes(label)) return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+  return "bg-destructive/15 text-destructive";
+}
+
+function IndicatorsSection({ data }: { data: FinancialIndicators }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="text-sm font-semibold text-muted-foreground">Indicadores financieros</h2>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {INDICATOR_META.map((m) => {
+          const ind = data.indicators[m.key];
+          const value = ind.value === null
+            ? "—"
+            : m.percent ? `${(ind.value * 100).toFixed(2)}%` : ind.value.toFixed(2);
+          return (
+            <div key={m.key} className="glass rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{m.label}</div>
+                <Badge variant="secondary" className={labelTone(ind.label)}>{ind.label ?? "sin datos"}</Badge>
+              </div>
+              <div className="mt-2 font-mono text-2xl">{value}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="glass rounded-2xl p-5">
