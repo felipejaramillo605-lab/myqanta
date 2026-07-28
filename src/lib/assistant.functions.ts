@@ -41,6 +41,40 @@ function makeCode() {
   return "EMP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
 }
 
+/** Decode a `data:<mime>;base64,<payload>` URL into raw bytes. */
+function decodeDataUrl(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
+  const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!m) return null;
+  const mime = m[1] || "application/octet-stream";
+  const payload = m[3] ?? "";
+  try {
+    if (m[2]) {
+      const bin = atob(payload);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return { bytes, mime };
+    }
+    return { bytes: new TextEncoder().encode(decodeURIComponent(payload)), mime };
+  } catch {
+    return null;
+  }
+}
+
+/** Find an account by exact `code` inside the org chart of accounts. */
+async function findAccountByCode(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  code: string,
+): Promise<{ id: string; code: string; name: string } | null> {
+  const { data } = await supabase
+    .from("fin_accounts" as never)
+    .select("id,code,name")
+    .eq("org_id", orgId)
+    .eq("code", code)
+    .maybeSingle();
+  return (data as unknown as { id: string; code: string; name: string } | null) ?? null;
+}
+
 async function getActiveRole(
   supabase: SupabaseClient<Database>,
   userId: string,
