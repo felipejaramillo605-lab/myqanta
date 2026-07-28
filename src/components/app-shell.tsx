@@ -88,6 +88,17 @@ function isActive(path: string, to: string): boolean {
   return path === to || path.startsWith(to + "/");
 }
 
+/** Agrupa los items de una categoría por sub-encabezado visual, conservando el orden. */
+function groupItems(items: NavItem[]): Array<{ group?: string; items: NavItem[] }> {
+  const out: Array<{ group?: string; items: NavItem[] }> = [];
+  for (const item of items) {
+    const last = out[out.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else out.push({ group: item.group, items: [item] });
+  }
+  return out;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const { user, isAdmin, isPlatformOwner } = useAuth();
