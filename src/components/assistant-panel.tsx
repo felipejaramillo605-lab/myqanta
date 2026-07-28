@@ -178,22 +178,58 @@ export function AssistantPanel() {
         </div>
 
         <form
-          className="flex items-center gap-2 border-t border-border/50 p-3"
+          className="flex flex-col gap-2 border-t border-border/50 p-3"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("ai.placeholder")}
-            disabled={busy}
-            autoFocus
-          />
-          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
-            <Send className="size-4" />
-          </Button>
+          {attachment && (
+            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-[11px]">
+              <Paperclip className="size-3 shrink-0" />
+              <span className="truncate">{attachment.name}</span>
+              <button
+                type="button"
+                aria-label="Quitar adjunto"
+                className="ml-auto text-muted-foreground hover:text-foreground"
+                onClick={() => setAttachment(null)}
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                onPickFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Adjuntar factura"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip className="size-4" />
+            </Button>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("ai.placeholder")}
+              disabled={busy}
+              autoFocus
+            />
+            <Button type="submit" size="icon" disabled={busy || (!input.trim() && !attachment)}>
+              <Send className="size-4" />
+            </Button>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
