@@ -40,7 +40,7 @@ import { Briefcase } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; group?: string };
 type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
 
 // Items sueltos (sin categoría).
@@ -49,21 +49,22 @@ const STANDALONE: NavItem[] = [
   { to: "/crm", label: "CRM", icon: Contact2 },
   { to: "/projects", label: "Proyectos", icon: Briefcase },
   { to: "/approvals", label: "Aprobaciones", icon: CheckSquare },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
 ];
 
 const CATEGORIES: NavCategory[] = [
   {
     key: "finance", label: "Finanzas", icon: Wallet, items: [
-      { to: "/finance", label: "Resumen", icon: Wallet },
-      { to: "/finance/journal", label: "Asientos contables", icon: BookOpen },
-      { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen },
-      { to: "/finance/parties", label: "Matriz de terceros", icon: Contact2 },
-      { to: "/finance/banks", label: "Bancos", icon: Landmark },
-      { to: "/finance/taxes", label: "Impuestos", icon: Percent },
-      { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge },
-      { to: "/inventory", label: "Compras", icon: ShoppingCart },
-      { to: "/sales", label: "Ventas", icon: Receipt },
+      { to: "/finance", label: "Resumen", icon: Wallet, group: "Contabilidad" },
+      { to: "/finance/journal", label: "Asientos contables", icon: BookOpen, group: "Contabilidad" },
+      { to: "/finance/banks", label: "Bancos", icon: Landmark, group: "Contabilidad" },
+      { to: "/finance/taxes", label: "Impuestos", icon: Percent, group: "Contabilidad" },
+      { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge, group: "Contabilidad" },
+      { to: "/finance/balances", label: "Balances", icon: Scale, group: "Contabilidad" },
+      { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen, group: "Contabilidad" },
+      { to: "/finance/parties", label: "Matriz de terceros", icon: Contact2, group: "Contabilidad" },
+      { to: "/inventory", label: "Compras", icon: ShoppingCart, group: "Compras" },
+      { to: "/sales", label: "Ventas", icon: Receipt, group: "Ventas" },
+      { to: "/reports", label: "Reportes", icon: BarChart3, group: "Reportes" },
     ],
   },
   {
