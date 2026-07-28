@@ -95,7 +95,7 @@ function JournalPage() {
   });
 
   // Accounts management
-  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string }>({
+  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean }>({
     code: "", name: "", type: "asset", parent_id: "",
   });
   const saveAccMut = useMutation({
