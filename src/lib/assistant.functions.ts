@@ -7,6 +7,7 @@ import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole, resolveOrgWithModuleAccess, type OrgRole } from "./permissions";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { suggestCategory } from "./categories";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -58,6 +59,70 @@ function decodeDataUrl(dataUrl: string): { bytes: Uint8Array; mime: string } | n
   } catch {
     return null;
   }
+}
+
+/** Find an account by exact `code` inside the org chart of accounts. */
+async function insertEntry(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  userId: string,
+  entry: {
+    entry_date: string;
+    description: string | null;
+    status: "draft" | "posted";
+    receipt_document_id: string | null;
+    lines: Array<{
+      account_id: string;
+      debit: number;
+      credit: number;
+      description: string | null;
+      third_party_id?: string | null;
+      bank_account_id?: string | null;
+    }>;
+  },
+): Promise<{ id: string } | { error: string }> {
+  // Same invariants as saveJournalEntry: balanced entry, and a posted entry
+  // always needs a receipt document.
+  const totalD = entry.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+  const totalC = entry.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+  if (Math.abs(totalD - totalC) > 0.01) return { error: "El asiento no cuadra (débito ≠ crédito)" };
+  if (entry.status === "posted" && !entry.receipt_document_id) {
+    return { error: "Un asiento publicado requiere comprobante adjunto" };
+  }
+  const { data: nRes, error: nErr } = await (supabase.rpc as never as (n: string, a: unknown) => Promise<{ data: unknown; error: { message: string } | null }>)(
+    "next_journal_entry_no",
+    { _org_id: orgId },
+  );
+  if (nErr) return { error: nErr.message };
+  const { data: ins, error } = await supabase
+    .from("fin_journal_entries" as never)
+    .insert({
+      org_id: orgId,
+      entry_no: nRes as number,
+      entry_date: entry.entry_date,
+      description: entry.description,
+      status: entry.status,
+      receipt_document_id: entry.receipt_document_id,
+      created_by: userId,
+    } as never)
+    .select("id")
+    .single();
+  if (error || !ins) return { error: error?.message ?? "No se pudo crear el asiento" };
+  const entryId = (ins as unknown as { id: string }).id;
+  const { error: lErr } = await supabase.from("fin_journal_lines" as never).insert(
+    entry.lines.map((l) => ({
+      entry_id: entryId,
+      org_id: orgId,
+      account_id: l.account_id,
+      debit: l.debit,
+      credit: l.credit,
+      description: l.description,
+      third_party_id: l.third_party_id ?? null,
+      bank_account_id: l.bank_account_id ?? null,
+    })) as never,
+  );
+  if (lErr) return { error: lErr.message };
+  return { id: entryId };
 }
 
 /** Find an account by exact `code` inside the org chart of accounts. */
