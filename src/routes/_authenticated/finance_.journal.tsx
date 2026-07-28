@@ -96,11 +96,11 @@ function JournalPage() {
 
   // Accounts management
   const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean }>({
-    code: "", name: "", type: "asset", parent_id: "",
+    code: "", name: "", type: "asset", parent_id: "", is_current: false,
   });
   const saveAccMut = useMutation({
     mutationFn: (payload: any) => upsertAccount({ data: payload }),
-    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "" }); },
+    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "", is_current: false }); },
     onError: (e: any) => toast.error(e.message),
   });
   const delAccMut = useMutation({
