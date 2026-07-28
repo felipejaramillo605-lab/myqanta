@@ -563,7 +563,7 @@ async function fetchPostedLines(
   const accMap = new Map((accounts ?? []).map((a: any) => [a.id, a]));
   const tpMap = new Map((parties ?? []).map((p: any) => [p.id, p]));
 
-  const rows = (data ?? []).map((l: any) => {
+  const rows: LedgerRow[] = ((data ?? []) as any[]).map((l: any) => {
     const acc: any = accMap.get(l.account_id);
     const tp: any = l.third_party_id ? tpMap.get(l.third_party_id) : null;
     return {
@@ -584,7 +584,7 @@ async function fetchPostedLines(
   });
 
   // Chronological, then running balance per account.
-  rows.sort((a, b) => {
+  rows.sort((a: LedgerRow, b: LedgerRow) => {
     if (a.entry_date !== b.entry_date) return a.entry_date < b.entry_date ? -1 : 1;
     return (a.entry_no ?? 0) - (b.entry_no ?? 0);
   });
