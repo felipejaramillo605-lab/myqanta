@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, Send, RefreshCw, Wrench } from "lucide-react";
+import { Sparkles, Send, RefreshCw, Wrench, Paperclip, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ type ActionRecord = {
 };
 type Msg = { role: "user" | "assistant"; content: string; actions?: ActionRecord[] };
 type ChatReply = { reply: string; actions?: ActionRecord[] };
+type Attachment = { data_url: string; mime: string; name: string };
 
 export function AssistantPanel() {
   const { t, lang } = useI18n();
@@ -23,12 +24,20 @@ export function AssistantPanel() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [lastRegenAt, setLastRegenAt] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const mut = useMutation({
-    mutationFn: (history: Msg[]) =>
-      fn({ data: { messages: history.map(({ role, content }) => ({ role, content })), lang } }) as Promise<ChatReply>,
+    mutationFn: ({ history, file }: { history: Msg[]; file: Attachment | null }) =>
+      fn({
+        data: {
+          messages: history.map(({ role, content }) => ({ role, content })),
+          lang,
+          attachment: file,
+        },
+      }) as Promise<ChatReply>,
     onSuccess: (res) =>
       setMessages((m) => [
         ...m,
@@ -59,11 +68,25 @@ export function AssistantPanel() {
 
   const send = () => {
     const v = input.trim();
-    if (!v || mut.isPending) return;
-    const next: Msg[] = [...messages, { role: "user", content: v }];
+    if ((!v && !attachment) || mut.isPending) return;
+    const text = v || (attachment ? `Adjunto la factura: ${attachment.name}` : "");
+    const next: Msg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setInput("");
-    mut.mutate(next);
+    mut.mutate({ history: next, file: attachment });
+    setAttachment(null);
+  };
+
+  const onPickFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setMessages((m) => [...m, { role: "assistant", content: "⚠️ El archivo supera los 8 MB." }]);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setAttachment({ data_url: String(reader.result), mime: file.type || "application/octet-stream", name: file.name });
+    reader.readAsDataURL(file);
   };
 
   const busy = mut.isPending || regen.isPending;
@@ -155,22 +178,58 @@ export function AssistantPanel() {
         </div>
 
         <form
-          className="flex items-center gap-2 border-t border-border/50 p-3"
+          className="flex flex-col gap-2 border-t border-border/50 p-3"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("ai.placeholder")}
-            disabled={busy}
-            autoFocus
-          />
-          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
-            <Send className="size-4" />
-          </Button>
+          {attachment && (
+            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-[11px]">
+              <Paperclip className="size-3 shrink-0" />
+              <span className="truncate">{attachment.name}</span>
+              <button
+                type="button"
+                aria-label="Quitar adjunto"
+                className="ml-auto text-muted-foreground hover:text-foreground"
+                onClick={() => setAttachment(null)}
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                onPickFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Adjuntar factura"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip className="size-4" />
+            </Button>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("ai.placeholder")}
+              disabled={busy}
+              autoFocus
+            />
+            <Button type="submit" size="icon" disabled={busy || (!input.trim() && !attachment)}>
+              <Send className="size-4" />
+            </Button>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
