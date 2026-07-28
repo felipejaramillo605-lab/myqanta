@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (access.allowed_modules ?? []).includes(key);
   };
   const MODULE_KEY_SET = new Set([
-    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation",
+    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances",
     "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reports",
   ]);
@@ -200,25 +200,34 @@ export function AppShell({ children }: { children: ReactNode }) {
                       {cat.placeholder}
                     </div>
                   )}
-                  {cat.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(path, item.to);
-                    return (
-                      <Link
-                        key={item.to}
-                        to={item.to as never}
-                        className={
-                          "ml-4 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors " +
-                          (active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
-                        }
-                      >
-                        <Icon className="size-3.5" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                  {groupItems(cat.items).map(({ group, items }) => (
+                    <div key={group ?? "_"} className="space-y-1">
+                      {group && (
+                        <div className="ml-4 px-3 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/60">
+                          {group}
+                        </div>
+                      )}
+                      {items.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(path, item.to);
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to as never}
+                            className={
+                              "ml-4 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors " +
+                              (active
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+                            }
+                          >
+                            <Icon className="size-3.5" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </CollapsibleContent>
               </Collapsible>
             );
