@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
-import { assertModuleAccess } from "./permissions";
+import { assertModuleAccess, resolveOrgWithModuleAccess } from "./permissions";
 
 export type ReportRange = { from: string; to: string };
 
