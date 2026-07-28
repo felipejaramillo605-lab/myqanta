@@ -26,8 +26,8 @@ const AccountInput = z.object({
   type: z.enum(["asset", "liability", "equity", "income", "expense"]),
   parent_id: z.string().uuid().nullable().optional(),
   active: z.boolean().default(true),
+  is_current: z.boolean().nullable().optional(),
 });
-
 
 export const upsertAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
