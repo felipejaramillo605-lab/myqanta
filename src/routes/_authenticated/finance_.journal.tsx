@@ -315,7 +315,23 @@ function JournalPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button disabled={!acc.code || !acc.name} onClick={() => saveAccMut.mutate({ ...acc, parent_id: acc.parent_id || null })}>
+            {(acc.type === "asset" || acc.type === "liability") && (
+              <label className="flex items-center gap-2 text-sm px-1">
+                <Checkbox
+                  checked={acc.is_current}
+                  onCheckedChange={(v) => setAcc({ ...acc, is_current: v === true })}
+                />
+                Cuenta corriente
+              </label>
+            )}
+            <Button
+              disabled={!acc.code || !acc.name}
+              onClick={() => saveAccMut.mutate({
+                ...acc,
+                parent_id: acc.parent_id || null,
+                is_current: (acc.type === "asset" || acc.type === "liability") ? acc.is_current : null,
+              })}
+            >
               <Plus className="size-4 mr-1" /> Crear cuenta
             </Button>
           </div>
