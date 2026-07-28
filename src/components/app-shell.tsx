@@ -40,7 +40,7 @@ import { Briefcase } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; group?: string };
 type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
 
 // Items sueltos (sin categoría).
@@ -49,21 +49,22 @@ const STANDALONE: NavItem[] = [
   { to: "/crm", label: "CRM", icon: Contact2 },
   { to: "/projects", label: "Proyectos", icon: Briefcase },
   { to: "/approvals", label: "Aprobaciones", icon: CheckSquare },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
 ];
 
 const CATEGORIES: NavCategory[] = [
   {
     key: "finance", label: "Finanzas", icon: Wallet, items: [
-      { to: "/finance", label: "Resumen", icon: Wallet },
-      { to: "/finance/journal", label: "Asientos contables", icon: BookOpen },
-      { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen },
-      { to: "/finance/parties", label: "Matriz de terceros", icon: Contact2 },
-      { to: "/finance/banks", label: "Bancos", icon: Landmark },
-      { to: "/finance/taxes", label: "Impuestos", icon: Percent },
-      { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge },
-      { to: "/inventory", label: "Compras", icon: ShoppingCart },
-      { to: "/sales", label: "Ventas", icon: Receipt },
+      { to: "/finance", label: "Resumen", icon: Wallet, group: "Contabilidad" },
+      { to: "/finance/journal", label: "Asientos contables", icon: BookOpen, group: "Contabilidad" },
+      { to: "/finance/banks", label: "Bancos", icon: Landmark, group: "Contabilidad" },
+      { to: "/finance/taxes", label: "Impuestos", icon: Percent, group: "Contabilidad" },
+      { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge, group: "Contabilidad" },
+      { to: "/finance/balances", label: "Balances", icon: Scale, group: "Contabilidad" },
+      { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen, group: "Contabilidad" },
+      { to: "/finance/parties", label: "Matriz de terceros", icon: Contact2, group: "Contabilidad" },
+      { to: "/inventory", label: "Compras", icon: ShoppingCart, group: "Compras" },
+      { to: "/sales", label: "Ventas", icon: Receipt, group: "Ventas" },
+      { to: "/reports", label: "Reportes", icon: BarChart3, group: "Reportes" },
     ],
   },
   {
@@ -85,6 +86,17 @@ const MOBILE_PRIMARY = ["/dashboard", "/sales", "/inventory", "/hr", "/agenda"] 
 
 function isActive(path: string, to: string): boolean {
   return path === to || path.startsWith(to + "/");
+}
+
+/** Agrupa los items de una categoría por sub-encabezado visual, conservando el orden. */
+function groupItems(items: NavItem[]): Array<{ group?: string; items: NavItem[] }> {
+  const out: Array<{ group?: string; items: NavItem[] }> = [];
+  for (const item of items) {
+    const last = out[out.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else out.push({ group: item.group, items: [item] });
+  }
+  return out;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -121,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (access.allowed_modules ?? []).includes(key);
   };
   const MODULE_KEY_SET = new Set([
-    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation",
+    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances",
     "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reports",
   ]);
@@ -199,25 +211,34 @@ export function AppShell({ children }: { children: ReactNode }) {
                       {cat.placeholder}
                     </div>
                   )}
-                  {cat.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(path, item.to);
-                    return (
-                      <Link
-                        key={item.to}
-                        to={item.to as never}
-                        className={
-                          "ml-4 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors " +
-                          (active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
-                        }
-                      >
-                        <Icon className="size-3.5" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                  {groupItems(cat.items).map(({ group, items }) => (
+                    <div key={group ?? "_"} className="space-y-1">
+                      {group && (
+                        <div className="ml-4 px-3 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/60">
+                          {group}
+                        </div>
+                      )}
+                      {items.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(path, item.to);
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to as never}
+                            className={
+                              "ml-4 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors " +
+                              (active
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+                            }
+                          >
+                            <Icon className="size-3.5" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </CollapsibleContent>
               </Collapsible>
             );

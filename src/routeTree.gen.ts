@@ -43,6 +43,7 @@ import { Route as AuthenticatedFinancePoliciesRouteImport } from './routes/_auth
 import { Route as AuthenticatedFinancePartiesRouteImport } from './routes/_authenticated/finance_.parties'
 import { Route as AuthenticatedFinanceJournalRouteImport } from './routes/_authenticated/finance_.journal'
 import { Route as AuthenticatedFinanceBanksRouteImport } from './routes/_authenticated/finance_.banks'
+import { Route as AuthenticatedFinanceBalancesRouteImport } from './routes/_authenticated/finance_.balances'
 import { Route as AuthenticatedAdminThemeRouteImport } from './routes/_authenticated/admin.theme'
 import { Route as AuthenticatedAdminSecurityLogRouteImport } from './routes/_authenticated/admin.security-log'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
@@ -234,6 +235,12 @@ const AuthenticatedFinanceBanksRoute =
     path: '/finance/banks',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinanceBalancesRoute =
+  AuthenticatedFinanceBalancesRouteImport.update({
+    id: '/finance_/balances',
+    path: '/finance/balances',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminThemeRoute = AuthenticatedAdminThemeRouteImport.update({
   id: '/admin/theme',
   path: '/admin/theme',
@@ -314,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/balances': typeof AuthenticatedFinanceBalancesRoute
   '/finance/banks': typeof AuthenticatedFinanceBanksRoute
   '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/finance/parties': typeof AuthenticatedFinancePartiesRoute
@@ -358,6 +366,7 @@ export interface FileRoutesByTo {
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/finance/balances': typeof AuthenticatedFinanceBalancesRoute
   '/finance/banks': typeof AuthenticatedFinanceBanksRoute
   '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/finance/parties': typeof AuthenticatedFinancePartiesRoute
@@ -404,6 +413,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/security-log': typeof AuthenticatedAdminSecurityLogRoute
   '/_authenticated/admin/theme': typeof AuthenticatedAdminThemeRoute
+  '/_authenticated/finance_/balances': typeof AuthenticatedFinanceBalancesRoute
   '/_authenticated/finance_/banks': typeof AuthenticatedFinanceBanksRoute
   '/_authenticated/finance_/journal': typeof AuthenticatedFinanceJournalRoute
   '/_authenticated/finance_/parties': typeof AuthenticatedFinancePartiesRoute
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/balances'
     | '/finance/banks'
     | '/finance/journal'
     | '/finance/parties'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/admin/security'
     | '/admin/security-log'
     | '/admin/theme'
+    | '/finance/balances'
     | '/finance/banks'
     | '/finance/journal'
     | '/finance/parties'
@@ -539,6 +551,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/security-log'
     | '/_authenticated/admin/theme'
+    | '/_authenticated/finance_/balances'
     | '/_authenticated/finance_/banks'
     | '/_authenticated/finance_/journal'
     | '/_authenticated/finance_/parties'
@@ -813,6 +826,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceBanksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance_/balances': {
+      id: '/_authenticated/finance_/balances'
+      path: '/finance/balances'
+      fullPath: '/finance/balances'
+      preLoaderRoute: typeof AuthenticatedFinanceBalancesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/theme': {
       id: '/_authenticated/admin/theme'
       path: '/admin/theme'
@@ -898,6 +918,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSecurityLogRoute: typeof AuthenticatedAdminSecurityLogRoute
   AuthenticatedAdminThemeRoute: typeof AuthenticatedAdminThemeRoute
+  AuthenticatedFinanceBalancesRoute: typeof AuthenticatedFinanceBalancesRoute
   AuthenticatedFinanceBanksRoute: typeof AuthenticatedFinanceBanksRoute
   AuthenticatedFinanceJournalRoute: typeof AuthenticatedFinanceJournalRoute
   AuthenticatedFinancePartiesRoute: typeof AuthenticatedFinancePartiesRoute
@@ -930,6 +951,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSecurityLogRoute: AuthenticatedAdminSecurityLogRoute,
   AuthenticatedAdminThemeRoute: AuthenticatedAdminThemeRoute,
+  AuthenticatedFinanceBalancesRoute: AuthenticatedFinanceBalancesRoute,
   AuthenticatedFinanceBanksRoute: AuthenticatedFinanceBanksRoute,
   AuthenticatedFinanceJournalRoute: AuthenticatedFinanceJournalRoute,
   AuthenticatedFinancePartiesRoute: AuthenticatedFinancePartiesRoute,
