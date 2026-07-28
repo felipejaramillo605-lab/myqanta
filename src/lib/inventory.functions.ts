@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import type { ParsedInvoice, ScanErrorCode } from "./invoice-ocr.server";
 import { EXPENSE_CATEGORIES, parseNumberWithSeparator, suggestCategory, type DecimalSeparator } from "./categories";
 
 // ===== Products =====
@@ -260,7 +261,6 @@ export const getStockHistory = createServerFn({ method: "GET" })
 // ===== AI invoice scan =====
 // OCR extraction + normalization live in ./invoice-ocr.server so the assistant
 // accounting tool reuses the exact same Gemini prompt.
-import type { ParsedInvoice, ScanErrorCode } from "./invoice-ocr.server";
 
 function scanError(error: ScanErrorCode) {
   return { ok: false as const, error };
@@ -283,76 +283,14 @@ export const scanInvoice = createServerFn({ method: "POST" })
       ? await resolveOrgWithModuleAccess(context.supabase, context.userId, "/inventory", "member")
       : await resolveActiveOrgId(context.supabase, context.userId);
 
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const aiMod = await import("ai");
-    const { generateText } = aiMod;
-    const gateway = createLovableAiGatewayProvider(key);
-
-    const sepHint =
-      data.decimal_separator === "comma"
-        ? "The source document uses COMMA as decimal separator and dot as thousand separator (e.g. 1.234,56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
-        : data.decimal_separator === "dot"
-          ? "The source document uses DOT as decimal separator and comma as thousand separator (e.g. 1,234.56 = 1234.56). Convert every numeric value to a plain decimal with a dot as decimal separator."
-          : "Detect the decimal separator (comma or dot) from context and convert every numeric value to a plain decimal with a dot as decimal separator.";
-
-    const system = `You are an OCR + accounting assistant. Extract structured data from an invoice or receipt image and return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
-{
-  "supplier_name": string|null,
-  "invoice_number": string|null,
-  "invoice_date": "YYYY-MM-DD"|null,
-  "currency": string,
-  "subtotal": number,
-  "tax": number,
-  "total": number,
-  "items": [{ "description": string, "sku": string|null, "quantity": number, "unit_price": number, "total": number }],
-  "summary": string
-}
-Rules: numbers must be plain numbers (no currency symbols, no thousands separators). ${sepHint} "total" per line = quantity * unit_price. summary: 1-2 sentences in the document's language. If a field is unknown use null (or 0 for numeric totals, [] for items). Output JSON only.`;
-
-    const isPdf = data.mime === "application/pdf";
-    const userContent = isPdf
-      ? [
-          { type: "text" as const, text: "Extract every line item from this invoice/receipt." },
-          { type: "file" as const, data: data.image_data_url, mediaType: data.mime, filename: "invoice.pdf" },
-        ]
-      : [
-          { type: "text" as const, text: "Extract every line item from this invoice/receipt." },
-          { type: "image" as const, image: data.image_data_url },
-        ];
-
-    // Reject obviously oversized payloads early (base64 ≈ 1.37x raw)
-    const approxBytes = Math.floor((data.image_data_url.length * 3) / 4);
-    if (approxBytes > 8 * 1024 * 1024) {
-      return scanError("SCAN_TOO_LARGE");
-    }
-
-    let parsed: z.infer<typeof InvoiceSchema>;
-    try {
-      const res = await generateText({
-        model: gateway("google/gemini-2.5-flash"),
-        system,
-        messages: [{ role: "user", content: userContent }],
-      });
-      const raw = (res.text ?? "").trim();
-      const json = extractJsonObject(raw);
-      const normalized = normalizeInvoice(json, data.decimal_separator);
-      if (!normalized) return scanError("SCAN_PARSE_FAILED");
-      parsed = normalized;
-    } catch (err: unknown) {
-      const e = err as { message?: string; statusCode?: number; status?: number; cause?: { statusCode?: number } };
-      const status = e?.statusCode ?? e?.status ?? e?.cause?.statusCode;
-      const msg = String(e?.message ?? "");
-      if (status === 429 || /rate.?limit/i.test(msg)) {
-        return scanError("SCAN_RATE_LIMITED");
-      }
-      if (status === 402 || /credit|payment.required/i.test(msg)) {
-        return scanError("SCAN_NO_CREDITS");
-      }
-      if (/unsupported|mime|document has no pages|invalid.*image/i.test(msg)) {
-        return scanError("SCAN_UNSUPPORTED_FILE");
-      }
-      return scanError("SCAN_FAILED");
-    }
+    const extraction = await (await import("./invoice-ocr.server")).extractInvoiceData({
+      image_data_url: data.image_data_url,
+      mime: data.mime,
+      decimal_separator: data.decimal_separator,
+      apiKey: key,
+    });
+    if (!extraction.ok) return scanError(extraction.error);
+    const parsed: ParsedInvoice = extraction.data;
 
     const { data: inv, error } = await context.supabase
       .from("inv_invoices")
