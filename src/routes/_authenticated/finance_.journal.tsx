@@ -6,7 +6,7 @@ import { Plus, Trash2, Save, BookOpen, Download } from "lucide-react";
 import {
   listAccountsCoa, upsertAccount, deleteAccount,
   listJournalEntries, saveJournalEntry, deleteJournalEntry,
-  listThirdParties, seedStandardPuc,
+  listThirdParties, seedStandardPuc, seedFinanceTestData,
 } from "@/lib/finance-ext.functions";
 import { listJournalTemplates } from "@/lib/journal-templates.functions";
 import { Button } from "@/components/ui/button";
@@ -111,6 +111,17 @@ function JournalPage() {
     mutationFn: () => seedStandardPuc(),
     onSuccess: (r: any) => {
       toast.success(`PUC estándar cargado (${r?.inserted ?? 0} cuentas nuevas)`);
+      qc.invalidateQueries({ queryKey: ["coa"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const seedDemoMut = useMutation({
+    mutationFn: () => seedFinanceTestData(),
+    onSuccess: (r: any) => {
+      if (r?.skipped) toast.info("Los datos de prueba ya existen en esta organización");
+      else toast.success(`Datos de prueba cargados (${r?.entries ?? 0} asientos)`);
+      qc.invalidateQueries({ queryKey: ["journal"] });
+      qc.invalidateQueries({ queryKey: ["third-parties"] });
       qc.invalidateQueries({ queryKey: ["coa"] });
     },
     onError: (e: any) => toast.error(e.message),
