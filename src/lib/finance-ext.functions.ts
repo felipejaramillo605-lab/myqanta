@@ -663,3 +663,140 @@ export const getThirdPartyBalances = createServerFn({ method: "GET" })
     }
     return [...acc.values()].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
   });
+
+// -------------------- Demo / test data --------------------
+
+function daysAgo(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+export const seedFinanceTestData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "owner");
+    const sb = context.supabase;
+
+    const { data: existing } = await sb.from("third_parties" as never)
+      .select("id").eq("org_id", orgId).eq("name", "Proveedor Demo SAS").maybeSingle();
+    if (existing) return { skipped: true as const };
+
+    // Accounts by code
+    const codes = ["1110", "3115", "1435", "2205", "4135", "5135"];
+    const { data: accs, error: accErr } = await sb.from("fin_accounts" as never)
+      .select("id, code").eq("org_id", orgId).in("code", codes);
+    if (accErr) throw new Error(accErr.message);
+    const accMap = new Map(((accs ?? []) as any[]).map((a) => [a.code as string, a.id as string]));
+    const missing = codes.filter((c) => !accMap.has(c));
+    if (missing.length) {
+      throw new Error(`Faltan cuentas del PUC (${missing.join(", ")}). Carga primero el PUC estándar.`);
+    }
+    const A = (c: string) => accMap.get(c)!;
+
+    // Third parties
+    const { data: tps, error: tpErr } = await sb.from("third_parties" as never).insert([
+      { org_id: orgId, kind: "supplier", name: "Proveedor Demo SAS", tax_id: "900123456-1", applicable_taxes: {} },
+      { org_id: orgId, kind: "customer", name: "Cliente Demo Ltda", tax_id: "800987654-2", applicable_taxes: {} },
+    ] as never).select("id, name");
+    if (tpErr) throw new Error(tpErr.message);
+    const supplierId = ((tps ?? []) as any[]).find((t) => t.name === "Proveedor Demo SAS")?.id as string;
+    const customerId = ((tps ?? []) as any[]).find((t) => t.name === "Cliente Demo Ltda")?.id as string;
+
+    // Bank account
+    const { data: bank, error: bankErr } = await sb.from("bank_accounts" as never).insert({
+      org_id: orgId,
+      bank_name: "Bancolombia",
+      account_number_masked: "****4521",
+      currency: "COP",
+      opening_balance: 5000000,
+      current_balance: 5000000,
+      active: true,
+    } as never).select("id").single();
+    if (bankErr) throw new Error(bankErr.message);
+    const bankId = (bank as any).id as string;
+
+    const dates = { capital: daysAgo(28), compra: daysAgo(20), venta: daysAgo(10), gasto: daysAgo(5) };
+
+    const specs = [
+      {
+        date: dates.capital,
+        description: "Aporte de capital inicial",
+        lines: [
+          { account_id: A("1110"), debit: 5000000, credit: 0, bank_account_id: bankId, description: "Ingreso a bancos" },
+          { account_id: A("3115"), debit: 0, credit: 5000000, description: "Aportes sociales" },
+        ],
+      },
+      {
+        date: dates.compra,
+        description: "Compra de mercancía a crédito - Proveedor Demo SAS",
+        lines: [
+          { account_id: A("1435"), debit: 1200000, credit: 0, description: "Mercancías no fabricadas" },
+          { account_id: A("2205"), debit: 0, credit: 1200000, third_party_id: supplierId, description: "Proveedores nacionales" },
+        ],
+      },
+      {
+        date: dates.venta,
+        description: "Venta de contado - Cliente Demo Ltda",
+        lines: [
+          { account_id: A("1110"), debit: 800000, credit: 0, bank_account_id: bankId, description: "Recaudo en banco" },
+          { account_id: A("4135"), debit: 0, credit: 800000, third_party_id: customerId, description: "Ingreso por venta" },
+        ],
+      },
+      {
+        date: dates.gasto,
+        description: "Pago de servicios públicos",
+        lines: [
+          { account_id: A("5135"), debit: 250000, credit: 0, description: "Servicios" },
+          { account_id: A("1110"), debit: 0, credit: 250000, bank_account_id: bankId, description: "Salida de banco" },
+        ],
+      },
+    ];
+
+    let entries = 0;
+    for (const spec of specs) {
+      const totalD = spec.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+      const totalC = spec.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+      if (Math.abs(totalD - totalC) > 0.01) throw new Error(`Asiento demo descuadrado: ${spec.description}`);
+
+      const { data: nRes, error: nErr } = await (sb.rpc as any)("next_journal_entry_no", { _org_id: orgId });
+      if (nErr) throw new Error(nErr.message);
+      const { data: ins, error: eErr } = await sb.from("fin_journal_entries" as never).insert({
+        org_id: orgId,
+        entry_no: nRes as number,
+        entry_date: spec.date,
+        description: spec.description,
+        status: "posted",
+        created_by: context.userId,
+      } as never).select("id").single();
+      if (eErr) throw new Error(eErr.message);
+      const entryId = (ins as any).id as string;
+      const rows = spec.lines.map((l: any) => ({
+        entry_id: entryId,
+        org_id: orgId,
+        account_id: l.account_id,
+        debit: l.debit ?? 0,
+        credit: l.credit ?? 0,
+        description: l.description ?? null,
+        third_party_id: l.third_party_id ?? null,
+        bank_account_id: l.bank_account_id ?? null,
+      }));
+      const { error: lErr } = await sb.from("fin_journal_lines" as never).insert(rows as never);
+      if (lErr) throw new Error(lErr.message);
+      entries++;
+    }
+
+    const { error: btErr } = await sb.from("bank_transactions" as never).insert([
+      {
+        org_id: orgId, bank_account_id: bankId, occurred_on: dates.venta,
+        description: "Abono venta Cliente Demo Ltda", reference: "DEMO-VTA-001", amount: 800000,
+      },
+      {
+        org_id: orgId, bank_account_id: bankId, occurred_on: dates.gasto,
+        description: "Pago servicios públicos", reference: "DEMO-GTO-001", amount: -250000,
+      },
+    ] as never);
+    if (btErr) throw new Error(btErr.message);
+
+    return { skipped: false as const, entries, third_parties: 2, bank_accounts: 1, bank_transactions: 2 };
+  });
