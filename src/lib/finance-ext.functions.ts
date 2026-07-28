@@ -521,3 +521,145 @@ export const unmatchReconciliation = createServerFn({ method: "POST" })
       .eq("id", data.bank_transaction_id).eq("org_id", orgId);
     return { ok: true };
   });
+// -------------------- Ledger / Subledger / Third-party balances --------------------
+
+export type LedgerRow = {
+  id: string;
+  entry_id: string;
+  entry_no: number | null;
+  entry_date: string;
+  account_id: string;
+  account_code: string | null;
+  account_name: string | null;
+  third_party_id: string | null;
+  third_party_name: string | null;
+  description: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+};
+
+async function fetchPostedLines(
+  supabase: any,
+  orgId: string,
+  opts: { accountId?: string | null; thirdPartyId?: string | null },
+): Promise<LedgerRow[]> {
+  let q = supabase
+    .from("fin_journal_lines")
+    .select(
+      "id, account_id, third_party_id, debit, credit, description, entry_id, fin_journal_entries!inner(id, entry_no, entry_date, status, org_id)",
+    )
+    .eq("org_id", orgId)
+    .eq("fin_journal_entries.status", "posted");
+  if (opts.accountId) q = q.eq("account_id", opts.accountId);
+  if (opts.thirdPartyId) q = q.eq("third_party_id", opts.thirdPartyId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+
+  const [{ data: accounts }, { data: parties }] = await Promise.all([
+    supabase.from("fin_accounts").select("id, code, name").eq("org_id", orgId),
+    supabase.from("third_parties").select("id, name, tax_id").eq("org_id", orgId),
+  ]);
+  const accMap = new Map((accounts ?? []).map((a: any) => [a.id, a]));
+  const tpMap = new Map((parties ?? []).map((p: any) => [p.id, p]));
+
+  const rows = (data ?? []).map((l: any) => {
+    const acc: any = accMap.get(l.account_id);
+    const tp: any = l.third_party_id ? tpMap.get(l.third_party_id) : null;
+    return {
+      id: l.id,
+      entry_id: l.entry_id,
+      entry_no: l.fin_journal_entries?.entry_no ?? null,
+      entry_date: l.fin_journal_entries?.entry_date ?? "",
+      account_id: l.account_id,
+      account_code: acc?.code ?? null,
+      account_name: acc?.name ?? null,
+      third_party_id: l.third_party_id ?? null,
+      third_party_name: tp?.name ?? null,
+      description: l.description ?? null,
+      debit: Number(l.debit ?? 0),
+      credit: Number(l.credit ?? 0),
+      balance: 0,
+    } as LedgerRow;
+  });
+
+  // Chronological, then running balance per account.
+  rows.sort((a, b) => {
+    if (a.entry_date !== b.entry_date) return a.entry_date < b.entry_date ? -1 : 1;
+    return (a.entry_no ?? 0) - (b.entry_no ?? 0);
+  });
+  const running = new Map<string, number>();
+  for (const r of rows) {
+    const prev = running.get(r.account_id) ?? 0;
+    const next = prev + r.debit - r.credit;
+    running.set(r.account_id, next);
+    r.balance = next;
+  }
+  return rows;
+}
+
+export const getLedger = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ account_id: z.string().uuid().optional() }).parse(d ?? {}))
+  .handler(async ({ context, data }): Promise<LedgerRow[]> => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    return fetchPostedLines(context.supabase, orgId, { accountId: data.account_id ?? null });
+  });
+
+export const getSubledger = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ account_id: z.string().uuid(), third_party_id: z.string().uuid().optional() }).parse(d),
+  )
+  .handler(async ({ context, data }): Promise<LedgerRow[]> => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    return fetchPostedLines(context.supabase, orgId, {
+      accountId: data.account_id,
+      thirdPartyId: data.third_party_id ?? null,
+    });
+  });
+
+export type ThirdPartyBalance = {
+  third_party_id: string;
+  name: string;
+  tax_id: string | null;
+  kind: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+};
+
+export const getThirdPartyBalances = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ThirdPartyBalance[]> => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    const { data, error } = await context.supabase
+      .from("fin_journal_lines" as never)
+      .select("third_party_id, debit, credit, fin_journal_entries!inner(status)")
+      .eq("org_id", orgId)
+      .eq("fin_journal_entries.status", "posted")
+      .not("third_party_id", "is", null);
+    if (error) throw new Error(error.message);
+
+    const { data: parties } = await context.supabase
+      .from("third_parties" as never).select("id, name, tax_id, kind").eq("org_id", orgId);
+    const tpMap = new Map((parties ?? []).map((p: any) => [p.id, p]));
+
+    const acc = new Map<string, ThirdPartyBalance>();
+    for (const l of (data ?? []) as any[]) {
+      const id = l.third_party_id as string;
+      const tp: any = tpMap.get(id);
+      const cur = acc.get(id) ?? {
+        third_party_id: id,
+        name: tp?.name ?? "(desconocido)",
+        tax_id: tp?.tax_id ?? null,
+        kind: tp?.kind ?? null,
+        debit: 0, credit: 0, balance: 0,
+      };
+      cur.debit += Number(l.debit ?? 0);
+      cur.credit += Number(l.credit ?? 0);
+      cur.balance = cur.debit - cur.credit;
+      acc.set(id, cur);
+    }
+    return [...acc.values()].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+  });
