@@ -6,7 +6,7 @@ import { Plus, Trash2, Save, BookOpen, Download } from "lucide-react";
 import {
   listAccountsCoa, upsertAccount, deleteAccount,
   listJournalEntries, saveJournalEntry, deleteJournalEntry,
-  listThirdParties, seedStandardPuc,
+  listThirdParties, seedStandardPuc, seedFinanceTestData,
 } from "@/lib/finance-ext.functions";
 import { listJournalTemplates } from "@/lib/journal-templates.functions";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,17 @@ function JournalPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const seedDemoMut = useMutation({
+    mutationFn: () => seedFinanceTestData(),
+    onSuccess: (r: any) => {
+      if (r?.skipped) toast.info("Los datos de prueba ya existen en esta organización");
+      else toast.success(`Datos de prueba cargados (${r?.entries ?? 0} asientos)`);
+      qc.invalidateQueries({ queryKey: ["journal"] });
+      qc.invalidateQueries({ queryKey: ["third-parties"] });
+      qc.invalidateQueries({ queryKey: ["coa"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   return (
     <div className="space-y-6">
@@ -214,6 +225,25 @@ function JournalPage() {
           </div>
 
           <div className="space-y-2">
+            {entries.data.length === 0 && (
+              <div className="glass rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Aún no hay asientos. Puedes cargar un set de datos de prueba para validar balances, terceros y conciliación.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={seedDemoMut.isPending}
+                  onClick={() => {
+                    if (confirm("Se crearán terceros, una cuenta bancaria, 4 asientos y 2 movimientos bancarios de prueba en esta organización. ¿Continuar?")) {
+                      seedDemoMut.mutate();
+                    }
+                  }}
+                >
+                  <Download className="size-4 mr-1" /> Cargar datos de prueba
+                </Button>
+              </div>
+            )}
             {entries.data.map((e: any) => (
               <div key={e.id} className="glass rounded-xl p-4 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
