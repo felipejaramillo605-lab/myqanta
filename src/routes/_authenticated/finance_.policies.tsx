@@ -1,13 +1,21 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FileText, ExternalLink, BookOpen, Plus, Trash2, Pencil, EyeOff, Eye, X } from "lucide-react";
+import { FileText, BookOpen, Plus, Trash2, Pencil, EyeOff, Eye, X, Sparkles, Globe2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  listAccountingPolicies,
+  upsertAccountingPolicy,
+  deleteAccountingPolicy,
+  seedAccountingPolicies,
+  type AccountingPolicy,
+} from "@/lib/accounting-policies.functions";
 import {
   listJournalTemplates,
   upsertJournalTemplate,
@@ -18,35 +26,172 @@ import {
 } from "@/lib/journal-templates.functions";
 
 export const Route = createFileRoute("/_authenticated/finance_/policies")({
-  head: () => ({ meta: [{ title: "Qanta — Políticas contables" }] }),
+  head: () => ({
+    meta: [
+      { title: "Qanta — Políticas contables" },
+      { name: "description", content: "Define y edita las políticas contables de tu organización (US GAAP o NIIF)." },
+      { property: "og:title", content: "Qanta — Políticas contables" },
+      { property: "og:description", content: "Políticas contables editables con plantillas US GAAP y NIIF." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: PoliciesPage,
 });
 
 function PoliciesPage() {
   const [tplOpen, setTplOpen] = useState(false);
+  const qc = useQueryClient();
+  const listQ = useQuery({ queryKey: ["accounting-policies"], queryFn: () => listAccountingPolicies() });
+  const policies = listQ.data ?? [];
+
+  const seedM = useMutation({
+    mutationFn: (template: "blank" | "us_gaap" | "niif") => seedAccountingPolicies({ data: { template } }),
+    onSuccess: () => { toast.success("Políticas inicializadas"); qc.invalidateQueries({ queryKey: ["accounting-policies"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const delM = useMutation({
+    mutationFn: (id: string) => deleteAccountingPolicy({ data: { id } }),
+    onSuccess: () => { toast.success("Política eliminada"); qc.invalidateQueries({ queryKey: ["accounting-policies"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editing, setEditing] = useState<AccountingPolicy | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-semibold">Políticas contables</h1>
-        <Button variant="outline" onClick={() => setTplOpen(true)}>
-          <BookOpen className="size-4 mr-1" /> Plantillas de asientos
-        </Button>
+        <div className="flex gap-2">
+          {policies.length > 0 && (
+            <Button onClick={() => { setEditing(null); setEditorOpen(true); }}>
+              <Plus className="size-4 mr-1" /> Agregar política
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setTplOpen(true)}>
+            <BookOpen className="size-4 mr-1" /> Plantillas de asientos
+          </Button>
+        </div>
       </div>
 
-      <div className="glass rounded-2xl p-8 text-center space-y-4">
-        <FileText className="size-12 mx-auto text-primary" />
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          Las políticas contables se gestionan como documentos en el módulo Documentos con la etiqueta
-          <code className="mx-1 px-2 py-0.5 rounded bg-muted font-mono text-xs">politica-contable</code>.
-          No hay almacenamiento duplicado.
-        </p>
-        <Link to="/documents" className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm">
-          Abrir en Documentos <ExternalLink className="size-4" />
-        </Link>
-      </div>
+      {listQ.isLoading ? (
+        <div className="text-sm text-muted-foreground">Cargando…</div>
+      ) : policies.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {([
+            { key: "blank", icon: FileText, title: "Empezar desde cero", desc: "Crea tus propias políticas contables una por una, sin contenido precargado." },
+            { key: "us_gaap", icon: Globe2, title: "Usar plantilla US GAAP", desc: "Set inicial basado en US GAAP: ASC 606, costo histórico, LIFO, consolidación y más." },
+            { key: "niif", icon: Sparkles, title: "Usar plantilla NIIF", desc: "Set inicial basado en NIIF/IFRS: NIIF 15, NIIF 13, NIC 2, NIIF 16, NIC 36 y NIC 1." },
+          ] as const).map((opt) => {
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.key}
+                disabled={seedM.isPending}
+                onClick={() => seedM.mutate(opt.key)}
+                className="glass rounded-2xl p-6 text-left space-y-3 hover:bg-accent/40 transition-colors disabled:opacity-60"
+              >
+                <Icon className="size-8 text-primary" />
+                <div className="font-medium">{opt.title}</div>
+                <p className="text-sm text-muted-foreground">{opt.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {policies.map((p) => (
+            <div key={p.id} className="glass rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{p.title}</span>
+                    {p.category !== "custom" && p.category !== "blank" && (
+                      <Badge variant="secondary">{p.category === "us_gaap" ? "US GAAP" : "NIIF"}</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {p.content || "Sin contenido todavía."}
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" title="Editar" onClick={() => { setEditing(p); setEditorOpen(true); }}>
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Eliminar"
+                    onClick={() => { if (confirm(`¿Eliminar "${p.title}"?`)) delM.mutate(p.id); }}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
+      <PolicyEditorDialog
+        open={editorOpen}
+        onOpenChange={(o) => { setEditorOpen(o); if (!o) setEditing(null); }}
+        initial={editing}
+        nextIndex={policies.length}
+      />
       <TemplatesDialog open={tplOpen} onOpenChange={setTplOpen} />
     </div>
+  );
+}
+
+function PolicyEditorDialog({
+  open, onOpenChange, initial, nextIndex,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initial: AccountingPolicy | null;
+  nextIndex: number;
+}) {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const key = initial?.id ?? "new";
+  useMemo(() => { setTitle(initial?.title ?? ""); setContent(initial?.content ?? ""); return key; }, [key, open]);
+
+  const saveM = useMutation({
+    mutationFn: () => upsertAccountingPolicy({
+      data: {
+        id: initial?.id,
+        title: title.trim(),
+        content: content.trim(),
+        category: initial?.category ?? "custom",
+        order_index: initial?.order_index ?? nextIndex,
+        active: initial?.active ?? true,
+      },
+    }),
+    onSuccess: () => {
+      toast.success("Política guardada");
+      qc.invalidateQueries({ queryKey: ["accounting-policies"] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{initial ? "Editar política" : "Nueva política"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Textarea rows={8} placeholder="Contenido de la política" value={content} onChange={(e) => setContent(e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button disabled={!title.trim() || saveM.isPending} onClick={() => saveM.mutate()}>
+            {saveM.isPending ? "Guardando…" : "Guardar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
