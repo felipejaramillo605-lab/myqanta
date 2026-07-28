@@ -160,6 +160,8 @@ function ReportsPage() {
           )}
         </div>
       )}
+
+      {indicators && <IndicatorsSection data={indicators} />}
     </div>
   );
 }
