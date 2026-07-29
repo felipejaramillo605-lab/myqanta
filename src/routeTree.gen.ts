@@ -52,6 +52,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicHooksProcessRemindersRouteImport } from './routes/api/public/hooks/process-reminders'
 import { Route as ApiPublicHooksLogRequestRouteImport } from './routes/api/public/hooks/log-request'
+import { Route as ApiPublicCronSendDueRemindersRouteImport } from './routes/api/public/cron/send-due-reminders'
 import { Route as ApiPublicAttendanceMarkRouteImport } from './routes/api/public/attendance/mark'
 
 const McpRoute = McpRouteImport.update({
@@ -287,6 +288,12 @@ const ApiPublicHooksLogRequestRoute =
     path: '/api/public/hooks/log-request',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronSendDueRemindersRoute =
+  ApiPublicCronSendDueRemindersRouteImport.update({
+    id: '/api/public/cron/send-due-reminders',
+    path: '/api/public/cron/send-due-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAttendanceMarkRoute = ApiPublicAttendanceMarkRouteImport.update({
   id: '/api/public/attendance/mark',
   path: '/api/public/attendance/mark',
@@ -335,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
+  '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -380,6 +388,7 @@ export interface FileRoutesByTo {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
+  '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -427,6 +436,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
+  '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
   '/api/public/hooks/process-reminders': typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
+    | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   fileRoutesByTo: FileRoutesByTo
@@ -519,6 +530,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
+    | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   id:
@@ -565,6 +577,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
     | '/api/public/attendance/mark'
+    | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
     | '/api/public/hooks/process-reminders'
   fileRoutesById: FileRoutesById
@@ -582,6 +595,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
   ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
+  ApiPublicCronSendDueRemindersRoute: typeof ApiPublicCronSendDueRemindersRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
   ApiPublicHooksProcessRemindersRoute: typeof ApiPublicHooksProcessRemindersRoute
 }
@@ -889,6 +903,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksLogRequestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/send-due-reminders': {
+      id: '/api/public/cron/send-due-reminders'
+      path: '/api/public/cron/send-due-reminders'
+      fullPath: '/api/public/cron/send-due-reminders'
+      preLoaderRoute: typeof ApiPublicCronSendDueRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/attendance/mark': {
       id: '/api/public/attendance/mark'
       path: '/api/public/attendance/mark'
@@ -983,6 +1004,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
   ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
+  ApiPublicCronSendDueRemindersRoute: ApiPublicCronSendDueRemindersRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
   ApiPublicHooksProcessRemindersRoute: ApiPublicHooksProcessRemindersRoute,
 }
