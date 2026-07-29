@@ -9,20 +9,6 @@ const SourceType = z.enum(["task", "habit", "event", "custom"]);
 const RecurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
 const ChannelEnum = z.enum(["whatsapp", "email"]);
 
-async function dispatch(
-  channel: string,
-  opts: { phone?: string | null; email?: string | null; title: string; message: string; provider?: string | null },
-) {
-  if (channel === "email") {
-    const { sendGmail } = await import("./gmail.server");
-    if (!opts.email) return { provider: "gmail", ok: false as const, simulated: false, error: "Sin correo de destino." };
-    return sendGmail(opts.email, opts.title, opts.message);
-  }
-  const { sendWhatsapp } = await import("./whatsapp.server");
-  if (!opts.phone) return { provider: opts.provider ?? "mock", ok: false as const, simulated: false, error: "Sin teléfono de destino." };
-  return sendWhatsapp(opts.phone, opts.message, opts.provider ?? undefined);
-}
-
 // ===== Settings =====
 export const getWhatsappSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
