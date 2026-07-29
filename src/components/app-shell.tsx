@@ -488,53 +488,49 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span>Más</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl">
+            <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl bg-card/95 shadow-2xl shadow-black/40 backdrop-blur-xl">
               <SheetHeader>
                 <SheetTitle>Módulos</SheetTitle>
               </SheetHeader>
-              <div className="mt-2 grid grid-cols-2 gap-2 pb-6">
-                {secondary.map((item) => {
-                  const Icon = item.icon;
-                  const active = path === item.to || path.startsWith(item.to + "/");
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to as never}
-                      onClick={() => setMoreOpen(false)}
-                      className={
-                        "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                        (active ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                      }
-                    >
-                      <Icon className="size-5 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  );
-                })}
-                <Link
-                  to={"/settings/company" as never}
-                  onClick={() => setMoreOpen(false)}
-                  className={
-                    "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                    (path.startsWith("/settings/company") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                  }
-                >
-                  <Building2 className="size-5 shrink-0" />
-                  <span className="truncate">{t("nav.company")}</span>
-                </Link>
-                {isAdmin && (
-                  <Link
-                    to={"/settings/roles" as never}
-                    onClick={() => setMoreOpen(false)}
-                    className={
-                      "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                      (path.startsWith("/settings/roles") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                    }
-                  >
-                    <KeyRound className="size-5 shrink-0" />
-                    <span className="truncate">Roles y permisos</span>
-                  </Link>
-                )}
+              <div className="mt-2 space-y-6 pb-8">
+                {[
+                  ...moduleSections,
+                  {
+                    title: "Configuración",
+                    items: [
+                      { to: "/settings/company", label: t("nav.company"), icon: Building2 },
+                      { to: "/settings/profile", label: "Mi perfil", icon: UserRound },
+                      ...(isAdmin ? [{ to: "/settings/roles", label: "Roles y permisos", icon: KeyRound }] : []),
+                    ] as NavItem[],
+                  },
+                ].map((section) => (
+                  <div key={section.title}>
+                    <div className="px-1 pb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {section.title}
+                    </div>
+                    <div className="overflow-hidden rounded-2xl bg-background/60">
+                      {section.items.map((item, idx) => {
+                        const Icon = item.icon;
+                        const active = path === item.to || path.startsWith(item.to + "/");
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to as never}
+                            onClick={() => setMoreOpen(false)}
+                            className={
+                              "flex items-center gap-3 px-4 py-3 text-sm " + tapRow + " " +
+                              (idx > 0 ? "border-t border-border/40 " : "") +
+                              (active ? "text-primary" : "text-foreground")
+                            }
+                          >
+                            <Icon className={"size-4 shrink-0 " + (active ? "text-primary" : "text-muted-foreground")} />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </SheetContent>
           </Sheet>
