@@ -30,8 +30,11 @@ export function PhotoUpload({
     }
     setBusy(true);
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) throw new Error("Debes iniciar sesión para subir una foto");
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().slice(0, 5);
-      const path = `${crypto.randomUUID()}.${ext}`;
+      const path = `${uid}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
         cacheControl: "3600",
         upsert: false,
