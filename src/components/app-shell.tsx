@@ -169,6 +169,83 @@ export function AppShell({ children }: { children: ReactNode }) {
   const primary = allItems.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
   const secondary = allItems.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
 
+  const isPrimary = (to: string) => (MOBILE_PRIMARY as readonly string[]).includes(to);
+  // Secciones tipo "Ajustes de iOS": encabezado tipográfico + lista, sin marco por grupo.
+  const moduleSections: Array<{ title: string; items: NavItem[] }> = [
+    { title: "General", items: filteredStandalone.filter((i) => !isPrimary(i.to)) },
+    ...filteredCategories.flatMap((cat) =>
+      groupItems(cat.items.filter((i) => !isPrimary(i.to))).map(({ group, items }) => ({
+        title: group ? `${cat.label} · ${group}` : cat.label,
+        items,
+      })),
+    ),
+  ].filter((s) => s.items.length > 0);
+
+  const tapRow = "transition-transform active:scale-[0.98]";
+
+  const accountMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Cuenta"
+          className={
+            "grid size-9 place-items-center rounded-full bg-secondary text-sm font-medium uppercase " + tapRow
+          }
+        >
+          {initials}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="truncate">
+          {user?.user_metadata?.full_name ?? user?.email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to={"/settings/profile" as never}>
+            <UserRound className="size-4" /> Mi perfil
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={"/team" as never}>
+            <Users className="size-4" /> Equipo
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+          <Briefcase className="size-4" /> {t("onboarding.open")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setGuideOpen(true)}>
+          <HelpCircle className="size-4" /> Guía de uso
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => toggleMode()}>
+          {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} Tema
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setLang(lang === "es" ? "en" : "es")}>
+          <span className="font-mono text-xs">{lang.toUpperCase()}</span> Idioma
+        </DropdownMenuItem>
+        {isPlatformOwner && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to={"/admin/security" as never}>
+                <ShieldCheck className="size-4" /> Seguridad y tráfico
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={"/admin/platform" as never}>
+                <ShieldCheck className="size-4" /> Consola de plataforma
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void handleSignOut()}>
+          <LogOut className="size-4" /> Salir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="min-h-screen">
       {/* Sidebar (desktop) */}
