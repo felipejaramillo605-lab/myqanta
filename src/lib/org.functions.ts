@@ -170,6 +170,7 @@ export const createInvite = createServerFn({ method: "POST" })
     z.object({
       email: z.string().trim().email().optional().nullable(),
       role: OrgRole.default("member"),
+      custom_role_id: z.string().uuid().nullable().optional(),
       ttl_days: z.number().int().min(1).max(60).default(14),
       origin: z.string().trim().url().max(300).optional().nullable(),
     }).parse(d),
@@ -182,12 +183,25 @@ export const createInvite = createServerFn({ method: "POST" })
     }
     const token = makeToken();
     const expires = new Date(Date.now() + data.ttl_days * 86400 * 1000).toISOString();
+    // Custom roles only apply to member/viewer, like the manual assignment flow.
+    let customRoleId: string | null =
+      data.role === "member" || data.role === "viewer" ? (data.custom_role_id ?? null) : null;
+    if (customRoleId) {
+      const { data: cr, error: crErr } = await context.supabase
+        .from("custom_roles")
+        .select("org_id")
+        .eq("id", customRoleId)
+        .maybeSingle();
+      if (crErr) throw new Error(crErr.message);
+      if (!cr || cr.org_id !== orgId) throw new Error("El rol personalizado no pertenece a esta organización.");
+    }
     const { data: row, error } = await context.supabase
       .from("organization_invites")
       .insert({
         org_id: orgId,
         invited_email: data.email || null,
         role: data.role,
+        custom_role_id: customRoleId,
         token,
         invited_by: context.userId,
         expires_at: expires,

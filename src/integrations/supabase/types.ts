@@ -1721,6 +1721,7 @@ export type Database = {
           accepted_at: string | null
           accepted_by: string | null
           created_at: string
+          custom_role_id: string | null
           expires_at: string
           id: string
           invited_by: string
@@ -1734,6 +1735,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           created_at?: string
+          custom_role_id?: string | null
           expires_at?: string
           id?: string
           invited_by: string
@@ -1747,6 +1749,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           created_at?: string
+          custom_role_id?: string | null
           expires_at?: string
           id?: string
           invited_by?: string
@@ -1757,6 +1760,13 @@ export type Database = {
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_invites_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_invites_org_id_fkey"
             columns: ["org_id"]

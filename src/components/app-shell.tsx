@@ -39,6 +39,15 @@ import { useState } from "react";
 import { Briefcase } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserRound } from "lucide-react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; group?: string };
 type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
@@ -159,6 +168,83 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
   const primary = allItems.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.to));
   const secondary = allItems.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.to));
+
+  const isPrimary = (to: string) => (MOBILE_PRIMARY as readonly string[]).includes(to);
+  // Secciones tipo "Ajustes de iOS": encabezado tipográfico + lista, sin marco por grupo.
+  const moduleSections: Array<{ title: string; items: NavItem[] }> = [
+    { title: "General", items: filteredStandalone.filter((i) => !isPrimary(i.to)) },
+    ...filteredCategories.flatMap((cat) =>
+      groupItems(cat.items.filter((i) => !isPrimary(i.to))).map(({ group, items }) => ({
+        title: group ? `${cat.label} · ${group}` : cat.label,
+        items,
+      })),
+    ),
+  ].filter((s) => s.items.length > 0);
+
+  const tapRow = "transition-transform active:scale-[0.98]";
+
+  const accountMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Cuenta"
+          className={
+            "grid size-9 place-items-center rounded-full bg-secondary text-sm font-medium uppercase " + tapRow
+          }
+        >
+          {initials}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="truncate">
+          {user?.user_metadata?.full_name ?? user?.email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to={"/settings/profile" as never}>
+            <UserRound className="size-4" /> Mi perfil
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={"/team" as never}>
+            <Users className="size-4" /> Equipo
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+          <Briefcase className="size-4" /> {t("onboarding.open")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setGuideOpen(true)}>
+          <HelpCircle className="size-4" /> Guía de uso
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => toggleMode()}>
+          {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} Tema
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setLang(lang === "es" ? "en" : "es")}>
+          <span className="font-mono text-xs">{lang.toUpperCase()}</span> Idioma
+        </DropdownMenuItem>
+        {isPlatformOwner && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to={"/admin/security" as never}>
+                <ShieldCheck className="size-4" /> Seguridad y tráfico
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={"/admin/platform" as never}>
+                <ShieldCheck className="size-4" /> Consola de plataforma
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void handleSignOut()}>
+          <LogOut className="size-4" /> Salir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="min-h-screen">
@@ -332,82 +418,32 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mb-2">
             <OrgSwitcher />
           </div>
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <div className="grid size-8 place-items-center rounded-full bg-secondary text-sm font-medium uppercase">
-              {initials}
-            </div>
+          <div className="flex items-center gap-2 rounded-xl bg-card/50 px-2 py-2">
+            {accountMenu}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{user?.user_metadata?.full_name ?? user?.email}</div>
               <div className="truncate font-mono text-[10px] text-muted-foreground">
                 {isAdmin ? "ADMIN_MANAGER" : "USER"}
               </div>
             </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="flex-1 justify-start font-mono text-xs" onClick={() => setLang(lang === "es" ? "en" : "es")}>
-              {lang.toUpperCase()}
-            </Button>
             <NotificationBell />
             <AssistantPanel />
-            <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")} title={t("onboarding.open")}>
-              <Briefcase className="size-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setGuideOpen(true)} aria-label="Guía de uso" title="Guía de uso">
-              <HelpCircle className="size-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleMode} aria-label="toggle mode">
-              {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="sign out">
-              <LogOut className="size-4" />
-            </Button>
           </div>
         </div>
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border/50 bg-background/60 px-4 py-3 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border/50 bg-background/70 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Link to="/dashboard" className="flex items-center gap-2">
           <div className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
             <span className="font-mono text-xs font-bold">Q</span>
           </div>
           <span className="font-mono text-base">{t("app.name")}</span>
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <NotificationBell />
           <AssistantPanel />
-          <Button variant="ghost" size="icon" onClick={() => setGuideOpen(true)} aria-label="Guía de uso" title="Guía de uso">
-            <HelpCircle className="size-4" />
-          </Button>
-          {isPlatformOwner && (
-            <>
-              <Link
-                to={"/admin/platform" as never}
-                aria-label="Consola de plataforma"
-                title="Consola de plataforma"
-                className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
-              >
-                <ShieldCheck className="size-4" />
-              </Link>
-              <Link
-                to={"/admin/security-log" as never}
-                aria-label="Bitácora de seguridad"
-                title="Bitácora de seguridad"
-                className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
-              >
-                <Users className="size-4" />
-              </Link>
-            </>
-          )}
-          <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} aria-label={t("onboarding.open")}>
-            <Briefcase className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={toggleMode}>
-            {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}>
-            <LogOut className="size-4" />
-          </Button>
+          {accountMenu}
         </div>
       </header>
 
@@ -452,53 +488,49 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span>Más</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl">
+            <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl bg-card/95 shadow-2xl shadow-black/40 backdrop-blur-xl">
               <SheetHeader>
                 <SheetTitle>Módulos</SheetTitle>
               </SheetHeader>
-              <div className="mt-2 grid grid-cols-2 gap-2 pb-6">
-                {secondary.map((item) => {
-                  const Icon = item.icon;
-                  const active = path === item.to || path.startsWith(item.to + "/");
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to as never}
-                      onClick={() => setMoreOpen(false)}
-                      className={
-                        "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                        (active ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                      }
-                    >
-                      <Icon className="size-5 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  );
-                })}
-                <Link
-                  to={"/settings/company" as never}
-                  onClick={() => setMoreOpen(false)}
-                  className={
-                    "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                    (path.startsWith("/settings/company") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                  }
-                >
-                  <Building2 className="size-5 shrink-0" />
-                  <span className="truncate">{t("nav.company")}</span>
-                </Link>
-                {isAdmin && (
-                  <Link
-                    to={"/settings/roles" as never}
-                    onClick={() => setMoreOpen(false)}
-                    className={
-                      "flex items-center gap-3 rounded-xl border border-border/50 px-3 py-3 text-sm " +
-                      (path.startsWith("/settings/roles") ? "bg-primary/10 text-primary" : "bg-background/60 text-foreground")
-                    }
-                  >
-                    <KeyRound className="size-5 shrink-0" />
-                    <span className="truncate">Roles y permisos</span>
-                  </Link>
-                )}
+              <div className="mt-2 space-y-6 pb-8">
+                {[
+                  ...moduleSections,
+                  {
+                    title: "Configuración",
+                    items: [
+                      { to: "/settings/company", label: t("nav.company"), icon: Building2 },
+                      { to: "/settings/profile", label: "Mi perfil", icon: UserRound },
+                      ...(isAdmin ? [{ to: "/settings/roles", label: "Roles y permisos", icon: KeyRound }] : []),
+                    ] as NavItem[],
+                  },
+                ].map((section) => (
+                  <div key={section.title}>
+                    <div className="px-1 pb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {section.title}
+                    </div>
+                    <div className="overflow-hidden rounded-2xl bg-background/60">
+                      {section.items.map((item, idx) => {
+                        const Icon = item.icon;
+                        const active = path === item.to || path.startsWith(item.to + "/");
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to as never}
+                            onClick={() => setMoreOpen(false)}
+                            className={
+                              "flex items-center gap-3 px-4 py-3 text-sm " + tapRow + " " +
+                              (idx > 0 ? "border-t border-border/40 " : "") +
+                              (active ? "text-primary" : "text-foreground")
+                            }
+                          >
+                            <Icon className={"size-4 shrink-0 " + (active ? "text-primary" : "text-muted-foreground")} />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </SheetContent>
           </Sheet>

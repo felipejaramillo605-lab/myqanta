@@ -120,10 +120,12 @@ export const cancelReminder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase
       .from("reminders")
       .update({ status: "cancelled" })
       .eq("id", data.id)
+      .eq("org_id", orgId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -133,10 +135,12 @@ export const deleteReminder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/agenda", "member");
     const { error } = await context.supabase
       .from("reminders")
       .delete()
       .eq("id", data.id)
+      .eq("org_id", orgId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };

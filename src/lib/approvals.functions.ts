@@ -195,7 +195,24 @@ export const deleteApproval = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/approvals", "member");
+    const { data: approval, error: rErr } = await context.supabase
+      .from("approvals")
+      .select("requested_by, org_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (rErr) throw new Error(rErr.message);
+    if (!approval || approval.org_id !== orgId) throw new Error("Aprobación no encontrada.");
+    const { data: member } = await context.supabase
+      .from("organization_members")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const isAdmin = member?.role === "admin" || member?.role === "owner";
+    if (approval.requested_by !== context.userId && !isAdmin) {
+      throw new Error("Solo el creador o un administrador puede eliminar esta aprobación.");
+    }
     const { error } = await context.supabase
       .from("approvals")
       .delete()
