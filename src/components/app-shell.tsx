@@ -39,6 +39,15 @@ import { useState } from "react";
 import { Briefcase } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserRound } from "lucide-react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; group?: string };
 type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
