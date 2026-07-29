@@ -14,6 +14,7 @@ import {
   setActiveOrg,
 } from "@/lib/org.functions";
 import { useI18n } from "@/lib/i18n";
+import { listCustomRoles } from "@/lib/custom-roles.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,13 @@ export function OrgAccessPanel() {
   const [renameValue, setRenameValue] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<(typeof ROLES)[number]>("member");
+  const [inviteCustomRole, setInviteCustomRole] = useState<string>("none");
+  const customRolesQ = useQuery({
+    queryKey: ["custom-roles"],
+    queryFn: () => listCustomRoles(),
+    enabled: canManage,
+  });
+  const supportsCustomRole = inviteRole === "member" || inviteRole === "viewer";
 
   const createOrgM = useMutation({
     mutationFn: (name: string) => createOrganization({ data: { name } }),
@@ -76,12 +84,14 @@ export function OrgAccessPanel() {
         data: {
           email: inviteEmail || null,
           role: inviteRole,
+          custom_role_id: supportsCustomRole && inviteCustomRole !== "none" ? inviteCustomRole : null,
           ttl_days: 14,
           origin: typeof window !== "undefined" ? window.location.origin : null,
         },
       }),
     onSuccess: (row) => {
       setInviteEmail("");
+      setInviteCustomRole("none");
       const link = `${window.location.origin}/invite/${row.token}`;
       navigator.clipboard?.writeText(link).catch(() => {});
       toast.success(t("team.invite_copied"));
@@ -229,7 +239,7 @@ export function OrgAccessPanel() {
         <section className="rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl">
           <h2 className="mb-3 font-medium">{t("team.invites")}</h2>
 
-          <div className="grid gap-2 sm:grid-cols-[1fr_160px_auto]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_160px_180px_auto]">
             <div>
               <Label className="text-xs">{t("team.invite_email_optional")}</Label>
               <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="name@company.com" />
@@ -243,6 +253,24 @@ export function OrgAccessPanel() {
                 <SelectContent>
                   {ROLES.filter((r) => r !== "owner").map((r) => (
                     <SelectItem key={r} value={r}>{t(`team.role.${r}` as never)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Rol personalizado</Label>
+              <Select
+                value={supportsCustomRole ? inviteCustomRole : "none"}
+                onValueChange={setInviteCustomRole}
+                disabled={!supportsCustomRole}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin restricción" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin restricción</SelectItem>
+                  {(customRolesQ.data?.roles ?? []).map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
