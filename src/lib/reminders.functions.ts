@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
-import { computeNextOccurrence } from "./reminders-recurrence";
 
 const SourceType = z.enum(["task", "habit", "event", "custom"]);
 const RecurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
