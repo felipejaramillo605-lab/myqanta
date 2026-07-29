@@ -3,25 +3,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
-import { computeNextOccurrence } from "./reminders-recurrence";
 
 const SourceType = z.enum(["task", "habit", "event", "custom"]);
 const RecurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
 const ChannelEnum = z.enum(["whatsapp", "email"]);
-
-async function dispatch(
-  channel: string,
-  opts: { phone?: string | null; email?: string | null; title: string; message: string; provider?: string | null },
-) {
-  if (channel === "email") {
-    const { sendGmail } = await import("./gmail.server");
-    if (!opts.email) return { provider: "gmail", ok: false as const, simulated: false, error: "Sin correo de destino." };
-    return sendGmail(opts.email, opts.title, opts.message);
-  }
-  const { sendWhatsapp } = await import("./whatsapp.server");
-  if (!opts.phone) return { provider: opts.provider ?? "mock", ok: false as const, simulated: false, error: "Sin teléfono de destino." };
-  return sendWhatsapp(opts.phone, opts.message, opts.provider ?? undefined);
-}
 
 // ===== Settings =====
 export const getWhatsappSettings = createServerFn({ method: "GET" })
@@ -170,59 +155,8 @@ export const sendReminderNow = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!r) throw new Error("Reminder not found");
 
-    const res = await dispatch(r.channel ?? "whatsapp", {
-      phone: r.phone_e164,
-      email: r.email,
-      title: r.title,
-      message: r.message,
-      provider: r.provider,
-    });
-    const patch = res.ok
-      ? {
-          status: "sent" as const,
-          sent_at: new Date().toISOString(),
-          provider_message_id: res.messageId,
-          error: null,
-          attempts: (r.attempts ?? 0) + 1,
-        }
-      : {
-          status: "failed" as const,
-          error: res.error,
-          attempts: (r.attempts ?? 0) + 1,
-        };
-    await context.supabase.from("reminders").update(patch).eq("id", r.id);
-
-    // Programa la siguiente ocurrencia si el recordatorio es recurrente
-    // y el envío fue correcto.
-    if (res.ok && r.recurrence && r.recurrence !== "none") {
-      const next = computeNextOccurrence(
-        r.scheduled_at,
-        r.recurrence,
-        r.recurrence_interval ?? 1,
-        r.recurrence_until,
-      );
-      if (next) {
-        await context.supabase.from("reminders").insert({
-          org_id: r.org_id,
-          user_id: r.user_id,
-          source_type: r.source_type,
-          source_id: r.source_id,
-          title: r.title,
-          message: r.message,
-          channel: r.channel,
-          phone_e164: r.phone_e164,
-          email: r.email,
-          team_member_id: r.team_member_id,
-          scheduled_at: next.toISOString(),
-          provider: r.provider,
-          recurrence: r.recurrence,
-          recurrence_interval: r.recurrence_interval ?? 1,
-          recurrence_until: r.recurrence_until,
-          parent_reminder_id: r.parent_reminder_id ?? r.id,
-        });
-      }
-    }
-    return { ok: res.ok, simulated: res.simulated };
+    const { processDueReminder } = await import("./reminders-dispatch.server");
+    return processDueReminder(context.supabase as any, r);
   });
 
 // Sources for quick-create dropdown (upcoming tasks / events / habits)
