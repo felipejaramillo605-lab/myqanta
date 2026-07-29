@@ -173,8 +173,21 @@ export const deleteTimeEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveActiveOrgId(context.supabase, context.userId);
-    const { error } = await context.supabase.from("time_entries" as never).delete().eq("id", data.id);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/projects", "member");
+    const { data: member } = await context.supabase
+      .from("organization_members")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const isAdmin = member?.role === "admin" || member?.role === "owner";
+    let q = context.supabase
+      .from("time_entries" as never)
+      .delete()
+      .eq("id", data.id)
+      .eq("org_id", orgId);
+    if (!isAdmin) q = q.eq("user_id", context.userId);
+    const { error } = await q;
     if (error) throw new Error(error.message);
     return { ok: true };
   });
