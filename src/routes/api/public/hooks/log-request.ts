@@ -17,9 +17,28 @@ const bodySchema = z.object({
   method: z.string().max(10).default("POST"),
   status: z.number().int().min(0).max(999).default(200),
   duration_ms: z.number().int().min(0).max(600000).default(0),
-  user_id: z.string().uuid().nullable().optional(),
-  email: z.string().max(320).nullable().optional(),
 });
+
+// La identidad NUNCA se toma del body: se deriva del bearer token del llamante.
+async function identityFromToken(
+  token: string | null,
+): Promise<{ user_id: string | null; email: string | null }> {
+  if (!token || token.split(".").length !== 3) return { user_id: null, email: null };
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return { user_id: null, email: null };
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(url, key, {
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await sb.auth.getUser(token);
+    if (error || !data?.user) return { user_id: null, email: null };
+    return { user_id: data.user.id, email: data.user.email ?? null };
+  } catch {
+    return { user_id: null, email: null };
+  }
+}
 
 // Rate limit en memoria: ventana deslizante de 60s, 60 requests/IP.
 // Nota: se resetea si el proceso reinicia y no se comparte entre instancias
@@ -69,10 +88,16 @@ export const Route = createFileRoute("/api/public/hooks/log-request")({
           const ua = request.headers.get("user-agent") ?? null;
           const country = request.headers.get("cf-ipcountry") ?? null;
 
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice("Bearer ".length).trim()
+            : null;
+          const identity = await identityFromToken(token);
+
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           await supabaseAdmin.from("request_metrics").insert({
-            user_id: b.user_id ?? null,
-            email: b.email ?? null,
+            user_id: identity.user_id,
+            email: identity.email,
             path: b.path,
             method: b.method,
             status: b.status,

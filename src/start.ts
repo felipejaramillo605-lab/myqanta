@@ -37,18 +37,21 @@ const logRequestMiddleware = createMiddleware({ type: "function" }).client(async
     if (typeof window !== "undefined") {
       try {
         const dur = Math.round(((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0));
-        const { data } = await supabase.auth.getUser();
+        // La identidad se deriva server-side del bearer token; nunca se envía en el body.
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
         const payload = {
           path: `fn:${functionId ?? "unknown"}`,
           method: "POST",
           status,
           duration_ms: dur,
-          user_id: data?.user?.id ?? null,
-          email: data?.user?.email ?? null,
         };
         void fetch("/api/public/hooks/log-request", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(payload),
           keepalive: true,
         }).catch(() => {});
