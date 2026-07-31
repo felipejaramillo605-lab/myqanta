@@ -15,13 +15,107 @@ export type DocumentRow = {
   tags: string[];
   entity_type: string | null;
   entity_id: string | null;
+  folder_id: string | null;
   uploaded_by: string;
   created_at: string;
 };
 
+export type FolderRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+};
+
+export const ALLOWED_MIME_TYPES = [
+  "text/plain",
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+] as const;
+
+const MIME_ERROR = "Tipo de archivo no permitido. Solo se aceptan TXT, JPG, PNG o PDF.";
+
 function sanitize(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
 }
+
+export const listFolders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    const { data, error } = await context.supabase
+      .from("document_folders" as never)
+      .select("id, org_id, name, parent_id, created_at")
+      .eq("org_id", orgId)
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as FolderRow[];
+  });
+
+export const upsertFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid().optional(),
+      name: z.string().trim().min(1).max(120),
+      parent_id: z.string().uuid().nullable().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    if (data.id) {
+      const { data: out, error } = await context.supabase
+        .from("document_folders" as never)
+        .update({ name: data.name } as never)
+        .eq("id", data.id)
+        .eq("org_id", orgId)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return out as unknown as FolderRow;
+    }
+    const { data: out, error } = await context.supabase
+      .from("document_folders" as never)
+      .insert({
+        org_id: orgId,
+        name: data.name,
+        parent_id: data.parent_id ?? null,
+        created_by: context.userId,
+      } as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out as unknown as FolderRow;
+  });
+
+export const deleteFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    const { count: docCount } = await context.supabase
+      .from("documents" as never)
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("folder_id", data.id);
+    const { count: subCount } = await context.supabase
+      .from("document_folders" as never)
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("parent_id", data.id);
+    if ((docCount ?? 0) > 0 || (subCount ?? 0) > 0) {
+      throw new Error("Mueve o elimina el contenido primero");
+    }
+    const { error } = await context.supabase
+      .from("document_folders" as never)
+      .delete()
+      .eq("id", data.id)
+      .eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
 
 export const listDocuments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -29,6 +123,7 @@ export const listDocuments = createServerFn({ method: "GET" })
     z.object({
       q: z.string().trim().max(200).optional(),
       tag: z.string().trim().max(60).optional(),
+      folder_id: z.string().uuid().nullable().optional(),
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
@@ -41,6 +136,9 @@ export const listDocuments = createServerFn({ method: "GET" })
       .limit(500);
     if (data.q) q = q.ilike("name", `%${data.q}%`);
     if (data.tag) q = q.contains("tags", [data.tag] as never);
+    if (data.folder_id !== undefined) {
+      q = data.folder_id === null ? q.is("folder_id", null) : q.eq("folder_id", data.folder_id);
+    }
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return (rows ?? []) as unknown as DocumentRow[];
@@ -54,10 +152,14 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(200),
       mime_type: z.string().trim().max(160).optional(),
+      folder_id: z.string().uuid().nullable().optional(),
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    if (data.mime_type && !(ALLOWED_MIME_TYPES as readonly string[]).includes(data.mime_type)) {
+      throw new Error(MIME_ERROR);
+    }
     const safe = sanitize(data.name);
     const path = `${orgId}/${Date.now()}-${crypto.randomUUID()}-${safe}`;
     const { data: signed, error } = await context.supabase.storage
@@ -76,6 +178,7 @@ const RegisterInput = z.object({
   tags: z.array(z.string().trim().max(60)).default([]),
   entity_type: z.string().trim().max(40).nullable().optional(),
   entity_id: z.string().uuid().nullable().optional(),
+  folder_id: z.string().uuid().nullable().optional(),
 });
 
 export const registerDocument = createServerFn({ method: "POST" })
@@ -83,6 +186,9 @@ export const registerDocument = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => RegisterInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/documents", "member");
+    if (!data.mime_type || !(ALLOWED_MIME_TYPES as readonly string[]).includes(data.mime_type)) {
+      throw new Error(MIME_ERROR);
+    }
     // Enforce that storage_path lives under this org's folder.
     if (!data.storage_path.startsWith(`${orgId}/`)) {
       throw new Error("Ruta de almacenamiento inválida");
@@ -93,6 +199,7 @@ export const registerDocument = createServerFn({ method: "POST" })
       mime_type: data.mime_type ?? null,
       entity_type: data.entity_type ?? null,
       entity_id: data.entity_id ?? null,
+      folder_id: data.folder_id ?? null,
       org_id: orgId,
       uploaded_by: context.userId,
     };
