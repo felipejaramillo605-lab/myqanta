@@ -7,11 +7,17 @@ import { Upload, Trash2, Download, Search, Loader2, FileText } from "lucide-reac
 import {
   listDocuments, createDocumentUpload, registerDocument,
   getDocumentDownloadUrl, deleteDocument,
+  listFolders, upsertFolder, deleteFolder,
+  ALLOWED_MIME_TYPES,
   type DocumentRow,
 } from "@/lib/documents.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogClose,
+} from "@/components/ui/dialog";
+import { Folder, FolderPlus, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/documents")({
   head: () => ({ meta: [
@@ -22,6 +28,10 @@ export const Route = createFileRoute("/_authenticated/documents")({
     await context.queryClient.ensureQueryData({
       queryKey: ["documents", ""],
       queryFn: () => listDocuments({ data: {} }),
+    });
+    await context.queryClient.ensureQueryData({
+      queryKey: ["document-folders"],
+      queryFn: () => listFolders(),
     });
   },
   errorComponent: ({ error }) => (
@@ -44,6 +54,9 @@ function DocumentsPage() {
   const [q, setQ] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const docsQ = useSuspenseQuery({
@@ -51,15 +64,64 @@ function DocumentsPage() {
     queryFn: () => listDocuments({ data: {} }),
   });
 
+  const foldersQ = useSuspenseQuery({
+    queryKey: ["document-folders"],
+    queryFn: () => listFolders(),
+  });
+
+  const folderById = useMemo(
+    () => new Map(foldersQ.data.map((f) => [f.id, f])),
+    [foldersQ.data],
+  );
+
+  const breadcrumb = useMemo(() => {
+    const parts: { id: string; name: string }[] = [];
+    let cur = currentFolder;
+    let guard = 0;
+    while (cur && guard++ < 20) {
+      const f = folderById.get(cur);
+      if (!f) break;
+      parts.unshift({ id: f.id, name: f.name });
+      cur = f.parent_id;
+    }
+    return parts;
+  }, [currentFolder, folderById]);
+
+  const subFolders = useMemo(
+    () => foldersQ.data.filter((f) => (f.parent_id ?? null) === currentFolder),
+    [foldersQ.data, currentFolder],
+  );
+
+  const createFolder = useMutation({
+    mutationFn: (name: string) => upsertFolder({ data: { name, parent_id: currentFolder } }),
+    onSuccess: () => {
+      toast.success("Carpeta creada");
+      setNewFolderOpen(false);
+      setNewFolderName("");
+      qc.invalidateQueries({ queryKey: ["document-folders"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Error"),
+  });
+
+  const removeFolder = useMutation({
+    mutationFn: (id: string) => deleteFolder({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Carpeta eliminada");
+      qc.invalidateQueries({ queryKey: ["document-folders"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Error"),
+  });
+
   const filtered = useMemo(() => {
+    const inFolder = docsQ.data.filter((d) => (d.folder_id ?? null) === currentFolder);
     const term = q.trim().toLowerCase();
-    if (!term) return docsQ.data;
-    return docsQ.data.filter((d) =>
+    if (!term) return inFolder;
+    return inFolder.filter((d) =>
       d.name.toLowerCase().includes(term) ||
       (d.description ?? "").toLowerCase().includes(term) ||
       d.tags.some((t) => t.toLowerCase().includes(term)),
     );
-  }, [q, docsQ.data]);
+  }, [q, docsQ.data, currentFolder]);
 
   const removeDoc = useMutation({
     mutationFn: (id: string) => deleteDocument({ data: { id } }),
@@ -87,11 +149,15 @@ function DocumentsPage() {
   }
 
   async function uploadFiles(files: FileList | File[]) {
+    const target = currentFolder;
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
+        if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
+          throw new Error("Tipo de archivo no permitido. Solo se aceptan TXT, JPG, PNG o PDF.");
+        }
         const { path, signedUrl } = await createDocumentUpload({
-          data: { name: file.name, mime_type: file.type || undefined },
+          data: { name: file.name, mime_type: file.type || undefined, folder_id: target },
         });
         const put = await fetch(signedUrl, {
           method: "PUT",
@@ -106,6 +172,7 @@ function DocumentsPage() {
             size_bytes: file.size,
             storage_path: path,
             tags: [],
+            folder_id: target,
           },
         });
       }
@@ -134,15 +201,54 @@ function DocumentsPage() {
             ref={fileRef}
             type="file"
             multiple
+            accept=".txt,.jpg,.jpeg,.png,.pdf,text/plain,image/jpeg,image/png,application/pdf"
             className="hidden"
             onChange={(e) => e.target.files && uploadFiles(e.target.files)}
           />
+          <Button variant="outline" onClick={() => setNewFolderOpen(true)}>
+            <FolderPlus className="mr-1 size-4" />
+            Nueva carpeta
+          </Button>
           <Button onClick={() => fileRef.current?.click()} disabled={uploading}>
             {uploading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Upload className="mr-1 size-4" />}
             Subir
           </Button>
         </div>
       </header>
+
+      <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+        <button className="hover:text-foreground" onClick={() => setCurrentFolder(null)}>Documentos</button>
+        {breadcrumb.map((b, i) => (
+          <span key={b.id} className="flex items-center gap-1">
+            <ChevronRight className="size-3.5" />
+            <button
+              className={i === breadcrumb.length - 1 ? "text-foreground" : "hover:text-foreground"}
+              onClick={() => setCurrentFolder(b.id)}
+            >
+              {b.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      {subFolders.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {subFolders.map((f) => (
+            <div key={f.id} className="glass flex items-center justify-between rounded-xl px-3 py-2">
+              <button
+                className="flex flex-1 items-center gap-2 text-left text-sm"
+                onClick={() => setCurrentFolder(f.id)}
+              >
+                <Folder className="size-4 text-muted-foreground" />
+                {f.name}
+              </button>
+              <Button variant="ghost" size="icon" title="Eliminar carpeta" onClick={() => removeFolder.mutate(f.id)}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -203,6 +309,37 @@ function DocumentsPage() {
           </tbody>
         </table>
       </div>
+
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva carpeta</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Se creará dentro de: {breadcrumb.length ? breadcrumb.map((b) => b.name).join(" / ") : "Documentos"}
+          </p>
+          <Input
+            autoFocus
+            placeholder="Nombre de la carpeta"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newFolderName.trim()) createFolder.mutate(newFolderName.trim());
+            }}
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button
+              disabled={!newFolderName.trim() || createFolder.isPending}
+              onClick={() => createFolder.mutate(newFolderName.trim())}
+            >
+              Crear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
