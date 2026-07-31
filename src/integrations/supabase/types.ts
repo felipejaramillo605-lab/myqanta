@@ -598,12 +598,58 @@ export type Database = {
           },
         ]
       }
+      document_folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          org_id: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          org_id: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          org_id?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_folders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
           description: string | null
           entity_id: string | null
           entity_type: string | null
+          folder_id: string | null
           id: string
           mime_type: string | null
           name: string
@@ -619,6 +665,7 @@ export type Database = {
           description?: string | null
           entity_id?: string | null
           entity_type?: string | null
+          folder_id?: string | null
           id?: string
           mime_type?: string | null
           name: string
@@ -634,6 +681,7 @@ export type Database = {
           description?: string | null
           entity_id?: string | null
           entity_type?: string | null
+          folder_id?: string | null
           id?: string
           mime_type?: string | null
           name?: string
@@ -645,6 +693,13 @@ export type Database = {
           uploaded_by?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_org_id_fkey"
             columns: ["org_id"]

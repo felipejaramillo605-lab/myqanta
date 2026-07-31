@@ -468,6 +468,63 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
             },
           }),
 
+          find_document: tool({
+            description:
+              "Find a document stored in the organization's document repository by a fragment of its file name. Returns each match with its full folder path.",
+            inputSchema: z.object({
+              query: z.string().min(1).max(120).describe("Fragment of the document name to search for."),
+            }),
+            execute: async (input) => {
+              const scopedOrg = await resolveOrgWithModuleAccess(
+                context.supabase,
+                context.userId,
+                "/documents",
+                "member",
+              );
+              const { data: docs } = await context.supabase
+                .from("documents" as never)
+                .select("id,name,folder_id,created_at")
+                .eq("org_id", scopedOrg)
+                .ilike("name", `%${input.query}%`)
+                .limit(20);
+              const rows = (docs ?? []) as unknown as {
+                id: string; name: string; folder_id: string | null; created_at: string;
+              }[];
+              if (rows.length === 0) {
+                return { ok: true, found: 0, results: [], message: "No encontré ningún documento con ese nombre." };
+              }
+              const { data: folders } = await context.supabase
+                .from("document_folders" as never)
+                .select("id,name,parent_id")
+                .eq("org_id", scopedOrg);
+              const byId = new Map<string, { id: string; name: string; parent_id: string | null }>();
+              for (const f of (folders ?? []) as unknown as { id: string; name: string; parent_id: string | null }[]) {
+                byId.set(f.id, f);
+              }
+              const pathOf = (folderId: string | null) => {
+                const parts: string[] = [];
+                let cur = folderId;
+                let guard = 0;
+                while (cur && guard++ < 20) {
+                  const f = byId.get(cur);
+                  if (!f) break;
+                  parts.unshift(f.name);
+                  cur = f.parent_id;
+                }
+                return parts;
+              };
+              return {
+                ok: true,
+                found: rows.length,
+                results: rows.map((d) => ({
+                  name: d.name,
+                  path: [...pathOf(d.folder_id), d.name].join(" / "),
+                  created_at: d.created_at,
+                })),
+              };
+            },
+          }),
+
           list_bank_accounts: tool({
             description:
               "List the bank accounts registered in the active organization (masked number, bank name). Use it before asking the user which account they paid from.",
@@ -752,7 +809,7 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
       : undefined;
 
     const toolsHint = canAct
-      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock, list_bank_accounts, record_purchase_or_expense. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.\n\nrecord_purchase_or_expense registers a purchase or an expense as a double-entry journal entry using THIS organization's chart of accounts (PUC) and its configured accounting policies. Before calling it, ask conversationally for whatever is missing — never dump all the questions at once: (1) whether it is inventory bought to resell or an operating expense — infer it from the business context, the existing products and the description, and only ask '¿Es para revender o es un gasto del negocio?' when it is genuinely ambiguous; (2) '¿Pagaste en efectivo o con banco?' if unknown; (3) if bank, call list_bank_accounts and ask which account, showing the bank name and the last 4 digits; (4) '¿Tienes la factura?' — if the user says no, tell them to get it and that they can finish the registration later by attaching it right here in the chat. It respects the rule that every PUBLISHED entry requires a receipt: with no invoice the entry is saved as a DRAFT, and with the invoice attached in the chat it is read by OCR, the supplier is created or matched, the file is stored as the receipt document and the entry is POSTED. If the user says they have the invoice but has not attached it, ask them to attach the photo or PDF in the chat instead of calling the tool. Never fill invoice_image_data_url yourself. ${data.attachment ? "A FILE IS ATTACHED to the current message — treat it as the invoice/receipt." : "No file is attached to the current message."}`
+      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock, find_document, list_bank_accounts, record_purchase_or_expense. Use find_document whenever the user asks where a document/file is or asks you to look for one by name: it searches the document repository by name fragment and returns the full folder path (e.g. 'Contratos / 2026 / factura_enero.pdf'). If it returns no results, tell the user plainly that you did not find any document with that name. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.\n\nrecord_purchase_or_expense registers a purchase or an expense as a double-entry journal entry using THIS organization's chart of accounts (PUC) and its configured accounting policies. Before calling it, ask conversationally for whatever is missing — never dump all the questions at once: (1) whether it is inventory bought to resell or an operating expense — infer it from the business context, the existing products and the description, and only ask '¿Es para revender o es un gasto del negocio?' when it is genuinely ambiguous; (2) '¿Pagaste en efectivo o con banco?' if unknown; (3) if bank, call list_bank_accounts and ask which account, showing the bank name and the last 4 digits; (4) '¿Tienes la factura?' — if the user says no, tell them to get it and that they can finish the registration later by attaching it right here in the chat. It respects the rule that every PUBLISHED entry requires a receipt: with no invoice the entry is saved as a DRAFT, and with the invoice attached in the chat it is read by OCR, the supplier is created or matched, the file is stored as the receipt document and the entry is POSTED. If the user says they have the invoice but has not attached it, ask them to attach the photo or PDF in the chat instead of calling the tool. Never fill invoice_image_data_url yourself. ${data.attachment ? "A FILE IS ATTACHED to the current message — treat it as the invoice/receipt." : "No file is attached to the current message."}`
       : `\n\nYou are in read-only mode for this user role. Do not offer to perform actions.`;
 
     const { text } = await generateText({
