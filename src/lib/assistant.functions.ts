@@ -468,6 +468,63 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
             },
           }),
 
+          find_document: tool({
+            description:
+              "Find a document stored in the organization's document repository by a fragment of its file name. Returns each match with its full folder path.",
+            inputSchema: z.object({
+              query: z.string().min(1).max(120).describe("Fragment of the document name to search for."),
+            }),
+            execute: async (input) => {
+              const scopedOrg = await resolveOrgWithModuleAccess(
+                context.supabase,
+                context.userId,
+                "/documents",
+                "member",
+              );
+              const { data: docs } = await context.supabase
+                .from("documents" as never)
+                .select("id,name,folder_id,created_at")
+                .eq("org_id", scopedOrg)
+                .ilike("name", `%${input.query}%`)
+                .limit(20);
+              const rows = (docs ?? []) as unknown as {
+                id: string; name: string; folder_id: string | null; created_at: string;
+              }[];
+              if (rows.length === 0) {
+                return { ok: true, found: 0, results: [], message: "No encontré ningún documento con ese nombre." };
+              }
+              const { data: folders } = await context.supabase
+                .from("document_folders" as never)
+                .select("id,name,parent_id")
+                .eq("org_id", scopedOrg);
+              const byId = new Map<string, { id: string; name: string; parent_id: string | null }>();
+              for (const f of (folders ?? []) as unknown as { id: string; name: string; parent_id: string | null }[]) {
+                byId.set(f.id, f);
+              }
+              const pathOf = (folderId: string | null) => {
+                const parts: string[] = [];
+                let cur = folderId;
+                let guard = 0;
+                while (cur && guard++ < 20) {
+                  const f = byId.get(cur);
+                  if (!f) break;
+                  parts.unshift(f.name);
+                  cur = f.parent_id;
+                }
+                return parts;
+              };
+              return {
+                ok: true,
+                found: rows.length,
+                results: rows.map((d) => ({
+                  name: d.name,
+                  path: [...pathOf(d.folder_id), d.name].join(" / "),
+                  created_at: d.created_at,
+                })),
+              };
+            },
+          }),
+
           list_bank_accounts: tool({
             description:
               "List the bank accounts registered in the active organization (masked number, bank name). Use it before asking the user which account they paid from.",
