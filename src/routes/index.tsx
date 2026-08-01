@@ -76,6 +76,12 @@ function Index() {
           ))}
         </div>
       </section>
+
+      <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 pb-10 text-xs text-muted-foreground">
+        <Link to="/privacy" className="hover:text-foreground">Política de Privacidad</Link>
+        <Link to="/ai-policy" className="hover:text-foreground">Uso de IA</Link>
+        <Link to="/terms" className="hover:text-foreground">Términos y Condiciones</Link>
+      </footer>
     </main>
   );
 }

@@ -188,6 +188,21 @@ function AuthPage() {
                 <Button type="submit" className="w-full" disabled={busy}>
                   {busy ? <Loader2 className="size-4 animate-spin" /> : t("auth.signup")}
                 </Button>
+                <p className="text-center text-[11px] leading-5 text-muted-foreground">
+                  Al crear una cuenta aceptas nuestra{" "}
+                  <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                    Política de Privacidad
+                  </Link>
+                  ,{" "}
+                  <Link to="/ai-policy" className="underline underline-offset-2 hover:text-foreground">
+                    Uso de IA
+                  </Link>{" "}
+                  y{" "}
+                  <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">
+                    Términos y Condiciones
+                  </Link>
+                  .
+                </p>
               </form>
             </TabsContent>
           </Tabs>
