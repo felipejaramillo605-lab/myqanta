@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as BlockedRouteImport } from './routes/blocked'
@@ -58,6 +59,11 @@ import { Route as ApiPublicHooksLogRequestRouteImport } from './routes/api/publi
 import { Route as ApiPublicCronSendDueRemindersRouteImport } from './routes/api/public/cron/send-due-reminders'
 import { Route as ApiPublicAttendanceMarkRouteImport } from './routes/api/public/attendance/mark'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -326,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/agenda': typeof AuthenticatedAgendaRoute
@@ -375,6 +382,7 @@ export interface FileRoutesByTo {
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/agenda': typeof AuthenticatedAgendaRoute
@@ -426,6 +434,7 @@ export interface FileRoutesById {
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
@@ -477,6 +486,7 @@ export interface FileRouteTypes {
     | '/blocked'
     | '/mcp'
     | '/privacy'
+    | '/terms'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/agenda'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/blocked'
     | '/mcp'
     | '/privacy'
+    | '/terms'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/agenda'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/blocked'
     | '/mcp'
     | '/privacy'
+    | '/terms'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/agenda'
@@ -627,6 +639,7 @@ export interface RootRouteChildren {
   BlockedRoute: typeof BlockedRoute
   McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -641,6 +654,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -1060,6 +1080,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlockedRoute: BlockedRoute,
   McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
