@@ -13,6 +13,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AiPolicyRouteImport } from './routes/ai-policy'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -75,6 +76,11 @@ const BlockedRoute = BlockedRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiPolicyRoute = AiPolicyRouteImport.update({
+  id: '/ai-policy',
+  path: '/ai-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -315,6 +321,7 @@ const ApiPublicAttendanceMarkRoute = ApiPublicAttendanceMarkRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
@@ -363,6 +370,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
@@ -413,6 +421,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/blocked': typeof BlockedRoute
   '/mcp': typeof McpRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-policy'
     | '/auth'
     | '/blocked'
     | '/mcp'
@@ -511,6 +521,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-policy'
     | '/auth'
     | '/blocked'
     | '/mcp'
@@ -560,6 +571,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/ai-policy'
     | '/auth'
     | '/blocked'
     | '/mcp'
@@ -610,6 +622,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AiPolicyRoute: typeof AiPolicyRoute
   AuthRoute: typeof AuthRoute
   BlockedRoute: typeof BlockedRoute
   McpRoute: typeof McpRoute
@@ -654,6 +667,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-policy': {
+      id: '/ai-policy'
+      path: '/ai-policy'
+      fullPath: '/ai-policy'
+      preLoaderRoute: typeof AiPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1035,6 +1055,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AiPolicyRoute: AiPolicyRoute,
   AuthRoute: AuthRoute,
   BlockedRoute: BlockedRoute,
   McpRoute: McpRoute,
