@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery, useQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState, type DragEvent } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, MessageSquare, Phone, Mail, Calendar as CalIcon, StickyNote } from "lucide-react";
+import { Plus, Trash2, Pencil, MessageSquare, Phone, Mail, Calendar as CalIcon, StickyNote, Send, Loader2 } from "lucide-react";
 
 import {
   DEAL_STAGES, type DealStage,
@@ -11,6 +11,7 @@ import {
   listDeals, upsertDeal, moveDealStage, deleteDeal,
   listActivities, addActivity, deleteActivity,
 } from "@/lib/crm.functions";
+import { getNotionConnection, listNotionDatabases, pushContactToNotion } from "@/lib/notion.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
