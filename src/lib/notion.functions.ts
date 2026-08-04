@@ -3,50 +3,18 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveOrgWithRole, resolveOrgWithModuleAccess } from "./permissions";
 
-export const getNotionAuthUrl = createServerFn({ method: "GET" })
+/**
+ * Genera el `state` firmado (HMAC, 10 min de validez) que autoriza el inicio
+ * del flujo OAuth. Solo admin/owner de la org activa lo obtiene; la ruta
+ * `/api/integrations/notion/authorize` lo verifica antes de redirigir a Notion.
+ */
+export const createNotionOAuthState = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
-    const { notionCredentials, notionRedirectUri } = await import("./notion.server");
-    const { clientId } = notionCredentials();
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: "code",
-      owner: "user",
-      redirect_uri: notionRedirectUri(),
-      state: orgId,
-    });
-    return { url: `https://api.notion.com/v1/oauth/authorize?${params.toString()}` };
-  });
-
-export const completeNotionOAuth = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ code: z.string().min(1), state: z.string().uuid() }).parse(d),
-  )
-  .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
-    if (orgId !== data.state) {
-      throw new Error("La conexión pertenece a otra organización.");
-    }
-    const { exchangeNotionCode, notionRedirectUri } = await import("./notion.server");
-    const tokens = await exchangeNotionCode(data.code, notionRedirectUri());
-    const { error } = await context.supabase
-      .from("notion_connections" as never)
-      .upsert(
-        {
-          org_id: orgId,
-          access_token: tokens.access_token,
-          workspace_id: tokens.workspace_id ?? null,
-          workspace_name: tokens.workspace_name ?? null,
-          bot_id: tokens.bot_id ?? null,
-          connected_by: context.userId,
-          connected_at: new Date().toISOString(),
-        } as never,
-        { onConflict: "org_id" } as never,
-      );
-    if (error) throw new Error(error.message);
-    return { ok: true, workspace_name: tokens.workspace_name ?? null };
+    const { signNotionState, notionCredentials } = await import("./notion.server");
+    notionCredentials(); // falla con mensaje claro si faltan los secretos
+    return { state: signNotionState(orgId, context.userId) };
   });
 
 export const getNotionConnection = createServerFn({ method: "GET" })
@@ -55,16 +23,19 @@ export const getNotionConnection = createServerFn({ method: "GET" })
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data, error } = await context.supabase
       .from("notion_connections" as never)
-      .select("workspace_name, connected_at")
+      .select("workspace_name, connected_at, database_id")
       .eq("org_id", orgId)
       .maybeSingle();
     // Los miembros sin permiso de admin no ven la fila por RLS: se reporta como sin conexión.
-    if (error) return { connected: false, workspace_name: null, connected_at: null };
-    const row = data as unknown as { workspace_name: string | null; connected_at: string } | null;
+    if (error) return { connected: false, workspace_name: null, connected_at: null, database_id: null };
+    const row = data as unknown as {
+      workspace_name: string | null; connected_at: string; database_id: string | null;
+    } | null;
     return {
       connected: !!row,
       workspace_name: row?.workspace_name ?? null,
       connected_at: row?.connected_at ?? null,
+      database_id: row?.database_id ?? null,
     };
   });
 
@@ -106,6 +77,99 @@ export const listNotionDatabases = createServerFn({ method: "GET" })
       body: { filter: { property: "object", value: "database" }, page_size: 50 },
     });
     return ((res.results ?? []) as any[]).map((db) => ({ id: db.id as string, title: plainTitle(db) }));
+  });
+
+export const setNotionDatabase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ database_id: z.string().min(1) }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
+    const { error } = await context.supabase
+      .from("notion_connections" as never)
+      .update({ database_id: data.database_id } as never)
+      .eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Sincroniza todos los contactos del CRM de la org activa hacia la base de
+ * datos de Notion elegida: crea la página si no existe, la actualiza si ya
+ * fue creada antes (`crm_contacts.notion_page_id`).
+ */
+export const syncContactsToNotion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/crm", "member");
+    await resolveOrgWithRole(context.supabase, context.userId, "admin");
+
+    const { data: conn, error: connErr } = await context.supabase
+      .from("notion_connections" as never)
+      .select("access_token, database_id")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (connErr) throw new Error(connErr.message);
+    const c = conn as unknown as { access_token: string; database_id: string | null } | null;
+    if (!c?.access_token) throw new Error("Notion no está conectado para esta organización.");
+    if (!c.database_id) throw new Error("Elige primero la base de datos de Notion a sincronizar.");
+
+    const { data: contactRows, error: cErr } = await context.supabase
+      .from("crm_contacts" as never)
+      .select("id, name, email, phone, company, notion_page_id")
+      .eq("org_id", orgId);
+    if (cErr) throw new Error(cErr.message);
+    const contacts = (contactRows ?? []) as unknown as Array<{
+      id: string; name: string; email: string | null; phone: string | null;
+      company: string | null; notion_page_id: string | null;
+    }>;
+
+    const { data: dealRows } = await context.supabase
+      .from("crm_deals" as never)
+      .select("contact_id, stage, created_at")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false });
+    const stageByContact = new Map<string, string>();
+    for (const d of (dealRows ?? []) as unknown as Array<{ contact_id: string | null; stage: string }>) {
+      if (d.contact_id && !stageByContact.has(d.contact_id)) stageByContact.set(d.contact_id, d.stage);
+    }
+
+    const { notionFetch, buildContactProperties } = await import("./notion.server");
+    const db = await notionFetch(c.access_token, `/databases/${c.database_id}`);
+
+    let created = 0, updated = 0, failed = 0;
+    for (const contact of contacts) {
+      const properties = buildContactProperties(db.properties ?? {}, {
+        ...contact,
+        stage: stageByContact.get(contact.id) ?? null,
+      });
+      try {
+        let pageId = contact.notion_page_id;
+        if (pageId) {
+          try {
+            await notionFetch(c.access_token, `/pages/${pageId}`, { method: "PATCH", body: { properties } });
+            updated++;
+          } catch {
+            pageId = null; // la página fue borrada en Notion: se recrea
+          }
+        }
+        if (!pageId) {
+          const page = await notionFetch(c.access_token, "/pages", {
+            method: "POST",
+            body: { parent: { database_id: c.database_id }, properties },
+          });
+          await context.supabase
+            .from("crm_contacts" as never)
+            .update({ notion_page_id: page.id as string } as never)
+            .eq("id", contact.id)
+            .eq("org_id", orgId);
+          created++;
+        }
+      } catch (e) {
+        console.error(`Notion sync falló para el contacto ${contact.id}:`, e);
+        failed++;
+      }
+    }
+    return { created, updated, failed };
   });
 
 export const pushContactToNotion = createServerFn({ method: "POST" })

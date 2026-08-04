@@ -1,5 +1,7 @@
 // Helpers server-only para la API de Notion. No importar desde el cliente.
 
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 const NOTION_API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 
@@ -15,8 +17,43 @@ export function notionCredentials() {
 }
 
 export function notionRedirectUri(origin?: string) {
+  const explicit = process.env["NOTION_REDIRECT_URI"];
+  if (explicit) return explicit;
   const base = process.env["NOTION_REDIRECT_ORIGIN"] || origin || "https://myqanta.lovable.app";
-  return `${base.replace(/\/$/, "")}/integrations/notion/callback`;
+  return `${base.replace(/\/$/, "")}/api/integrations/notion/callback`;
+}
+
+// ---- state firmado (HMAC con NOTION_CLIENT_SECRET) ----
+
+const b64u = (b: Buffer) => b.toString("base64url");
+
+function stateSignature(payload: string): string {
+  const { clientSecret } = notionCredentials();
+  return b64u(createHmac("sha256", clientSecret).update(payload).digest());
+}
+
+export function signNotionState(orgId: string, userId: string): string {
+  const payload = b64u(
+    Buffer.from(JSON.stringify({ org: orgId, uid: userId, exp: Date.now() + 10 * 60_000 })),
+  );
+  return `${payload}.${stateSignature(payload)}`;
+}
+
+export function verifyNotionState(state: string): { org: string; uid: string } {
+  const [payload, sig] = state.split(".");
+  if (!payload || !sig) throw new Error("Estado de OAuth inválido.");
+  const expected = Buffer.from(stateSignature(payload));
+  const got = Buffer.from(sig);
+  if (expected.length !== got.length || !timingSafeEqual(expected, got)) {
+    throw new Error("Estado de OAuth inválido.");
+  }
+  const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+    org?: string; uid?: string; exp?: number;
+  };
+  if (!parsed.org || !parsed.uid || !parsed.exp || parsed.exp < Date.now()) {
+    throw new Error("El enlace de conexión con Notion expiró. Inténtalo de nuevo.");
+  }
+  return { org: parsed.org, uid: parsed.uid };
 }
 
 export async function notionFetch(
@@ -81,6 +118,7 @@ type Contact = {
   email: string | null;
   phone: string | null;
   company: string | null;
+  stage?: string | null;
 };
 
 /**
@@ -123,5 +161,6 @@ export function buildContactProperties(
   assign(["email", "correo", "e-mail"], contact.email);
   assign(["phone", "telefono", "teléfono", "phone number"], contact.phone);
   assign(["company", "empresa", "compañia", "compañía", "organizacion", "organización"], contact.company);
+  assign(["stage", "etapa", "estado", "status", "pipeline"], contact.stage ?? null);
   return props;
 }

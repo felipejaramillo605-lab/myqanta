@@ -1720,6 +1720,7 @@ export type Database = {
           connected_at: string
           connected_by: string
           created_at: string
+          database_id: string | null
           id: string
           org_id: string
           updated_at: string
@@ -1732,6 +1733,7 @@ export type Database = {
           connected_at?: string
           connected_by: string
           created_at?: string
+          database_id?: string | null
           id?: string
           org_id: string
           updated_at?: string
@@ -1744,6 +1746,7 @@ export type Database = {
           connected_at?: string
           connected_by?: string
           created_at?: string
+          database_id?: string | null
           id?: string
           org_id?: string
           updated_at?: string

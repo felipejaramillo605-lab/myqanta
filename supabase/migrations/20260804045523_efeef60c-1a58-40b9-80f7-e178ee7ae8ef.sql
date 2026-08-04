@@ -1,0 +1,1 @@
+ALTER TABLE public.notion_connections ADD COLUMN IF NOT EXISTS database_id text;

@@ -34,7 +34,6 @@ import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as IntegrationsNotionCallbackRouteImport } from './routes/integrations.notion.callback'
 import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
@@ -60,6 +59,8 @@ import { Route as ApiPublicHooksProcessRemindersRouteImport } from './routes/api
 import { Route as ApiPublicHooksLogRequestRouteImport } from './routes/api/public/hooks/log-request'
 import { Route as ApiPublicCronSendDueRemindersRouteImport } from './routes/api/public/cron/send-due-reminders'
 import { Route as ApiPublicAttendanceMarkRouteImport } from './routes/api/public/attendance/mark'
+import { Route as ApiIntegrationsNotionCallbackRouteImport } from './routes/api/integrations/notion/callback'
+import { Route as ApiIntegrationsNotionAuthorizeRouteImport } from './routes/api/integrations/notion/authorize'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -185,12 +186,6 @@ const Char91DotmcpChar93ListToolsRoute =
   Char91DotmcpChar93ListToolsRouteImport.update({
     id: '/.mcp/list-tools',
     path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsNotionCallbackRoute =
-  IntegrationsNotionCallbackRouteImport.update({
-    id: '/integrations/notion/callback',
-    path: '/integrations/notion/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AttendanceOrgIdTokenRoute = AttendanceOrgIdTokenRouteImport.update({
@@ -338,6 +333,18 @@ const ApiPublicAttendanceMarkRoute = ApiPublicAttendanceMarkRouteImport.update({
   path: '/api/public/attendance/mark',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIntegrationsNotionCallbackRoute =
+  ApiIntegrationsNotionCallbackRouteImport.update({
+    id: '/api/integrations/notion/callback',
+    path: '/api/integrations/notion/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegrationsNotionAuthorizeRoute =
+  ApiIntegrationsNotionAuthorizeRouteImport.update({
+    id: '/api/integrations/notion/authorize',
+    path: '/api/integrations/notion/authorize',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -385,7 +392,8 @@ export interface FileRoutesByFullPath {
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
-  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
+  '/api/integrations/notion/callback': typeof ApiIntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -437,7 +445,8 @@ export interface FileRoutesByTo {
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
-  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
+  '/api/integrations/notion/callback': typeof ApiIntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -491,7 +500,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
-  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
+  '/api/integrations/notion/callback': typeof ApiIntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -545,7 +555,8 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
-    | '/integrations/notion/callback'
+    | '/api/integrations/notion/authorize'
+    | '/api/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -597,7 +608,8 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
-    | '/integrations/notion/callback'
+    | '/api/integrations/notion/authorize'
+    | '/api/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -650,7 +662,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
-    | '/integrations/notion/callback'
+    | '/api/integrations/notion/authorize'
+    | '/api/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -672,7 +685,8 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
-  IntegrationsNotionCallbackRoute: typeof IntegrationsNotionCallbackRoute
+  ApiIntegrationsNotionAuthorizeRoute: typeof ApiIntegrationsNotionAuthorizeRoute
+  ApiIntegrationsNotionCallbackRoute: typeof ApiIntegrationsNotionCallbackRoute
   ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
   ApiPublicCronSendDueRemindersRoute: typeof ApiPublicCronSendDueRemindersRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
@@ -856,13 +870,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/integrations/notion/callback': {
-      id: '/integrations/notion/callback'
-      path: '/integrations/notion/callback'
-      fullPath: '/integrations/notion/callback'
-      preLoaderRoute: typeof IntegrationsNotionCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/attendance/$orgId/$token': {
       id: '/attendance/$orgId/$token'
       path: '/attendance/$orgId/$token'
@@ -1038,6 +1045,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAttendanceMarkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integrations/notion/callback': {
+      id: '/api/integrations/notion/callback'
+      path: '/api/integrations/notion/callback'
+      fullPath: '/api/integrations/notion/callback'
+      preLoaderRoute: typeof ApiIntegrationsNotionCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integrations/notion/authorize': {
+      id: '/api/integrations/notion/authorize'
+      path: '/api/integrations/notion/authorize'
+      fullPath: '/api/integrations/notion/authorize'
+      preLoaderRoute: typeof ApiIntegrationsNotionAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1132,7 +1153,8 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
-  IntegrationsNotionCallbackRoute: IntegrationsNotionCallbackRoute,
+  ApiIntegrationsNotionAuthorizeRoute: ApiIntegrationsNotionAuthorizeRoute,
+  ApiIntegrationsNotionCallbackRoute: ApiIntegrationsNotionCallbackRoute,
   ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
   ApiPublicCronSendDueRemindersRoute: ApiPublicCronSendDueRemindersRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
