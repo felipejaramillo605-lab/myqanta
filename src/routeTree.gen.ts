@@ -59,6 +59,7 @@ import { Route as ApiPublicHooksProcessRemindersRouteImport } from './routes/api
 import { Route as ApiPublicHooksLogRequestRouteImport } from './routes/api/public/hooks/log-request'
 import { Route as ApiPublicCronSendDueRemindersRouteImport } from './routes/api/public/cron/send-due-reminders'
 import { Route as ApiPublicAttendanceMarkRouteImport } from './routes/api/public/attendance/mark'
+import { Route as ApiIntegrationsNotionAuthorizeRouteImport } from './routes/api/integrations/notion/authorize'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -331,6 +332,12 @@ const ApiPublicAttendanceMarkRoute = ApiPublicAttendanceMarkRouteImport.update({
   path: '/api/public/attendance/mark',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIntegrationsNotionAuthorizeRoute =
+  ApiIntegrationsNotionAuthorizeRouteImport.update({
+    id: '/api/integrations/notion/authorize',
+    path: '/api/integrations/notion/authorize',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -378,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -429,6 +437,7 @@ export interface FileRoutesByTo {
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -482,6 +491,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/api/integrations/notion/authorize': typeof ApiIntegrationsNotionAuthorizeRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -535,6 +545,7 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
+    | '/api/integrations/notion/authorize'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -586,6 +597,7 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
+    | '/api/integrations/notion/authorize'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -638,6 +650,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
+    | '/api/integrations/notion/authorize'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -659,6 +672,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
+  ApiIntegrationsNotionAuthorizeRoute: typeof ApiIntegrationsNotionAuthorizeRoute
   ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
   ApiPublicCronSendDueRemindersRoute: typeof ApiPublicCronSendDueRemindersRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
@@ -1017,6 +1031,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAttendanceMarkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integrations/notion/authorize': {
+      id: '/api/integrations/notion/authorize'
+      path: '/api/integrations/notion/authorize'
+      fullPath: '/api/integrations/notion/authorize'
+      preLoaderRoute: typeof ApiIntegrationsNotionAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1111,6 +1132,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
+  ApiIntegrationsNotionAuthorizeRoute: ApiIntegrationsNotionAuthorizeRoute,
   ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
   ApiPublicCronSendDueRemindersRoute: ApiPublicCronSendDueRemindersRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
