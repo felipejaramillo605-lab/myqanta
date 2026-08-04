@@ -3,50 +3,18 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveOrgWithRole, resolveOrgWithModuleAccess } from "./permissions";
 
-export const getNotionAuthUrl = createServerFn({ method: "GET" })
+/**
+ * Genera el `state` firmado (HMAC, 10 min de validez) que autoriza el inicio
+ * del flujo OAuth. Solo admin/owner de la org activa lo obtiene; la ruta
+ * `/api/integrations/notion/authorize` lo verifica antes de redirigir a Notion.
+ */
+export const createNotionOAuthState = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
-    const { notionCredentials, notionRedirectUri } = await import("./notion.server");
-    const { clientId } = notionCredentials();
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: "code",
-      owner: "user",
-      redirect_uri: notionRedirectUri(),
-      state: orgId,
-    });
-    return { url: `https://api.notion.com/v1/oauth/authorize?${params.toString()}` };
-  });
-
-export const completeNotionOAuth = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ code: z.string().min(1), state: z.string().uuid() }).parse(d),
-  )
-  .handler(async ({ context, data }) => {
-    const orgId = await resolveOrgWithRole(context.supabase, context.userId, "admin");
-    if (orgId !== data.state) {
-      throw new Error("La conexión pertenece a otra organización.");
-    }
-    const { exchangeNotionCode, notionRedirectUri } = await import("./notion.server");
-    const tokens = await exchangeNotionCode(data.code, notionRedirectUri());
-    const { error } = await context.supabase
-      .from("notion_connections" as never)
-      .upsert(
-        {
-          org_id: orgId,
-          access_token: tokens.access_token,
-          workspace_id: tokens.workspace_id ?? null,
-          workspace_name: tokens.workspace_name ?? null,
-          bot_id: tokens.bot_id ?? null,
-          connected_by: context.userId,
-          connected_at: new Date().toISOString(),
-        } as never,
-        { onConflict: "org_id" } as never,
-      );
-    if (error) throw new Error(error.message);
-    return { ok: true, workspace_name: tokens.workspace_name ?? null };
+    const { signNotionState, notionCredentials } = await import("./notion.server");
+    notionCredentials(); // falla con mensaje claro si faltan los secretos
+    return { state: signNotionState(orgId, context.userId) };
   });
 
 export const getNotionConnection = createServerFn({ method: "GET" })
@@ -55,16 +23,19 @@ export const getNotionConnection = createServerFn({ method: "GET" })
     const orgId = await resolveOrgWithRole(context.supabase, context.userId, "member");
     const { data, error } = await context.supabase
       .from("notion_connections" as never)
-      .select("workspace_name, connected_at")
+      .select("workspace_name, connected_at, database_id")
       .eq("org_id", orgId)
       .maybeSingle();
     // Los miembros sin permiso de admin no ven la fila por RLS: se reporta como sin conexión.
-    if (error) return { connected: false, workspace_name: null, connected_at: null };
-    const row = data as unknown as { workspace_name: string | null; connected_at: string } | null;
+    if (error) return { connected: false, workspace_name: null, connected_at: null, database_id: null };
+    const row = data as unknown as {
+      workspace_name: string | null; connected_at: string; database_id: string | null;
+    } | null;
     return {
       connected: !!row,
       workspace_name: row?.workspace_name ?? null,
       connected_at: row?.connected_at ?? null,
+      database_id: row?.database_id ?? null,
     };
   });
 
