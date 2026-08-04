@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserRound } from "lucide-react";
+import { Link2 } from "lucide-react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; group?: string };
 type NavCategory = { key: string; label: string; icon: typeof LayoutDashboard; items: NavItem[]; placeholder?: string };
