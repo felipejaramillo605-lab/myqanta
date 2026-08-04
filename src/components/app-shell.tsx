@@ -358,6 +358,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           {isAdmin && (
             <Link
+              to={"/settings/integrations" as never}
+              className={
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
+                (path.startsWith("/settings/integrations")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground")
+              }
+            >
+              <Link2 className="size-4" />
+              Integraciones
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
               to="/admin/theme"
               className={
                 "mt-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
@@ -501,6 +515,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       { to: "/settings/company", label: t("nav.company"), icon: Building2 },
                       { to: "/settings/profile", label: "Mi perfil", icon: UserRound },
                       ...(isAdmin ? [{ to: "/settings/roles", label: "Roles y permisos", icon: KeyRound }] : []),
+                      ...(isAdmin ? [{ to: "/settings/integrations", label: "Integraciones", icon: Link2 }] : []),
                     ] as NavItem[],
                   },
                 ].map((section) => (
