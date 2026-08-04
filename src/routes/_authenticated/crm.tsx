@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery, useQuery } from "@tansta
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState, type DragEvent } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, MessageSquare, Phone, Mail, Calendar as CalIcon, StickyNote } from "lucide-react";
+import { Plus, Trash2, Pencil, MessageSquare, Phone, Mail, Calendar as CalIcon, StickyNote, Send, Loader2 } from "lucide-react";
 
 import {
   DEAL_STAGES, type DealStage,
@@ -11,6 +11,7 @@ import {
   listDeals, upsertDeal, moveDealStage, deleteDeal,
   listActivities, addActivity, deleteActivity,
 } from "@/lib/crm.functions";
+import { getNotionConnection, listNotionDatabases, pushContactToNotion } from "@/lib/notion.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -391,6 +392,9 @@ function ContactsView() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [notionContact, setNotionContact] = useState<Contact | null>(null);
+  const notionStatusFn = useServerFn(getNotionConnection);
+  const { data: notion } = useQuery({ queryKey: ["notion-connection"], queryFn: () => notionStatusFn() });
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -439,6 +443,11 @@ function ContactsView() {
                 <td className="p-3 text-muted-foreground">{c.phone ?? "—"}</td>
                 <td className="p-3 text-right">
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="size-4" /></Button>
+                  {notion?.connected && (
+                    <Button variant="ghost" size="icon" title="Enviar a Notion" onClick={() => setNotionContact(c)}>
+                      <Send className="size-4" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={() => del.mutate(c.id)}><Trash2 className="size-4" /></Button>
                 </td>
               </tr>
@@ -451,7 +460,60 @@ function ContactsView() {
       </div>
 
       {open && <ContactDialog contact={editing} onClose={() => { setEditing(null); setOpen(false); }} onSave={(v) => save.mutate(v)} saving={save.isPending} />}
+      {notionContact && (
+        <NotionPushDialog contact={notionContact} onClose={() => setNotionContact(null)} />
+      )}
     </div>
+  );
+}
+
+function NotionPushDialog({ contact, onClose }: { contact: Contact; onClose: () => void }) {
+  const listDbFn = useServerFn(listNotionDatabases);
+  const pushFn = useServerFn(pushContactToNotion);
+  const [dbId, setDbId] = useState("");
+  const { data: dbs, isLoading, error } = useQuery({
+    queryKey: ["notion-databases"],
+    queryFn: () => listDbFn(),
+  });
+  const push = useMutation({
+    mutationFn: () => pushFn({ data: { contact_id: contact.id, database_id: dbId } }),
+    onSuccess: () => { toast.success("Contacto enviado a Notion"); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Enviar «{contact.name}» a Notion</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          {isLoading && <p className="text-sm text-muted-foreground">Cargando bases de datos…</p>}
+          {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
+          {dbs && dbs.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No hay bases de datos compartidas con Qanta. Comparte una desde Notion y vuelve a intentarlo.
+            </p>
+          )}
+          {dbs && dbs.length > 0 && (
+            <div>
+              <Label>Base de datos destino</Label>
+              <Select value={dbId} onValueChange={setDbId}>
+                <SelectTrigger><SelectValue placeholder="Elige una base de datos" /></SelectTrigger>
+                <SelectContent>
+                  {dbs.map((d) => (<SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => push.mutate()} disabled={!dbId || push.isPending}>
+            {push.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+            Enviar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

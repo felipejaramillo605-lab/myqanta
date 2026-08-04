@@ -433,6 +433,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          notion_page_id: string | null
           org_id: string
           phone: string | null
           source: string | null
@@ -449,6 +450,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          notion_page_id?: string | null
           org_id: string
           phone?: string | null
           source?: string | null
@@ -465,6 +467,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          notion_page_id?: string | null
           org_id?: string
           phone?: string | null
           source?: string | null
@@ -1705,6 +1708,53 @@ export type Database = {
             foreignKeyName: "journal_templates_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notion_connections: {
+        Row: {
+          access_token: string
+          bot_id: string | null
+          connected_at: string
+          connected_by: string
+          created_at: string
+          id: string
+          org_id: string
+          updated_at: string
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Insert: {
+          access_token: string
+          bot_id?: string | null
+          connected_at?: string
+          connected_by: string
+          created_at?: string
+          id?: string
+          org_id: string
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Update: {
+          access_token?: string
+          bot_id?: string | null
+          connected_at?: string
+          connected_by?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notion_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
