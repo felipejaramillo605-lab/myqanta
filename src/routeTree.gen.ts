@@ -34,10 +34,12 @@ import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as IntegrationsNotionCallbackRouteImport } from './routes/integrations.notion.callback'
 import { Route as AttendanceOrgIdTokenRouteImport } from './routes/attendance.$orgId.$token'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
+import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsCompanyRouteImport } from './routes/_authenticated/settings.company'
 import { Route as AuthenticatedHrOrgChartRouteImport } from './routes/_authenticated/hr_.org-chart'
 import { Route as AuthenticatedHrAttendanceRouteImport } from './routes/_authenticated/hr_.attendance'
@@ -185,6 +187,12 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const IntegrationsNotionCallbackRoute =
+  IntegrationsNotionCallbackRouteImport.update({
+    id: '/integrations/notion/callback',
+    path: '/integrations/notion/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AttendanceOrgIdTokenRoute = AttendanceOrgIdTokenRouteImport.update({
   id: '/attendance/$orgId/$token',
   path: '/attendance/$orgId/$token',
@@ -206,6 +214,12 @@ const AuthenticatedSettingsProfileRoute =
   AuthenticatedSettingsProfileRouteImport.update({
     id: '/settings/profile',
     path: '/settings/profile',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSettingsIntegrationsRoute =
+  AuthenticatedSettingsIntegrationsRouteImport.update({
+    id: '/settings/integrations',
+    path: '/settings/integrations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSettingsCompanyRoute =
@@ -366,10 +380,12 @@ export interface FileRoutesByFullPath {
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
   '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -416,10 +432,12 @@ export interface FileRoutesByTo {
   '/hr/attendance': typeof AuthenticatedHrAttendanceRoute
   '/hr/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/settings/company': typeof AuthenticatedSettingsCompanyRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -468,10 +486,12 @@ export interface FileRoutesById {
   '/_authenticated/hr_/attendance': typeof AuthenticatedHrAttendanceRoute
   '/_authenticated/hr_/org-chart': typeof AuthenticatedHrOrgChartRoute
   '/_authenticated/settings/company': typeof AuthenticatedSettingsCompanyRoute
+  '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/attendance/$orgId/$token': typeof AttendanceOrgIdTokenRoute
+  '/integrations/notion/callback': typeof IntegrationsNotionCallbackRoute
   '/api/public/attendance/mark': typeof ApiPublicAttendanceMarkRoute
   '/api/public/cron/send-due-reminders': typeof ApiPublicCronSendDueRemindersRoute
   '/api/public/hooks/log-request': typeof ApiPublicHooksLogRequestRoute
@@ -520,10 +540,12 @@ export interface FileRouteTypes {
     | '/hr/attendance'
     | '/hr/org-chart'
     | '/settings/company'
+    | '/settings/integrations'
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
+    | '/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -570,10 +592,12 @@ export interface FileRouteTypes {
     | '/hr/attendance'
     | '/hr/org-chart'
     | '/settings/company'
+    | '/settings/integrations'
     | '/settings/profile'
     | '/settings/roles'
     | '/settings/team'
     | '/attendance/$orgId/$token'
+    | '/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -621,10 +645,12 @@ export interface FileRouteTypes {
     | '/_authenticated/hr_/attendance'
     | '/_authenticated/hr_/org-chart'
     | '/_authenticated/settings/company'
+    | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/team'
     | '/attendance/$orgId/$token'
+    | '/integrations/notion/callback'
     | '/api/public/attendance/mark'
     | '/api/public/cron/send-due-reminders'
     | '/api/public/hooks/log-request'
@@ -646,6 +672,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AttendanceOrgIdTokenRoute: typeof AttendanceOrgIdTokenRoute
+  IntegrationsNotionCallbackRoute: typeof IntegrationsNotionCallbackRoute
   ApiPublicAttendanceMarkRoute: typeof ApiPublicAttendanceMarkRoute
   ApiPublicCronSendDueRemindersRoute: typeof ApiPublicCronSendDueRemindersRoute
   ApiPublicHooksLogRequestRoute: typeof ApiPublicHooksLogRequestRoute
@@ -829,6 +856,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations/notion/callback': {
+      id: '/integrations/notion/callback'
+      path: '/integrations/notion/callback'
+      fullPath: '/integrations/notion/callback'
+      preLoaderRoute: typeof IntegrationsNotionCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/attendance/$orgId/$token': {
       id: '/attendance/$orgId/$token'
       path: '/attendance/$orgId/$token'
@@ -855,6 +889,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings/integrations': {
+      id: '/_authenticated/settings/integrations'
+      path: '/settings/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings/company': {
@@ -1029,6 +1070,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHrAttendanceRoute: typeof AuthenticatedHrAttendanceRoute
   AuthenticatedHrOrgChartRoute: typeof AuthenticatedHrOrgChartRoute
   AuthenticatedSettingsCompanyRoute: typeof AuthenticatedSettingsCompanyRoute
+  AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -1064,6 +1106,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHrAttendanceRoute: AuthenticatedHrAttendanceRoute,
   AuthenticatedHrOrgChartRoute: AuthenticatedHrOrgChartRoute,
   AuthenticatedSettingsCompanyRoute: AuthenticatedSettingsCompanyRoute,
+  AuthenticatedSettingsIntegrationsRoute:
+    AuthenticatedSettingsIntegrationsRoute,
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
@@ -1088,6 +1132,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AttendanceOrgIdTokenRoute: AttendanceOrgIdTokenRoute,
+  IntegrationsNotionCallbackRoute: IntegrationsNotionCallbackRoute,
   ApiPublicAttendanceMarkRoute: ApiPublicAttendanceMarkRoute,
   ApiPublicCronSendDueRemindersRoute: ApiPublicCronSendDueRemindersRoute,
   ApiPublicHooksLogRequestRoute: ApiPublicHooksLogRequestRoute,
