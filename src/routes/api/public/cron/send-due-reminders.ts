@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { safeCompare } from "@/lib/safe-compare.server";
 
 export const Route = createFileRoute("/api/public/cron/send-due-reminders")({
   server: {
@@ -6,7 +7,7 @@ export const Route = createFileRoute("/api/public/cron/send-due-reminders")({
       POST: async ({ request }) => {
         const secret = process.env.REMINDERS_CRON_SECRET ?? process.env.CRON_SECRET;
         const provided = request.headers.get("x-cron-secret");
-        if (!secret || !provided || provided !== secret) {
+        if (!secret || !provided || !safeCompare(provided, secret)) {
           return Response.json({ error: "unauthorized" }, { status: 401 });
         }
 

@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { computeNextOccurrence } from "@/lib/reminders-recurrence";
 import { sendGmail } from "@/lib/gmail.server";
 import { sendWhatsapp } from "@/lib/whatsapp.server";
+import { safeCompare } from "@/lib/safe-compare.server";
 
 // Called by pg_cron every minute (or on demand) to dispatch due WhatsApp
 // reminders. Public route — anon key acts as the shared secret and RLS is
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/api/public/hooks/process-reminders")({
         // value is shipped to every browser as VITE_SUPABASE_PUBLISHABLE_KEY.
         const cronSecret = process.env.CRON_SECRET;
         const provided = request.headers.get("x-cron-secret");
-        if (!cronSecret || !provided || provided !== cronSecret) {
+        if (!cronSecret || !provided || !safeCompare(provided, cronSecret)) {
           return new Response(JSON.stringify({ error: "unauthorized" }), {
             status: 401,
             headers: { "content-type": "application/json" },
