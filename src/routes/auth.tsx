@@ -200,7 +200,7 @@ function AuthPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="password-up">{t("auth.password")}</Label>
-                  <Input id="password-up" name="password" type="password" required autoComplete="new-password" minLength={6} />
+                  <Input id="password-up" name="password" type="password" required autoComplete="new-password" minLength={10} />
                 </div>
                 <Button type="submit" className="w-full" disabled={busy}>
                   {busy ? <Loader2 className="size-4 animate-spin" /> : t("auth.signup")}
