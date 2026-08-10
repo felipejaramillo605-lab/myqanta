@@ -27,7 +27,17 @@ export const Route = createFileRoute("/auth")({
 });
 
 const emailSchema = z.string().trim().email().max(255);
-const passwordSchema = z.string().min(6).max(72);
+// Política estricta: solo para registro de cuentas nuevas.
+const signupPasswordSchema = z
+  .string()
+  .min(10, "La contraseña debe tener al menos 10 caracteres")
+  .max(72, "La contraseña no puede superar 72 caracteres")
+  .regex(/[a-z]/, "Debe incluir al menos una minúscula")
+  .regex(/[A-Z]/, "Debe incluir al menos una mayúscula")
+  .regex(/[0-9]/, "Debe incluir al menos un número")
+  .regex(/[^a-zA-Z0-9]/, "Debe incluir al menos un símbolo (ej. !@#$%)");
+// Permisiva: el login no debe re-exigir la política nueva a cuentas ya creadas.
+const signinPasswordSchema = z.string().min(6).max(72);
 
 function AuthPage() {
   const { t, lang, setLang } = useI18n();
@@ -47,7 +57,9 @@ function AuthPage() {
     setBusy(true);
     try {
       const email = emailSchema.parse(form.get("email"));
-      const password = passwordSchema.parse(form.get("password"));
+      const password = (mode === "signup" ? signupPasswordSchema : signinPasswordSchema).parse(
+        form.get("password"),
+      );
       if (mode === "signup") {
         const full_name = String(form.get("full_name") ?? "").trim().slice(0, 100);
         const { error } = await supabase.auth.signUp({
@@ -71,7 +83,12 @@ function AuthPage() {
         }
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg =
+        e instanceof z.ZodError
+          ? (e.issues[0]?.message ?? "Datos inválidos")
+          : e instanceof Error
+            ? e.message
+            : String(e);
       toast.error(msg);
     } finally {
       setBusy(false);
