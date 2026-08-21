@@ -285,13 +285,72 @@ UPCOMING EVENTS: ${JSON.stringify(evRes.data ?? [])}
 
 Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
 
+    // Cross-module snapshot (CRM pipeline, receivables, active projects) so
+    // Qanta can answer without spending a tool call.
+    const [dealRes, invRes, projRes] = await Promise.all([
+      context.supabase
+        .from("crm_deals")
+        .select("title,stage,amount,expected_close_date")
+        .eq("org_id", orgId)
+        .not("stage", "in", "(won,lost)")
+        .limit(60),
+      context.supabase
+        .from("sales_invoices")
+        .select("number,customer_name_snapshot,total,paid_amount,due_date,status")
+        .eq("org_id", orgId)
+        .not("status", "in", "(draft,void,paid)")
+        .limit(100),
+      context.supabase
+        .from("projects")
+        .select("name,status,budget_amount,end_date")
+        .eq("org_id", orgId)
+        .eq("status", "active")
+        .limit(30),
+    ]);
+    const pipeline: Record<string, { count: number; amount: number }> = {};
+    for (const d of dealRes.data ?? []) {
+      const b = (pipeline[d.stage] ??= { count: 0, amount: 0 });
+      b.count += 1;
+      b.amount += Number(d.amount ?? 0);
+    }
+    const todayIso = now.toISOString().slice(0, 10);
+    let receivable = 0;
+    let overdueCount = 0;
+    for (const i of invRes.data ?? []) {
+      const balance = Number(i.total) - Number(i.paid_amount ?? 0);
+      if (balance <= 0) continue;
+      receivable += balance;
+      if (i.due_date && i.due_date < todayIso) overdueCount += 1;
+    }
+    const crossModuleContext = `
+
+CRM PIPELINE (open deals by stage): ${JSON.stringify(pipeline)}
+
+RECEIVABLES: pending ${receivable.toFixed(2)} across ${(invRes.data ?? []).length} open invoices, ${overdueCount} overdue.
+
+ACTIVE PROJECTS: ${JSON.stringify(projRes.data ?? [])}`;
+
     const actions: ActionRecord[] = [];
+
+    const toolCtx: AssistantToolCtx = {
+      supabase: context.supabase,
+      userId: context.userId,
+      record: async (rec, scopedOrg) => {
+        actions.push(rec);
+        await logAction(context.supabase, scopedOrg, context.userId, rec);
+      },
+    };
 
     // Tools are only exposed to owner/admin. Every tool resolves its own
     // org_id server-side from the authenticated session — the model never
     // supplies an org identifier.
     const tools = canAct
       ? {
+          ...crmTools(toolCtx),
+          ...salesTools(toolCtx),
+          ...opsTools(toolCtx),
+          ...workflowTools(toolCtx),
+
           schedule_event: tool({
             description:
               "Create a calendar event in the user's active organization. Use for meetings, appointments, reminders with a specific time.",
