@@ -201,7 +201,10 @@ function PipelineView() {
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", d.id)}
                   onClick={() => setEditing(d)}
-                  className="cursor-grab rounded-lg border border-border/60 bg-background/60 p-3 text-sm hover:border-primary/60"
+                  className={
+                    "cursor-grab rounded-lg border bg-background/60 p-3 text-sm hover:border-primary/60 " +
+                    (isStale(d) ? "border-destructive/50" : "border-border/60")
+                  }
                 >
                   <div className="font-medium">{d.title}</div>
                   {d.contact_id && contactMap.get(d.contact_id) && (
@@ -211,6 +214,10 @@ function PipelineView() {
                     <span className="font-mono text-xs">{fmt(Number(d.amount), d.currency)}</span>
                     <span className="text-[10px] text-muted-foreground">{d.probability}%</span>
                   </div>
+                  {isStale(d) && (
+                    <div className="mt-1 text-[10px] font-medium text-destructive">Sin actividad 14+ días</div>
+                  )}
+
                 </div>
               ))}
             </div>
