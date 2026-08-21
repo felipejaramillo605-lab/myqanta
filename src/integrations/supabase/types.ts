@@ -1948,6 +1948,8 @@ export type Database = {
           logo_url: string | null
           name: string
           onboarded_at: string | null
+          onboarding_skipped: boolean
+          onboarding_step: number
           other_retentions: string | null
           phone: string | null
           slug: string | null
@@ -1979,6 +1981,8 @@ export type Database = {
           logo_url?: string | null
           name: string
           onboarded_at?: string | null
+          onboarding_skipped?: boolean
+          onboarding_step?: number
           other_retentions?: string | null
           phone?: string | null
           slug?: string | null
@@ -2010,6 +2014,8 @@ export type Database = {
           logo_url?: string | null
           name?: string
           onboarded_at?: string | null
+          onboarding_skipped?: boolean
+          onboarding_step?: number
           other_retentions?: string | null
           phone?: string | null
           slug?: string | null
