@@ -8,6 +8,12 @@ import { resolveOrgWithRole, resolveOrgWithModuleAccess, type OrgRole } from "./
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { suggestCategory } from "./categories";
+import { crmTools } from "./assistant-tools/crm.server";
+import { salesTools } from "./assistant-tools/sales.server";
+import { opsTools } from "./assistant-tools/ops.server";
+import { workflowTools } from "./assistant-tools/workflow.server";
+import type { AssistantToolCtx } from "./assistant-tools/context.server";
+
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
