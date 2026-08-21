@@ -12,6 +12,9 @@ import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
 import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
 import { getEbitdaSeries } from "@/lib/finance.functions";
 import { getHabitsHeatmap } from "@/lib/productivity.functions";
+import { getActionCenter } from "@/lib/insights.functions";
+import { ActionCenter } from "@/components/action-center";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Qanta — Panel" }] }),
