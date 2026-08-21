@@ -1,132 +1,64 @@
+# Bloque de mejoras por módulo + Qanta con acceso a más módulos
 
-## Diagnóstico rápido
+Dos partes independientes: (A) nuevas herramientas de IA para Qanta, (B) mejoras concretas de módulos.
 
-**Ya está listo:**
-- Consola de plataforma (`/admin/platform`): lista de usuarios, orgs, bloquear/reactivar.
-- Bitácora de seguridad (`/admin/security-log`): filtros por severidad/tipo/búsqueda, auto-refresh 30s.
-- Roles `platform_owner` / `admin_manager` / `user`, RLS estricta, `security_events` con RPC `log_security_event`.
-- Módulos base: Dashboard, Finanzas+EBITDA, Inventario/Compras, Hábitos, Agenda, Recordatorios (Email+WhatsApp), Equipo, Notificaciones, PWA, Asistente IA.
+## Parte A — Qanta: de 6 a 16 herramientas
 
-**Pendiente detectado del plan (`.lovable/plan.md`) y de tu petición:**
-1. No hay panel de **tráfico/actividad por usuario** (rate de requests, picos, geo/IP repetida, ratio de fallos) — hoy solo se registran eventos discretos, no volumetría.
-2. Faltan **módulos tipo ERP** para completar el uso personal/empresarial: CRM ligero, Ventas/Facturación, RRHH, Proyectos, Documentos, Reportería consolidada.
+Hoy Qanta puede: agendar evento, crear empleado, ajustar stock, buscar documento, listar bancos y registrar compra/gasto. Le faltan CRM, Ventas, Proyectos, RRHH, Recordatorios, Aprobaciones y consultas de reportes.
 
----
+Nuevas herramientas (todas resuelven `org_id` en el servidor, siguen `resolveOrgWithModuleAccess` del módulo correspondiente, quedan auditadas en `ai_actions` y solo se exponen a owner/admin, igual que hoy):
 
-## Plan propuesto
+CRM (`/crm`)
+- `crm_create_contact` — crea contacto (nombre, email, teléfono, empresa).
+- `crm_create_deal` — crea oportunidad (título, contacto, monto, etapa).
+- `crm_move_deal` — mueve una oportunidad de etapa por nombre ("pasa el negocio X a negociación").
+- `crm_log_activity` — registra nota/llamada/reunión sobre un contacto o negocio.
 
-### Fase A — Consola del owner: tráfico y detección de abuso
+Ventas (`/sales`)
+- `sales_create_invoice` — crea factura borrador para un cliente con líneas (descripción, cantidad, precio, IVA); resuelve o crea el cliente por nombre.
+- `sales_register_payment` — registra pago sobre una factura por número.
+- `sales_overdue_summary` — facturas vencidas y cartera pendiente (lectura).
 
-**A1. Métricas de tráfico por usuario (nueva pestaña "Actividad" en `/admin/platform`)**
-- Tabla nueva `request_metrics` (user_id nullable, path, method, status, duration_ms, ip_hash, ua_hash, occurred_at) + índices por `user_id, occurred_at` y `ip_hash, occurred_at`.
-- Middleware ligero en `src/start.ts` (functionMiddleware) + wrapper en rutas `api/*` que inserta la métrica async (fire-and-forget con `supabaseAdmin`).
-- Vistas SQL materializadas cada 5 min:
-  - `mv_requests_per_user_hour` → serie temporal por usuario.
-  - `mv_top_ips_24h` → IPs con más peticiones y ratio de 4xx/5xx.
-  - `mv_failed_logins_24h` → derivada de `security_events` tipo `login_failed`.
+Proyectos (`/projects`)
+- `project_create_task` — crea tarea con prioridad, responsable (por nombre de empleado) y fecha límite.
+- `project_log_time` — registra horas en un proyecto/tarea.
 
-**A2. Panel "Seguridad y tráfico"** en `/admin/platform`
-- KPIs: peticiones últimas 24h, usuarios activos, IPs únicas, ratio errores 4xx/5xx, logins fallidos, cuentas bloqueadas.
-- Gráficos (recharts): requests/hora 24h, top 10 usuarios por volumen, top 10 IPs, heatmap login fallidos por hora.
-- Tabla "sospechosos": usuarios/IPs con score > umbral (regla: >N req/min, >X 4xx consecutivos, logins fallidos ≥5 en 15 min, acceso desde >3 IPs en 1h).
-- Acción rápida: bloquear usuario, marcar IP como observada (`ip_watchlist`).
+RRHH (`/hr`)
+- `hr_request_leave` — crea solicitud de ausencia para un empleado por nombre.
+- `hr_team_directory` — consulta directorio (nombre, cargo, id de empleado) (lectura).
 
-**A3. Alertas automáticas**
-- Trigger en `security_events` severity=critical → `notifications` para todos los `platform_owner`.
-- Cron `pg_cron` cada 5 min recalcula MVs y evalúa reglas → inserta `security_events` sintéticos (`suspicious_activity`).
+Recordatorios y aprobaciones
+- `create_reminder` — crea recordatorio con destino email del empleado seleccionado por nombre (`/agenda`).
+- `create_approval` — abre una solicitud de aprobación (`/approvals`).
 
----
+Reportes (lectura)
+- `financial_indicators` — devuelve los 6 ratios ya calculados en `getFinancialIndicators` para que Qanta los interprete.
 
-### Fase B — Módulos ERP faltantes
+Reglas transversales:
+- Resolución difusa por nombre (empleado, cliente, contacto, proyecto, cuenta): si hay ambigüedad la herramienta devuelve las opciones y Qanta pregunta, no adivina.
+- Nada destructivo: sin herramientas de borrado ni de emisión definitiva de factura/nómina; las facturas se crean en borrador.
+- El prompt del sistema se amplía con un resumen corto de CRM (pipeline por etapa), cartera de ventas y proyectos activos para que responda con datos sin llamar herramientas.
 
-Priorizados por impacto vs. esfuerzo. Cada módulo hereda `org_id` + RLS + rol.
+## Parte B — Mejoras de módulos
 
-**B1. CRM (leads, clientes, oportunidades)**
-- Tablas: `crm_contacts`, `crm_deals` (etapa kanban), `crm_activities` (llamadas/mails/notas).
-- Ruta `/crm` con kanban de pipeline + ficha de contacto.
-- Enlaza a `finance_transactions` (deal ganado → factura) y `team_members` (owner del deal).
+1. Dashboard: tarjetas accionables con cartera vencida, negocios por cerrar este mes, stock crítico y aprobaciones pendientes, cada una enlazando a su módulo.
+2. CRM: valor ponderado del pipeline por etapa, filtro por responsable y aviso de negocios sin actividad en 14+ días.
+3. Ventas: estado calculado de la factura (borrador / emitida / parcial / pagada / vencida) con badges, saldo pendiente por cliente y vista de antigüedad de cartera (0-30, 31-60, 61-90, +90).
+4. Inventario: valorización de stock (cantidad × costo), rotación por producto en los últimos 90 días y sugerencia de cantidad a reordenar.
+5. Proyectos: horas registradas vs. presupuesto con barra de progreso y margen estimado del proyecto.
+6. RRHH: calendario de ausencias del mes y resumen de días disponibles por empleado.
+7. Reportes: comparativo mes vs. mes anterior por bucket y exportación del set completo de indicadores a CSV/PDF con la utilidad existente.
+8. Agenda: búsqueda unificada sobre eventos, tareas, hábitos y recordatorios.
 
-**B2. Ventas y facturación**
-- Tablas: `sales_quotes`, `sales_invoices`, `sales_invoice_items`, `sales_payments`.
-- Generación PDF (jsPDF), numeración por org, estados (borrador/emitida/pagada/vencida).
-- Integración con Inventario (descuenta stock al emitir) y Finanzas (crea transacción al cobrar).
-- Ruta `/sales` con lista + editor.
+## Notas técnicas
 
-**B3. Proyectos y tiempos**
-- Tablas: `projects`, `project_members`, `time_entries`.
-- Vista Gantt-lite + timesheet semanal. Enlaza tareas existentes (`tasks.project_id`).
-- Ruta `/projects`.
-
-**B4. RRHH / Nómina básica**
-- Extiende `team_members` con: contrato, salario base, fecha ingreso, vacaciones disponibles.
-- Tablas: `hr_leaves` (solicitudes vacaciones/permisos), `hr_payroll_runs`.
-- Ruta `/hr` con calendario de ausencias + generador mensual de nómina (crea gasto en Finanzas).
-
-**B5. Documentos**
-- Bucket Storage `documents` + tabla `documents` (metadatos, org_id, tags, entidad relacionada).
-- Drag&drop, previsualización PDF/imagen, búsqueda full-text con Gemini para OCR de PDFs escaneados.
-- Ruta `/documents`.
-
-**B6. Reportería consolidada**
-- Ruta `/reports`: constructor de reportes (elige módulo → dimensiones → medidas → gráfico).
-- Programación de envío por email (Gmail connector) semanal/mensual.
-- Export PDF/CSV, guardar reportes favoritos.
-
-**B7. Configuración de empresa (extensión de `/team` → `/settings/company`)**
-- Datos fiscales, logo, series de facturación, tipos de IVA, monedas, plantillas de email.
-
----
-
-## Detalles técnicos
-
-- **Métricas**: para no penalizar latencia, `request_metrics` se inserta con `pg_net` async o batch cada 30s en memoria del worker. Retención 30 días (cron de limpieza).
-- **IP hashing**: SHA-256 con salt por org — no se guarda IP en claro para GDPR.
-- **RLS**: todas las nuevas tablas usan `can_write_org()` + `is_org_member()`. `request_metrics` solo lectura para `platform_owner` global; usuarios ven las suyas.
-- **Rate limiting** (opcional, requiere confirmación): edge middleware con token bucket en KV — hoy no hay primitiva estándar, se documentaría el trade-off.
-- **Dependencias nuevas**: ninguna crítica (jsPDF, recharts ya instalados). Storage bucket para documentos.
-- **Migraciones**: una por fase para minimizar riesgo. B1→B7 pueden entregarse incrementalmente.
-
----
+- Sin migraciones nuevas: todo se apoya en tablas existentes (`crm_*`, `sales_*`, `projects`, `tasks`, `time_entries`, `hr_leaves`, `team_members`, `reminders`, `approvals`, `fin_*`).
+- Las herramientas nuevas reutilizan la lógica de las `*.functions.ts` existentes; la parte que hoy vive dentro de un `createServerFn` se extrae a helpers `*.server.ts` cuando haga falta compartirla, para no llamar stubs RPC desde el handler del asistente.
+- `src/lib/assistant.functions.ts` ya es grande; las nuevas herramientas se agrupan en módulos `src/lib/assistant-tools/<modulo>.server.ts` y se ensamblan en el handler, manteniendo el archivo de server functions como envoltorio delgado.
+- Cada mejora de la Parte B es solo UI + agregaciones sobre datos ya consultados.
 
 ## Orden sugerido
 
-1. **A1+A2+A3** ✅ entregado — consola `/admin/security` con métricas, sospechosos, watchlist.
-2. **B2 Ventas** ✅ entregado — `/sales` con clientes, facturas (borrador → emitida → pagada/anulada), líneas con producto/IVA, cobros que crean transacción en Finanzas, descarga PDF y descuento automático de stock.
-3. **B1 CRM** ✅ entregado — `/crm` con kanban de pipeline, contactos y actividades.
-4. **B3 Proyectos** ✅ entregado — `/projects` con CRUD de proyectos, estados, presupuesto y timesheet por proyecto.
-5. **B4 RRHH** ✅ entregado — `/hr` con fichas de contrato, ausencias con aprobación y generador mensual de nómina que crea gasto en Finanzas al cerrarse.
-6. **B5 Documentos** ✅ entregado — `/documents` con bucket privado, subida drag&drop mediante URL firmada y descarga con URL firmada de 10 min.
-7. **B6 Reportería** ✅ entregado — `/reports` con KPIs consolidados por rango (Finanzas, Ventas, Inventario, Proyectos, RRHH, CRM), top clientes y export CSV.
-8. **B7 Configuración de empresa** ✅ entregado — `/settings/company` con datos fiscales, logo, contacto, prefijo de factura, IVA por defecto, moneda y pie de página.
-
----
-
-## Nuevo plan maestro ERP (SAP/Siigo-style) — subido por el usuario
-
-Referencia: `user-uploads://qanta-plan-erp.md`. Fases enviadas una a la vez.
-
-- **Fase 0 — Nav móvil** ✅ entregado. Bottom nav = 5 accesos rápidos (Panel, Ventas, Compras, RRHH, Agenda) + botón "Más" que abre `Sheet` con el resto en grid 2 col. Desktop sin cambios.
-- **Fase 1 — Motor de aprobaciones + Tareas ClickUp** ✅ entregado.
-  - Tablas `approvals` (module, entity_id, status, assigned_to, requested_by, rejection_reason) y `approval_comments`.
-  - Extensión de `tasks`: `assigned_to`, `approval_id`, `source_module`, `approval_status`.
-  - Server fns en `src/lib/approvals.functions.ts` — `createApproval` (auto-crea task ligada), `decideApproval` (solo el `assigned_to`), `addApprovalComment`, `listApprovalComments`, `deleteApproval`.
-  - Ruta `/approvals` con kanban (pendiente / en revisión / aprobado / rechazado) + vista lista + filtros (Para aprobar / Mis solicitudes / Todo).
-  - Regla de negocio validada: solo el aprobador asignado cambia el estado; el resto ve y comenta. Rechazo exige motivo.
-- **Fase 2 — Perfil de negocio ampliado** ✅ entregado.
-  - Columnas nuevas en `organizations`: `approvers_by_module` (jsonb), `vat_responsible`, `ica_responsible`, `ica_rate`, `other_retentions`.
-  - `updateBusinessProfile` (server fn con `admin` role gate) valida que cada aprobador sea miembro activo de la org, deduplica y limita a 4 por módulo. `getModuleApprovers({module})` expone la lista al motor de la Fase 1.
-  - UI en `/settings/company`: sección "Aprobadores por módulo" (Compras, Legal, Finanzas, RRHH) con selector de 1 a 4 miembros por módulo, y "Régimen tributario" (IVA, ICA + tarifa, otras retenciones).
-- **Fase 3 — Categorías de navegación estilo SAP** pendiente.
-- **Fase 4 — Finanzas expandida (asientos, terceros, bancos, impuestos)** pendiente.
-- **Fase 5 — Conciliación bancaria automatizada** pendiente.
-- **Fase 6 — RRHH expandido (organigrama, asistencia QR)** pendiente.
-- **Fase 7 — Legal (contratos, compliance, aprobación jurídica)** pendiente — conectará al motor de Fase 1.
-- **Fase 8 — Operaciones (pedido de compra, 3-way match)** pendiente — conectará al motor de Fase 1.
-
----
-
-## Preguntas antes de arrancar
-
-1. ¿Empiezo por **Fase A** (seguridad + tráfico) y luego iteramos ERP módulo a módulo, o quieres que ejecute **A + B2 (Ventas)** en la misma entrega?
-2. En A1, ¿ok con **hash de IP** (privacidad) o prefieres **IP en claro** para investigación forense?
-3. Para ERP: ¿tu caso principal es **personal** (prioriza Documentos, Proyectos, Reportería) o **empresa** (prioriza Ventas, CRM, RRHH)?
+1. Parte A: CRM + Ventas + Recordatorios (mayor impacto conversacional).
+2. Parte A: Proyectos + RRHH + Aprobaciones + indicadores.
+3. Parte B: puntos 1-4, luego 5-8.
