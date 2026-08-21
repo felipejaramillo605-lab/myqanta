@@ -441,7 +441,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {isAdmin ? "ADMIN_MANAGER" : "USER"}
               </div>
             </div>
+            <GlobalSearch />
             <NotificationBell />
+
             <AssistantPanel />
           </div>
         </div>
