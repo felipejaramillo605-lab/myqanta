@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HrLeaveCalendar } from "@/components/hr-leave-calendar";
+
 
 export const Route = createFileRoute("/_authenticated/hr")({
   head: () => ({ meta: [
@@ -190,6 +192,8 @@ function HrPage() {
               <Plus className="mr-1 size-4" /> Nueva solicitud
             </Button>
           </div>
+          <HrLeaveCalendar leaves={(leavesQ.data ?? []) as never} members={members as never} />
+
           <div className="glass rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">

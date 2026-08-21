@@ -14,6 +14,7 @@ import { getEbitdaSeries } from "@/lib/finance.functions";
 import { getHabitsHeatmap } from "@/lib/productivity.functions";
 import { getActionCenter } from "@/lib/insights.functions";
 import { ActionCenter } from "@/components/action-center";
+import { SetupChecklist } from "@/components/setup-checklist";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -99,6 +100,8 @@ function Dashboard() {
         <KPI label={t("dash.kpi.ebitda")} value={fmt(kpis.current.ebitda)} delta={kpis.deltas.ebitda} positive />
         <KPI label={t("dash.kpi.net")} value={fmt(kpis.current.net)} delta={kpis.deltas.net} positive />
       </div>
+
+      <SetupChecklist />
 
       <ActionCenter />
 

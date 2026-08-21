@@ -29,9 +29,11 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyModuleAccess } from "@/lib/custom-roles.functions";
 import { getOrgViewPreferences } from "@/lib/custom-roles.functions";
-import { ViewModeOnboardingDialog } from "@/components/view-mode-onboarding-dialog";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { AppGuideDialog } from "@/components/app-guide-dialog";
 import { NotificationBell } from "@/components/notification-bell";
+import { GlobalSearch } from "@/components/global-search";
+
 import { AssistantPanel } from "@/components/assistant-panel";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { BusinessOnboardingDialog } from "@/components/business-onboarding-dialog";
@@ -441,7 +443,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {isAdmin ? "ADMIN_MANAGER" : "USER"}
               </div>
             </div>
+            <GlobalSearch />
             <NotificationBell />
+
             <AssistantPanel />
           </div>
         </div>
@@ -554,8 +558,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="h-16 lg:hidden" />
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
-      <BusinessOnboardingDialog autoOpenIfMissing />
-      <ViewModeOnboardingDialog />
+      <OnboardingWizard />
+
       <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
   );
