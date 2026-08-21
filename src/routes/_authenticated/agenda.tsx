@@ -130,6 +130,16 @@ function Agenda() {
   const [cursor, setCursor] = useState(() => new Date());
   const [dayDetail, setDayDetail] = useState<string | null>(null);
   const [reminderPrompt, setReminderPrompt] = useState<ReminderPromptPayload | null>(null);
+  const [q, setQ] = useState("");
+  const matches = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (term.length < 2) return [] as CalItem[];
+    return items
+      .filter((it) => it.title.toLowerCase().includes(term))
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 40);
+  }, [q, items]);
+
 
   return (
     <div className="space-y-8">
