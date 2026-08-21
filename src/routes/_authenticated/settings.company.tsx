@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Save, Loader2, Plus, X } from "lucide-react";
+import { Save, Loader2, Plus, X, Sparkles } from "lucide-react";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import {
   getBusinessContext,
   updateCompanySettings,
@@ -62,6 +63,7 @@ function CompanySettingsPage() {
     queryKey: ["org-view-preferences"],
     queryFn: () => fetchPrefs(),
   });
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [viewMode, setViewModeState] = useState<"business" | "personal">("business");
   const [hidden, setHidden] = useState<string[]>([]);
   useEffect(() => {
