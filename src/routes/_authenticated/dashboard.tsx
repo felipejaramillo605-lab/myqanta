@@ -100,6 +100,10 @@ function Dashboard() {
         <KPI label={t("dash.kpi.net")} value={fmt(kpis.current.net)} delta={kpis.deltas.net} positive />
       </div>
 
+      <ActionCenter />
+
+
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-3">
           <LowStockAlerts compact />
