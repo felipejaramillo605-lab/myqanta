@@ -81,6 +81,21 @@ function ReportsPage() {
       { section: "CRM", metric: "Pipeline", value: report.crm.pipeline_value },
       { section: "CRM", metric: "Ganado", value: report.crm.won_value },
     ];
+    if (indicators) {
+      for (const m of INDICATOR_META) {
+        const ind = indicators.indicators[m.key];
+        rows.push({
+          section: "Indicadores",
+          metric: m.label,
+          value: ind.value === null ? "" : m.percent ? Number((ind.value * 100).toFixed(2)) : Number(ind.value.toFixed(2)),
+        });
+      }
+    }
+    if (prev) {
+      rows.push({ section: "Periodo anterior", metric: "EBITDA", value: prev.finance.ebitda });
+      rows.push({ section: "Periodo anterior", metric: "Ingresos", value: prev.finance.revenue });
+      rows.push({ section: "Periodo anterior", metric: "Facturado", value: prev.sales.invoiced_total });
+    }
     downloadCsv(`qanta-reporte-${from}_${to}.csv`, rows);
   };
 
@@ -168,7 +183,67 @@ function ReportsPage() {
         </div>
       )}
 
+      {report && prev && <ComparisonSection current={report} previous={prev} fmt={fmt} />}
+
       {indicators && <IndicatorsSection data={indicators} />}
+    </div>
+  );
+}
+
+function ComparisonSection({
+  current,
+  previous,
+  fmt,
+}: {
+  current: ConsolidatedReport;
+  previous: ConsolidatedReport;
+  fmt: Intl.NumberFormat;
+}) {
+  const rows = [
+    { label: "Ingresos", now: current.finance.revenue, before: previous.finance.revenue, money: true },
+    { label: "COGS", now: current.finance.cogs, before: previous.finance.cogs, money: true, inverse: true },
+    { label: "OPEX", now: current.finance.opex, before: previous.finance.opex, money: true, inverse: true },
+    { label: "EBITDA", now: current.finance.ebitda, before: previous.finance.ebitda, money: true },
+    { label: "Facturado", now: current.sales.invoiced_total, before: previous.sales.invoiced_total, money: true },
+    { label: "Cobrado", now: current.sales.paid_total, before: previous.sales.paid_total, money: true },
+    { label: "Horas proyectos", now: current.projects.hours, before: previous.projects.hours, money: false },
+    { label: "Pipeline CRM", now: current.crm.pipeline_value, before: previous.crm.pipeline_value, money: true },
+  ];
+  return (
+    <div className="space-y-3">
+      <h2 className="text-sm font-semibold text-muted-foreground">Comparativo con el periodo anterior</h2>
+      <div className="glass overflow-hidden rounded-2xl">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">Métrica</th>
+              <th className="px-3 py-2 text-right">Actual</th>
+              <th className="px-3 py-2 text-right">Anterior</th>
+              <th className="px-3 py-2 text-right">Variación</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {rows.map((r) => {
+              const delta = r.before === 0 ? (r.now === 0 ? 0 : 100) : ((r.now - r.before) / Math.abs(r.before)) * 100;
+              const good = r.inverse ? delta <= 0 : delta >= 0;
+              return (
+                <tr key={r.label}>
+                  <td className="px-3 py-2">{r.label}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {r.money ? fmt.format(r.now) : r.now.toFixed(1)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                    {r.money ? fmt.format(r.before) : r.before.toFixed(1)}
+                  </td>
+                  <td className={"px-3 py-2 text-right font-mono " + (good ? "text-emerald-500" : "text-destructive")}>
+                    {delta >= 0 ? "+" : ""}{delta.toFixed(1)}%
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
