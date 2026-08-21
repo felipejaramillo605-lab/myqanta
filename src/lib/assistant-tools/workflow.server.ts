@@ -46,15 +46,23 @@ export function workflowTools(ctx: AssistantToolCtx) {
             memberId = m.row.id;
             target = m.row.full_name;
           } else {
-            const { data: prof } = await ctx.supabase
-              .from("profiles")
+            const { data: self } = await ctx.supabase
+              .from("team_members")
               .select("email,full_name")
-              .eq("id", ctx.userId)
+              .eq("org_id", orgId)
+              .eq("user_id", ctx.userId)
               .maybeSingle();
-            email = prof?.email ?? null;
-            if (!email) return { ok: false as const, error: "No hay correo registrado para enviarte el recordatorio." };
-            target = prof?.full_name ?? "tú";
+            email = self?.email ?? null;
+            if (!email) {
+              return {
+                ok: false as const,
+                error:
+                  "No hay correo registrado para enviarte el recordatorio. Indica a qué empleado del directorio debe llegar.",
+              };
+            }
+            target = self?.full_name ?? "tú";
           }
+
           const { data: rem, error } = await ctx.supabase
             .from("reminders")
             .insert({
