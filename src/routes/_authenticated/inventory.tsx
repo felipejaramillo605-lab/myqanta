@@ -71,6 +71,13 @@ function Inventory() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["inv"] });
 
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.min_stock) && Number(p.min_stock) > 0).length;
+  // Valorización a costo y margen potencial si se vendiera todo el stock actual.
+  const stockValue = products.reduce((s, p) => s + Number(p.stock) * Number(p.cost), 0);
+  const potentialMargin = products.reduce(
+    (s, p) => s + Number(p.stock) * (Number(p.price) - Number(p.cost)),
+    0,
+  );
+
 
   return (
     <div className="space-y-8">
