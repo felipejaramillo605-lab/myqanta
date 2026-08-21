@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { assertModuleAccess, resolveOrgWithModuleAccess } from "./permissions";
+import { computeFinancialIndicators, type FinancialIndicators } from "./financial-indicators";
+
 
 export type ReportRange = { from: string; to: string };
 
