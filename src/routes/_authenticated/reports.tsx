@@ -28,22 +28,29 @@ function ReportsPage() {
   const [from, setFrom] = useState(firstOfMonth());
   const [to, setTo] = useState(today());
   const [report, setReport] = useState<ConsolidatedReport | null>(null);
+  const [prev, setPrev] = useState<ConsolidatedReport | null>(null);
   const [indicators, setIndicators] = useState<FinancialIndicators | null>(null);
   const [currency, setCurrency] = useState("USD");
 
   const run = useMutation({
     mutationFn: async () => {
-      const [r, biz, ind] = await Promise.all([
+      const span = Math.max(Math.round((Date.parse(to) - Date.parse(from)) / 86400000), 0) + 1;
+      const prevTo = new Date(Date.parse(from) - 86400000).toISOString().slice(0, 10);
+      const prevFrom = new Date(Date.parse(from) - span * 86400000).toISOString().slice(0, 10);
+      const [r, biz, ind, p] = await Promise.all([
         getConsolidatedReport({ data: { from, to } }),
         getBusinessContext().catch(() => null),
         getFinancialIndicators().catch(() => null),
+        getConsolidatedReport({ data: { from: prevFrom, to: prevTo } }).catch(() => null),
       ]);
       if (biz?.currency) setCurrency(biz.currency);
       setIndicators(ind);
+      setPrev(p);
       return r;
     },
     onSuccess: (r) => setReport(r),
   });
+
 
   const fmt = useMemo(() => new Intl.NumberFormat("en-US", {
     style: "currency", currency, maximumFractionDigits: 0,
