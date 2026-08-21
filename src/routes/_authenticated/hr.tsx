@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HrLeaveCalendar } from "@/components/hr-leave-calendar";
+
 
 export const Route = createFileRoute("/_authenticated/hr")({
   head: () => ({ meta: [
