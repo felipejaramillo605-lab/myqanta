@@ -71,6 +71,13 @@ function Inventory() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["inv"] });
 
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.min_stock) && Number(p.min_stock) > 0).length;
+  // Valorización a costo y margen potencial si se vendiera todo el stock actual.
+  const stockValue = products.reduce((s, p) => s + Number(p.stock) * Number(p.cost), 0);
+  const potentialMargin = products.reduce(
+    (s, p) => s + Number(p.stock) * (Number(p.price) - Number(p.cost)),
+    0,
+  );
+
 
   return (
     <div className="space-y-8">
@@ -96,12 +103,22 @@ function Inventory() {
 
       <ReadOnlyBanner />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat icon={<Package className="size-4" />} label={t("inv.products")} value={products.length.toString()} />
         <Stat icon={<ArrowLeftRight className="size-4" />} label={t("inv.movements")} value={movements.length.toString()} />
         <Stat icon={<AlertTriangle className="size-4 text-destructive" />} label={t("inv.low_stock")} value={lowStock.toString()} />
-        <Stat icon={<ScanLine className="size-4 text-primary" />} label={lang === "es" ? "IA Gemini" : "Gemini AI"} value="OCR" />
+        <Stat
+          icon={<Package className="size-4 text-primary" />}
+          label={lang === "es" ? "Inventario valorizado" : "Stock value"}
+          value={new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(stockValue)}
+        />
+        <Stat
+          icon={<ScanLine className="size-4 text-primary" />}
+          label={lang === "es" ? "Margen potencial" : "Potential margin"}
+          value={new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(potentialMargin)}
+        />
       </div>
+
 
       <LowStockAlerts />
 

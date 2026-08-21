@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { assertModuleAccess, resolveOrgWithModuleAccess } from "./permissions";
+import { computeFinancialIndicators, type FinancialIndicators } from "./financial-indicators";
+
 
 export type ReportRange = { from: string; to: string };
 
@@ -156,117 +158,11 @@ export const getConsolidatedReport = createServerFn({ method: "POST" })
 
 // -------------------- Financial indicators --------------------
 
-export type IndicatorValue = { value: number | null; label: string | null };
-
-export type FinancialIndicators = {
-  totals: {
-    activo_corriente: number;
-    activo_no_corriente: number;
-    activo_total: number;
-    pasivo_corriente: number;
-    pasivo_total: number;
-    patrimonio: number;
-    ingresos: number;
-    gastos: number;
-    utilidad_neta: number;
-    inventarios: number;
-  };
-  indicators: {
-    razon_corriente: IndicatorValue;
-    prueba_acida: IndicatorValue;
-    endeudamiento_total: IndicatorValue;
-    razon_autonomia: IndicatorValue;
-    roi: IndicatorValue;
-    roe: IndicatorValue;
-  };
-};
-
-function ratio(num: number, den: number): number | null {
-  if (!den) return null;
-  return num / den;
-}
+export type { IndicatorValue, FinancialIndicators } from "./financial-indicators";
 
 export const getFinancialIndicators = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<FinancialIndicators> => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/reports", "member");
-    const { data, error } = await context.supabase
-      .from("fin_journal_lines" as never)
-      .select("debit, credit, fin_accounts!inner(code, type, is_current), fin_journal_entries!inner(status)")
-      .eq("org_id", orgId)
-      .eq("fin_journal_entries.status", "posted");
-    if (error) throw new Error(error.message);
-
-    let activoCorriente = 0, activoNoCorriente = 0, activoTotal = 0;
-    let pasivoCorriente = 0, pasivoTotal = 0, patrimonio = 0;
-    let ingresos = 0, gastos = 0, inventarios = 0;
-
-    for (const l of (data ?? []) as any[]) {
-      const acc = Array.isArray(l.fin_accounts) ? l.fin_accounts[0] : l.fin_accounts;
-      if (!acc) continue;
-      const debit = Number(l.debit ?? 0);
-      const credit = Number(l.credit ?? 0);
-      const code = String(acc.code ?? "");
-      switch (acc.type) {
-        case "asset": {
-          const bal = debit - credit; // saldo natural débito
-          activoTotal += bal;
-          if (acc.is_current === true) activoCorriente += bal;
-          else if (acc.is_current === false) activoNoCorriente += bal;
-          if (code.startsWith("14")) inventarios += bal;
-          break;
-        }
-        case "liability": {
-          const bal = credit - debit;
-          pasivoTotal += bal;
-          if (acc.is_current === true) pasivoCorriente += bal;
-          break;
-        }
-        case "equity":
-          patrimonio += credit - debit;
-          break;
-        case "income":
-          ingresos += credit - debit;
-          break;
-        case "expense":
-          gastos += debit - credit;
-          break;
-      }
-    }
-
-    const utilidadNeta = ingresos - gastos;
-    const patrimonioTotal = patrimonio + utilidadNeta;
-
-    const razonCorriente = ratio(activoCorriente, pasivoCorriente);
-    const pruebaAcida = ratio(activoCorriente - inventarios, pasivoCorriente);
-    const endeudamiento = ratio(pasivoTotal, activoTotal);
-    const autonomia = ratio(patrimonioTotal, activoTotal);
-    const roi = ratio(utilidadNeta, activoTotal);
-    const roe = ratio(utilidadNeta, patrimonioTotal);
-
-    const wrap = (value: number | null, labeler: (v: number) => string): IndicatorValue =>
-      value === null ? { value: null, label: null } : { value, label: labeler(value) };
-
-    return {
-      totals: {
-        activo_corriente: activoCorriente,
-        activo_no_corriente: activoNoCorriente,
-        activo_total: activoTotal,
-        pasivo_corriente: pasivoCorriente,
-        pasivo_total: pasivoTotal,
-        patrimonio: patrimonioTotal,
-        ingresos,
-        gastos,
-        utilidad_neta: utilidadNeta,
-        inventarios,
-      },
-      indicators: {
-        razon_corriente: wrap(razonCorriente, (v) => (v >= 1.5 ? "saludable" : v >= 1 ? "ajustado" : "riesgo")),
-        prueba_acida: wrap(pruebaAcida, (v) => (v >= 1 ? "saludable" : "riesgo")),
-        endeudamiento_total: wrap(endeudamiento, (v) => (v < 0.4 ? "bajo" : v <= 0.6 ? "moderado" : "alto")),
-        razon_autonomia: wrap(autonomia, (v) => (v >= 0.5 ? "sólida" : "dependiente de terceros")),
-        roi: wrap(roi, (v) => (v > 0 ? "positivo" : "negativo")),
-        roe: wrap(roe, (v) => (v > 0 ? "positivo" : "negativo")),
-      },
-    };
+    return computeFinancialIndicators(context.supabase, orgId);
   });

@@ -188,11 +188,45 @@ function InvoicesPanel() {
   const [creating, setCreating] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["sales-invoices"] });
 
+  // Cartera por antigüedad (aging) sobre saldos pendientes de facturas emitidas.
+  const aging = (() => {
+    const b = { current: 0, d30: 0, d60: 0, d90: 0, total: 0 };
+    const today = new Date().toISOString().slice(0, 10);
+    for (const inv of invoices as unknown as Invoice[]) {
+      if (inv.status !== "issued") continue;
+      const bal = Number(inv.total) - Number(inv.paid_amount ?? 0);
+      if (bal <= 0) continue;
+      b.total += bal;
+      if (!inv.due_date || inv.due_date >= today) { b.current += bal; continue; }
+      const days = Math.floor((Date.parse(today) - Date.parse(inv.due_date)) / 86_400_000);
+      if (days <= 30) b.d30 += bal;
+      else if (days <= 60) b.d60 += bal;
+      else b.d90 += bal;
+    }
+    return b;
+  })();
+
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {[
+          { label: "Por cobrar", v: aging.total, cls: "" },
+          { label: "Al día", v: aging.current, cls: "text-primary" },
+          { label: "1–30 días", v: aging.d30, cls: "" },
+          { label: "31–60 días", v: aging.d60, cls: "text-destructive/80" },
+          { label: "60+ días", v: aging.d90, cls: "text-destructive" },
+        ].map((c) => (
+          <div key={c.label} className="glass rounded-xl p-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{c.label}</div>
+            <div className={"mt-1 font-mono text-lg font-semibold " + c.cls}>{fmt(c.v)}</div>
+          </div>
+        ))}
+      </div>
+
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)}><Plus className="mr-2 size-4" />Nueva factura</Button>
       </div>
+
 
       {invoices.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">

@@ -12,6 +12,9 @@ import { EbitdaBucketDonut } from "@/components/charts/ebitda-bucket-donut";
 import { HabitYearHeatmap } from "@/components/charts/habit-year-heatmap";
 import { getEbitdaSeries } from "@/lib/finance.functions";
 import { getHabitsHeatmap } from "@/lib/productivity.functions";
+import { getActionCenter } from "@/lib/insights.functions";
+import { ActionCenter } from "@/components/action-center";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Qanta — Panel" }] }),
@@ -31,10 +34,16 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       }),
       context.queryClient.ensureQueryData({
         queryKey: ["pro","heatmap"],
+
         queryFn: () => getHabitsHeatmap(),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["insights","action-center"],
+        queryFn: () => getActionCenter(),
       }),
     ]);
   },
+
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">404</div>,
   component: Dashboard,
@@ -90,6 +99,10 @@ function Dashboard() {
         <KPI label={t("dash.kpi.ebitda")} value={fmt(kpis.current.ebitda)} delta={kpis.deltas.ebitda} positive />
         <KPI label={t("dash.kpi.net")} value={fmt(kpis.current.net)} delta={kpis.deltas.net} positive />
       </div>
+
+      <ActionCenter />
+
+
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-3">

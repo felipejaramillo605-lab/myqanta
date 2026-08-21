@@ -8,6 +8,12 @@ import { resolveOrgWithRole, resolveOrgWithModuleAccess, type OrgRole } from "./
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { suggestCategory } from "./categories";
+import { crmTools } from "./assistant-tools/crm.server";
+import { salesTools } from "./assistant-tools/sales.server";
+import { opsTools } from "./assistant-tools/ops.server";
+import { workflowTools } from "./assistant-tools/workflow.server";
+import type { AssistantToolCtx } from "./assistant-tools/context.server";
+
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -279,13 +285,72 @@ UPCOMING EVENTS: ${JSON.stringify(evRes.data ?? [])}
 
 Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
 
+    // Cross-module snapshot (CRM pipeline, receivables, active projects) so
+    // Qanta can answer without spending a tool call.
+    const [dealRes, invRes, projRes] = await Promise.all([
+      context.supabase
+        .from("crm_deals")
+        .select("title,stage,amount,expected_close_date")
+        .eq("org_id", orgId)
+        .not("stage", "in", "(won,lost)")
+        .limit(60),
+      context.supabase
+        .from("sales_invoices")
+        .select("number,customer_name_snapshot,total,paid_amount,due_date,status")
+        .eq("org_id", orgId)
+        .not("status", "in", "(draft,void,paid)")
+        .limit(100),
+      context.supabase
+        .from("projects")
+        .select("name,status,budget_amount,end_date")
+        .eq("org_id", orgId)
+        .eq("status", "active")
+        .limit(30),
+    ]);
+    const pipeline: Record<string, { count: number; amount: number }> = {};
+    for (const d of dealRes.data ?? []) {
+      const b = (pipeline[d.stage] ??= { count: 0, amount: 0 });
+      b.count += 1;
+      b.amount += Number(d.amount ?? 0);
+    }
+    const todayIso = now.toISOString().slice(0, 10);
+    let receivable = 0;
+    let overdueCount = 0;
+    for (const i of invRes.data ?? []) {
+      const balance = Number(i.total) - Number(i.paid_amount ?? 0);
+      if (balance <= 0) continue;
+      receivable += balance;
+      if (i.due_date && i.due_date < todayIso) overdueCount += 1;
+    }
+    const crossModuleContext = `
+
+CRM PIPELINE (open deals by stage): ${JSON.stringify(pipeline)}
+
+RECEIVABLES: pending ${receivable.toFixed(2)} across ${(invRes.data ?? []).length} open invoices, ${overdueCount} overdue.
+
+ACTIVE PROJECTS: ${JSON.stringify(projRes.data ?? [])}`;
+
     const actions: ActionRecord[] = [];
+
+    const toolCtx: AssistantToolCtx = {
+      supabase: context.supabase,
+      userId: context.userId,
+      record: async (rec, scopedOrg) => {
+        actions.push(rec);
+        await logAction(context.supabase, scopedOrg, context.userId, rec);
+      },
+    };
 
     // Tools are only exposed to owner/admin. Every tool resolves its own
     // org_id server-side from the authenticated session — the model never
     // supplies an org identifier.
     const tools = canAct
       ? {
+          ...crmTools(toolCtx),
+          ...salesTools(toolCtx),
+          ...opsTools(toolCtx),
+          ...workflowTools(toolCtx),
+
           schedule_event: tool({
             description:
               "Create a calendar event in the user's active organization. Use for meetings, appointments, reminders with a specific time.",
@@ -808,16 +873,19 @@ Be brief (max ~5 sentences). Use numbers when relevant. No markdown headings.`;
         }
       : undefined;
 
+    const modulesHint = `\n\nOther modules you can act on:\n- CRM: crm_create_contact, crm_create_deal, crm_move_deal (by deal title), crm_log_activity.\n- Sales: sales_create_invoice (always DRAFT — the user issues it from the Sales module; the customer is matched by name or created), sales_register_payment, sales_overdue_summary (read-only receivables and aging).\n- Projects: project_create_task (optionally inside a project and assigned to an employee), project_log_time.\n- HR: hr_team_directory (read-only; use it to get exact employee names), hr_request_leave (stays PENDING until HR approves).\n- Reminders: create_reminder — the recipient is chosen by employee NAME and the email comes from the directory; never ask the user for an email address.\n- Approvals: create_approval opens a request assigned to the organization owner.\n- Reports: financial_indicators returns the six ratios; interpret them, don't just list them.\nWhen a lookup by name is ambiguous the tool returns the candidates: ask the user which one instead of guessing. There are no delete tools and nothing is issued/approved automatically.`;
+
     const toolsHint = canAct
-      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock, find_document, list_bank_accounts, record_purchase_or_expense. Use find_document whenever the user asks where a document/file is or asks you to look for one by name: it searches the document repository by name fragment and returns the full folder path (e.g. 'Contratos / 2026 / factura_enero.pdf'). If it returns no results, tell the user plainly that you did not find any document with that name. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.\n\nrecord_purchase_or_expense registers a purchase or an expense as a double-entry journal entry using THIS organization's chart of accounts (PUC) and its configured accounting policies. Before calling it, ask conversationally for whatever is missing — never dump all the questions at once: (1) whether it is inventory bought to resell or an operating expense — infer it from the business context, the existing products and the description, and only ask '¿Es para revender o es un gasto del negocio?' when it is genuinely ambiguous; (2) '¿Pagaste en efectivo o con banco?' if unknown; (3) if bank, call list_bank_accounts and ask which account, showing the bank name and the last 4 digits; (4) '¿Tienes la factura?' — if the user says no, tell them to get it and that they can finish the registration later by attaching it right here in the chat. It respects the rule that every PUBLISHED entry requires a receipt: with no invoice the entry is saved as a DRAFT, and with the invoice attached in the chat it is read by OCR, the supplier is created or matched, the file is stored as the receipt document and the entry is POSTED. If the user says they have the invoice but has not attached it, ask them to attach the photo or PDF in the chat instead of calling the tool. Never fill invoice_image_data_url yourself. ${data.attachment ? "A FILE IS ATTACHED to the current message — treat it as the invoice/receipt." : "No file is attached to the current message."}`
+      ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock, find_document, list_bank_accounts, record_purchase_or_expense. Use find_document whenever the user asks where a document/file is or asks you to look for one by name: it searches the document repository by name fragment and returns the full folder path (e.g. 'Contratos / 2026 / factura_enero.pdf'). If it returns no results, tell the user plainly that you did not find any document with that name. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.\n\nrecord_purchase_or_expense registers a purchase or an expense as a double-entry journal entry using THIS organization's chart of accounts (PUC) and its configured accounting policies. Before calling it, ask conversationally for whatever is missing — never dump all the questions at once: (1) whether it is inventory bought to resell or an operating expense — infer it from the business context, the existing products and the description, and only ask '¿Es para revender o es un gasto del negocio?' when it is genuinely ambiguous; (2) '¿Pagaste en efectivo o con banco?' if unknown; (3) if bank, call list_bank_accounts and ask which account, showing the bank name and the last 4 digits; (4) '¿Tienes la factura?' — if the user says no, tell them to get it and that they can finish the registration later by attaching it right here in the chat. It respects the rule that every PUBLISHED entry requires a receipt: with no invoice the entry is saved as a DRAFT, and with the invoice attached in the chat it is read by OCR, the supplier is created or matched, the file is stored as the receipt document and the entry is POSTED. If the user says they have the invoice but has not attached it, ask them to attach the photo or PDF in the chat instead of calling the tool. Never fill invoice_image_data_url yourself. ${data.attachment ? "A FILE IS ATTACHED to the current message — treat it as the invoice/receipt." : "No file is attached to the current message."}${modulesHint}`
       : `\n\nYou are in read-only mode for this user role. Do not offer to perform actions.`;
 
     const { text } = await generateText({
       model: createLovableAiGatewayProvider(key)("google/gemini-2.5-flash"),
-      system: system + toolsHint,
+      system: system + crossModuleContext + toolsHint,
       messages: data.messages,
       tools,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(8),
     });
+
     return { reply: text, actions };
   });

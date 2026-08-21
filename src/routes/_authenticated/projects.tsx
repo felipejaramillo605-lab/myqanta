@@ -51,7 +51,31 @@ const STATUS_COLOR: Record<ProjectStatus, string> = {
   cancelled: "bg-rose-500/15 text-rose-500 border-rose-500/30",
 };
 
+/** Barra de avance temporal del proyecto entre inicio y fin. */
+function TimelineBar({ start, end }: { start: string | null; end: string | null }) {
+  if (!start || !end) return null;
+  const s = Date.parse(start);
+  const e = Date.parse(end);
+  if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
+  const pct = Math.min(100, Math.max(0, ((Date.now() - s) / (e - s)) * 100));
+  const late = pct >= 100;
+  return (
+    <div className="mt-1">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+        <div
+          className={"h-full rounded-full " + (late ? "bg-destructive" : "bg-primary")}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">
+        {late ? "Plazo cumplido" : `${pct.toFixed(0)}% del plazo`}
+      </div>
+    </div>
+  );
+}
+
 function ProjectsPage() {
+
   const qc = useQueryClient();
   const projectsQ = useSuspenseQuery({ queryKey: ["projects"], queryFn: () => listProjects() });
   const statsQ = useSuspenseQuery({ queryKey: ["project-stats"], queryFn: () => projectStats() });
@@ -134,10 +158,17 @@ function ProjectsPage() {
                   <td className="p-3">
                     <Badge className={STATUS_COLOR[p.status]} variant="outline">{STATUS_LABEL[p.status]}</Badge>
                   </td>
-                  <td className="p-3 text-right font-mono">{s.total.toFixed(1)}h</td>
+                  <td className="p-3 text-right font-mono">
+                    {s.total.toFixed(1)}h
+                    <div className="text-[10px] text-muted-foreground">
+                      {s.billable.toFixed(1)}h facturables
+                    </div>
+                  </td>
                   <td className="p-3 text-right font-mono text-xs">
                     {p.budget_amount ? `${Number(p.budget_amount).toFixed(2)} ${p.currency}` : "—"}
+                    <TimelineBar start={p.start_date} end={p.end_date} />
                   </td>
+
                   <td className="p-3 text-right">
                     <Button size="sm" variant="ghost" onClick={() => setTimeFor(p)}>
                       <Clock className="size-4" />

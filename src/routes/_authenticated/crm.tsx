@@ -121,6 +121,26 @@ function PipelineView() {
     return t;
   }, [deals]);
 
+  // Pipeline ponderado: solo etapas abiertas, monto x probabilidad.
+  const weighted = useMemo(() => {
+    let open = 0;
+    let w = 0;
+    for (const d of deals) {
+      if (d.stage === "won" || d.stage === "lost") continue;
+      const amt = Number(d.amount) || 0;
+      open += amt;
+      w += (amt * (Number(d.probability) || 0)) / 100;
+    }
+    return { open, w };
+  }, [deals]);
+
+  const staleCut = useMemo(() => new Date(Date.now() - 14 * 86_400_000).toISOString(), []);
+  const isStale = (d: Deal) => {
+    const at = (d as { updated_at?: string | null }).updated_at;
+    return !!at && at < staleCut && d.stage !== "won" && d.stage !== "lost";
+  };
+  const staleCount = deals.filter(isStale).length;
+
   const onDrop = (stage: DealStage) => (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const id = e.dataTransfer.getData("text/plain");
@@ -132,12 +152,35 @@ function PipelineView() {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="glass rounded-xl p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Pipeline abierto</div>
+          <div className="mt-1 font-mono text-xl font-semibold">{fmt(weighted.open)}</div>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Pipeline ponderado</div>
+          <div className="mt-1 font-mono text-xl font-semibold text-primary">{fmt(weighted.w)}</div>
+          <div className="text-[10px] text-muted-foreground">Monto × probabilidad</div>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Ganado</div>
+          <div className="mt-1 font-mono text-xl font-semibold">{fmt(totals.won)}</div>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Sin actividad 14d</div>
+          <div className={"mt-1 font-mono text-xl font-semibold " + (staleCount ? "text-destructive" : "")}>
+            {staleCount}
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {deals.length} oportunidades · {fmt(deals.reduce((s, d) => s + Number(d.amount) || 0, 0))}
         </div>
         <Button size="sm" onClick={() => setOpenNew(true)}><Plus className="mr-2 size-4" />Nueva oportunidad</Button>
       </div>
+
 
       <div className="grid gap-3 lg:grid-cols-6">
         {DEAL_STAGES.map((s) => (
@@ -158,7 +201,10 @@ function PipelineView() {
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", d.id)}
                   onClick={() => setEditing(d)}
-                  className="cursor-grab rounded-lg border border-border/60 bg-background/60 p-3 text-sm hover:border-primary/60"
+                  className={
+                    "cursor-grab rounded-lg border bg-background/60 p-3 text-sm hover:border-primary/60 " +
+                    (isStale(d) ? "border-destructive/50" : "border-border/60")
+                  }
                 >
                   <div className="font-medium">{d.title}</div>
                   {d.contact_id && contactMap.get(d.contact_id) && (
@@ -168,6 +214,10 @@ function PipelineView() {
                     <span className="font-mono text-xs">{fmt(Number(d.amount), d.currency)}</span>
                     <span className="text-[10px] text-muted-foreground">{d.probability}%</span>
                   </div>
+                  {isStale(d) && (
+                    <div className="mt-1 text-[10px] font-medium text-destructive">Sin actividad 14+ días</div>
+                  )}
+
                 </div>
               ))}
             </div>
