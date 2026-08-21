@@ -186,10 +186,17 @@ function CompanySettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Configuración de empresa</h1>
-        <p className="text-sm text-muted-foreground">Estos datos aparecerán en tus facturas y comunicaciones.</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Configuración de empresa</h1>
+          <p className="text-sm text-muted-foreground">Estos datos aparecerán en tus facturas y comunicaciones.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)}>
+          <Sparkles className="mr-1.5 size-3.5" /> Configuración guiada
+        </Button>
       </header>
+      {wizardOpen && <OnboardingWizard open={wizardOpen} onOpenChange={setWizardOpen} />}
+
 
       <div className="glass space-y-5 rounded-2xl p-6">
         <Section title="Identidad">
