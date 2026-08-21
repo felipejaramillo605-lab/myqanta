@@ -34,10 +34,17 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       }),
       context.queryClient.ensureQueryData({
         queryKey: ["pro","heatmap"],
+      context.queryClient.ensureQueryData({
+        queryKey: ["pro","heatmap"],
         queryFn: () => getHabitsHeatmap(),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["insights","action-center"],
+        queryFn: () => getActionCenter(),
       }),
     ]);
   },
+
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-sm text-destructive">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">404</div>,
   component: Dashboard,
