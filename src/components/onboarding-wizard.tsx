@@ -155,6 +155,9 @@ export function OnboardingWizard({ open: controlledOpen, onOpenChange }: Props) 
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const busy = saveProfileM.isPending || saveModeM.isPending || saveHiddenM.isPending;
+
+
   const finishM = useMutation({
     mutationFn: (skipped: boolean) => finish({ data: { skipped } }),
     onSuccess: () => {
