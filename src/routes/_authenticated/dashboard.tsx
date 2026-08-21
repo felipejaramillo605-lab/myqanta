@@ -34,8 +34,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       }),
       context.queryClient.ensureQueryData({
         queryKey: ["pro","heatmap"],
-      context.queryClient.ensureQueryData({
-        queryKey: ["pro","heatmap"],
+
         queryFn: () => getHabitsHeatmap(),
       }),
       context.queryClient.ensureQueryData({
