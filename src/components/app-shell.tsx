@@ -558,8 +558,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="h-16 lg:hidden" />
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
-      <BusinessOnboardingDialog autoOpenIfMissing />
-      <ViewModeOnboardingDialog />
+      <OnboardingWizard />
+
       <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
   );
