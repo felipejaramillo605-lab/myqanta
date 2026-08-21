@@ -104,8 +104,7 @@ export function OnboardingWizard({ open: controlledOpen, onOpenChange }: Props) 
   }, [state, controlledOpen]);
 
   const groups = useMemo(() => groupedModules(), []);
-  const busy =
-    saveProfileM.isPending || saveModeM.isPending || finishM.isPending;
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["onboarding-state"] });
