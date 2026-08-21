@@ -197,6 +197,43 @@ function Agenda() {
         </button>
       </div>
 
+      <div className="space-y-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={lang === "es" ? "Buscar en eventos, tareas y hábitos…" : "Search events, tasks and habits…"}
+          className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm sm:max-w-sm"
+        />
+        {q.trim().length >= 2 && (
+          <div className="glass max-h-72 overflow-auto rounded-2xl p-2">
+            {matches.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                {lang === "es" ? "Sin resultados." : "No results."}
+              </div>
+            ) : (
+              <ul className="divide-y divide-border/30">
+                {matches.map((it) => (
+                  <li key={it.id}>
+                    <button
+                      type="button"
+                      onClick={() => setDayDetail(dayKey(it.date))}
+                      className="flex w-full items-center gap-2 px-2 py-2 text-left text-sm hover:bg-sidebar-accent/40"
+                    >
+                      <span className="size-1.5 shrink-0 rounded-full" style={{ background: it.color }} />
+                      <span className="truncate">{it.title}</span>
+                      <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
+                        {it.date.toLocaleDateString(locale)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+
       {view === "month" && (
         <MonthView
           cursor={cursor}
