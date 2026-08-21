@@ -134,10 +134,17 @@ function ProjectsPage() {
                   <td className="p-3">
                     <Badge className={STATUS_COLOR[p.status]} variant="outline">{STATUS_LABEL[p.status]}</Badge>
                   </td>
-                  <td className="p-3 text-right font-mono">{s.total.toFixed(1)}h</td>
+                  <td className="p-3 text-right font-mono">
+                    {s.total.toFixed(1)}h
+                    <div className="text-[10px] text-muted-foreground">
+                      {s.billable.toFixed(1)}h facturables
+                    </div>
+                  </td>
                   <td className="p-3 text-right font-mono text-xs">
                     {p.budget_amount ? `${Number(p.budget_amount).toFixed(2)} ${p.currency}` : "—"}
+                    <TimelineBar start={p.start_date} end={p.end_date} />
                   </td>
+
                   <td className="p-3 text-right">
                     <Button size="sm" variant="ghost" onClick={() => setTimeFor(p)}>
                       <Clock className="size-4" />
