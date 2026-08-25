@@ -447,6 +447,31 @@ function ProjectDialog({ project, onClose }: { project: Partial<ProjectRow>; onC
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <Label>Tipo de proyecto</Label>
+              <Select
+                value={form.project_type}
+                onValueChange={(v) => setForm({ ...form, project_type: v as ProjectType })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PROJECT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{PROJECT_TYPE_LABEL[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Plataforma</Label>
+              <Input
+                placeholder="instagram, tiktok, youtube…"
+                value={form.platform}
+                onChange={(e) => setForm({ ...form, platform: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <Label>Inicio</Label>
               <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
             </div>
