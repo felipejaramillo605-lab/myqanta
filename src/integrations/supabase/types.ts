@@ -2078,6 +2078,63 @@ export type Database = {
           },
         ]
       }
+      project_expenses: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string
+          expense_date: string
+          id: string
+          org_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description: string
+          expense_date?: string
+          id?: string
+          org_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          org_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_expenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_expenses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           created_at: string
@@ -2138,6 +2195,8 @@ export type Database = {
           id: string
           name: string
           org_id: string
+          platform: string | null
+          project_type: Database["public"]["Enums"]["project_type"]
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
           updated_at: string
@@ -2156,6 +2215,8 @@ export type Database = {
           id?: string
           name: string
           org_id: string
+          platform?: string | null
+          project_type?: Database["public"]["Enums"]["project_type"]
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -2174,6 +2235,8 @@ export type Database = {
           id?: string
           name?: string
           org_id?: string
+          platform?: string | null
+          project_type?: Database["public"]["Enums"]["project_type"]
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -2530,6 +2593,7 @@ export type Database = {
           number: number | null
           org_id: string
           paid_amount: number
+          project_id: string | null
           status: string
           subtotal: number
           tax_amount: number
@@ -2550,6 +2614,7 @@ export type Database = {
           number?: number | null
           org_id: string
           paid_amount?: number
+          project_id?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -2570,6 +2635,7 @@ export type Database = {
           number?: number | null
           org_id?: string
           paid_amount?: number
+          project_id?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -2589,6 +2655,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -3383,6 +3456,7 @@ export type Database = {
       org_role: "owner" | "admin" | "member" | "viewer"
       project_member_role: "lead" | "member" | "viewer"
       project_status: "active" | "paused" | "completed" | "cancelled"
+      project_type: "video" | "design" | "social_media" | "campaign" | "other"
       reminder_recurrence: "none" | "daily" | "weekly" | "monthly"
       reminder_source: "task" | "habit" | "event" | "custom"
       reminder_status: "pending" | "sent" | "failed" | "cancelled"
@@ -3542,6 +3616,7 @@ export const Constants = {
       org_role: ["owner", "admin", "member", "viewer"],
       project_member_role: ["lead", "member", "viewer"],
       project_status: ["active", "paused", "completed", "cancelled"],
+      project_type: ["video", "design", "social_media", "campaign", "other"],
       reminder_recurrence: ["none", "daily", "weekly", "monthly"],
       reminder_source: ["task", "habit", "event", "custom"],
       reminder_status: ["pending", "sent", "failed", "cancelled"],
