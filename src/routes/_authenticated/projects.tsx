@@ -87,9 +87,14 @@ function ProjectsPage() {
   const qc = useQueryClient();
   const projectsQ = useSuspenseQuery({ queryKey: ["projects"], queryFn: () => listProjects() });
   const statsQ = useSuspenseQuery({ queryKey: ["project-stats"], queryFn: () => projectStats() });
+  const profitQ = useQuery({
+    queryKey: ["project-profitability"],
+    queryFn: () => projectProfitability({ data: { include_all_statuses: true } }),
+  });
 
   const [editing, setEditing] = useState<Partial<ProjectRow> | null>(null);
   const [timeFor, setTimeFor] = useState<ProjectRow | null>(null);
+  const [detailFor, setDetailFor] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const m = new Map<string, { total: number; billable: number }>();
@@ -97,12 +102,32 @@ function ProjectsPage() {
     return m;
   }, [statsQ.data]);
 
+  const profit = useMemo(() => {
+    const m = new Map<string, ProjectProfitRow>();
+    for (const r of (profitQ.data ?? []) as ProjectProfitRow[]) m.set(r.project_id, r);
+    return m;
+  }, [profitQ.data]);
+
+  const activeRows = useMemo(
+    () => ((profitQ.data ?? []) as ProjectProfitRow[]).filter((r) => r.project.status === "active"),
+    [profitQ.data],
+  );
+
+  const ranking = useMemo(() => {
+    const billed = activeRows.filter((r) => r.margin_pct !== null);
+    const sorted = [...billed].sort((a, b) => (b.margin_pct ?? 0) - (a.margin_pct ?? 0));
+    return { best: sorted.slice(0, 3), worst: sorted.slice(-3).reverse() };
+  }, [activeRows]);
+
   const totals = useMemo(() => {
     const active = projectsQ.data.filter((p) => p.status === "active").length;
     const hours = statsQ.data.reduce((a, b) => a + Number(b.total), 0);
     const billable = statsQ.data.reduce((a, b) => a + Number(b.billable), 0);
-    return { active, hours, billable };
-  }, [projectsQ.data, statsQ.data]);
+    const margin = activeRows.reduce((a, b) => a + b.margin, 0);
+    return { active, hours, billable, margin };
+  }, [projectsQ.data, statsQ.data, activeRows]);
+
+  const currency = activeRows[0]?.project.currency ?? projectsQ.data[0]?.currency ?? "EUR";
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteProject({ data: { id } }),
@@ -110,9 +135,12 @@ function ProjectsPage() {
       toast.success("Proyecto eliminado");
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["project-stats"] });
+      qc.invalidateQueries({ queryKey: ["project-profitability"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const detailRow = detailFor ? profit.get(detailFor) ?? null : null;
 
   return (
     <div className="space-y-6">
@@ -120,93 +148,211 @@ function ProjectsPage() {
         <Briefcase className="size-6 text-primary" />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Proyectos</h1>
-          <p className="text-sm text-muted-foreground">Gestiona proyectos y registra horas de trabajo.</p>
+          <p className="text-sm text-muted-foreground">
+            Rentabilidad, horas y gastos de cada proyecto creativo.
+          </p>
         </div>
         <div className="ml-auto">
-          <Button onClick={() => setEditing({ status: "active", currency: "EUR" })}>
+          <Button onClick={() => setEditing({ status: "active", currency: "EUR", project_type: "video" })}>
             <Plus className="mr-2 size-4" /> Nuevo proyecto
           </Button>
         </div>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Proyectos activos" value={totals.active} />
         <Kpi label="Horas (90d)" value={totals.hours.toFixed(1)} />
         <Kpi label="Horas facturables (90d)" value={totals.billable.toFixed(1)} />
+        <Kpi label="Margen activo" value={fmtMoney(totals.margin, currency)} />
       </div>
 
-      <div className="glass overflow-hidden rounded-xl border border-border/50">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="p-3 text-left">Proyecto</th>
-              <th className="p-3 text-left">Cliente</th>
-              <th className="p-3 text-left">Estado</th>
-              <th className="p-3 text-right">Horas (90d)</th>
-              <th className="p-3 text-right">Presupuesto</th>
-              <th className="p-3 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {projectsQ.data.map((p) => {
-              const s = stats.get(p.id) ?? { total: 0, billable: 0 };
-              return (
-                <tr key={p.id} className="border-t border-border/40">
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2.5 rounded-full" style={{ background: p.color ?? "hsl(var(--primary))" }} />
-                      <span className="font-medium">{p.name}</span>
-                      {p.code && <span className="text-xs text-muted-foreground">· {p.code}</span>}
-                    </div>
-                    {p.description && (
-                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{p.description}</div>
-                    )}
-                  </td>
-                  <td className="p-3 text-xs text-muted-foreground">{p.client_name ?? "—"}</td>
-                  <td className="p-3">
-                    <Badge className={STATUS_COLOR[p.status]} variant="outline">{STATUS_LABEL[p.status]}</Badge>
-                  </td>
-                  <td className="p-3 text-right font-mono">
-                    {s.total.toFixed(1)}h
-                    <div className="text-[10px] text-muted-foreground">
-                      {s.billable.toFixed(1)}h facturables
-                    </div>
-                  </td>
-                  <td className="p-3 text-right font-mono text-xs">
-                    {p.budget_amount ? `${Number(p.budget_amount).toFixed(2)} ${p.currency}` : "—"}
-                    <TimelineBar start={p.start_date} end={p.end_date} />
-                  </td>
+      {(ranking.best.length > 0 || ranking.worst.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RankingCard
+            title="Mejor margen"
+            icon={<TrendingUp className="size-4 text-emerald-500" />}
+            rows={ranking.best}
+            onOpen={setDetailFor}
+          />
+          <RankingCard
+            title="Peor margen"
+            icon={<TrendingDown className="size-4 text-rose-500" />}
+            rows={ranking.worst}
+            onOpen={setDetailFor}
+          />
+        </div>
+      )}
 
-                  <td className="p-3 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setTimeFor(p)}>
-                      <Clock className="size-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => {
-                      if (confirm(`¿Eliminar "${p.name}"?`)) delMut.mutate(p.id);
-                    }}>
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-            {projectsQ.data.length === 0 && (
-              <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">
-                Aún no tienes proyectos. Crea el primero para empezar a registrar horas.
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+      {activeRows.length > 0 && <ProjectMarginChart rows={activeRows} />}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {projectsQ.data.map((p) => (
+          <ProjectCard
+            key={p.id}
+            project={p}
+            hours={stats.get(p.id) ?? { total: 0, billable: 0 }}
+            profit={profit.get(p.id) ?? null}
+            onDetail={() => setDetailFor(p.id)}
+            onTime={() => setTimeFor(p)}
+            onEdit={() => setEditing(p)}
+            onDelete={() => { if (confirm(`¿Eliminar "${p.name}"?`)) delMut.mutate(p.id); }}
+          />
+        ))}
+        {projectsQ.data.length === 0 && (
+          <div className="glass rounded-2xl border border-border/50 p-6 text-center text-muted-foreground md:col-span-2 xl:col-span-3">
+            Aún no tienes proyectos. Crea el primero para empezar a registrar horas y medir rentabilidad.
+          </div>
+        )}
       </div>
 
       {editing && <ProjectDialog project={editing} onClose={() => setEditing(null)} />}
       {timeFor && <TimeSheetDialog project={timeFor} onClose={() => setTimeFor(null)} />}
+      {detailRow && <ProjectDetailDialog row={detailRow} onClose={() => setDetailFor(null)} />}
     </div>
   );
 }
+
+function RankingCard({ title, icon, rows, onOpen }: {
+  title: string;
+  icon: React.ReactNode;
+  rows: ProjectProfitRow[];
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <section className="glass rounded-2xl p-5">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">{title}</h2>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {rows.map((r) => {
+          const state = marginState(r.margin_pct);
+          return (
+            <li key={r.project_id}>
+              <button
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary/60"
+                onClick={() => onOpen(r.project_id)}
+              >
+                <span className="truncate font-medium">{r.project.name}</span>
+                <span className="ml-auto font-mono text-xs text-muted-foreground">
+                  {fmtMoney(r.margin, r.project.currency)}
+                </span>
+                <Badge variant="outline" className={MARGIN_STYLE[state].className}>
+                  {r.margin_pct === null ? "—" : `${r.margin_pct.toFixed(0)}%`}
+                </Badge>
+              </button>
+            </li>
+          );
+        })}
+        {rows.length === 0 && (
+          <li className="px-2 text-xs text-muted-foreground">Sin proyectos facturados todavía.</li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+function ProjectCard({ project: p, hours, profit, onDetail, onTime, onEdit, onDelete }: {
+  project: ProjectRow;
+  hours: { total: number; billable: number };
+  profit: ProjectProfitRow | null;
+  onDetail: () => void;
+  onTime: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const state = marginState(profit?.margin_pct ?? null);
+  const target = profit ? expectedHours(profit) : null;
+  const loggedHours = profit?.hours ?? hours.total;
+  const pct = target ? Math.min(100, (loggedHours / target) * 100) : null;
+  const over = target ? loggedHours > target : false;
+
+  return (
+    <article className="glass flex flex-col gap-3 rounded-2xl border border-border/50 p-4">
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: p.color ?? "hsl(var(--primary))" }} />
+        <button className="min-w-0 flex-1 text-left" onClick={onDetail}>
+          <div className="truncate font-medium">{p.name}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {p.client_name ?? "Sin cliente"}{p.code ? ` · ${p.code}` : ""}
+          </div>
+        </button>
+        <Badge variant="outline" className={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className={PROJECT_TYPE_COLOR[p.project_type]}>
+          {PROJECT_TYPE_LABEL[p.project_type]}
+        </Badge>
+        {p.platform && (
+          <Badge variant="outline" className="border-border/60 text-muted-foreground">{p.platform}</Badge>
+        )}
+        <Badge variant="outline" className={MARGIN_STYLE[state].className}>
+          {profit && profit.margin_pct !== null
+            ? `${profit.margin_pct.toFixed(0)}% margen`
+            : MARGIN_STYLE[state].label}
+        </Badge>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Horas registradas</span>
+          <span className="font-mono">
+            {loggedHours.toFixed(1)}h{target ? ` / ${target.toFixed(0)}h est.` : ""}
+          </span>
+        </div>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className={"h-full rounded-full " + (over ? "bg-destructive" : "bg-primary")}
+            style={{ width: `${pct ?? (loggedHours > 0 ? 100 : 0)}%` }}
+          />
+        </div>
+        {!target && (
+          <div className="mt-0.5 text-[10px] text-muted-foreground">
+            Añade presupuesto y tarifas por hora para estimar el objetivo.
+          </div>
+        )}
+        <TimelineBar start={p.start_date} end={p.end_date} />
+      </div>
+
+      {profit && (
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <MiniStat label="Costo" value={fmtMoney(profit.cost_total, p.currency)} />
+          <MiniStat label="Facturado" value={fmtMoney(profit.invoiced_total, p.currency)} />
+          <MiniStat
+            label="Margen"
+            value={fmtMoney(profit.margin, p.currency)}
+            tone={profit.margin < 0 ? "bad" : profit.margin > 0 ? "good" : "neutral"}
+          />
+        </div>
+      )}
+
+      <div className="mt-auto flex items-center gap-1 border-t border-border/40 pt-2">
+        <Button size="sm" variant="ghost" onClick={onDetail}>
+          <BarChart3 className="mr-1 size-4" /> Rentabilidad
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onTime}><Clock className="size-4" /></Button>
+        <Button size="sm" variant="ghost" onClick={onEdit}><Pencil className="size-4" /></Button>
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={onDelete}>
+          <Trash2 className="size-4 text-destructive" />
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function MiniStat({ label, value, tone = "neutral" }: {
+  label: string; value: string; tone?: "good" | "bad" | "neutral";
+}) {
+  const toneClass = tone === "good" ? "text-emerald-500" : tone === "bad" ? "text-rose-500" : "";
+  return (
+    <div className="rounded-lg bg-secondary/40 p-1.5">
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className={"font-mono text-[11px] font-medium " + toneClass}>{value}</div>
+    </div>
+  );
+}
+
 
 function Kpi({ label, value }: { label: string; value: number | string }) {
   return (
