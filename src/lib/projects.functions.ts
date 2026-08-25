@@ -3,9 +3,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import { computeProjectProfitability } from "./project-profitability";
 
 export const PROJECT_STATUSES = ["active", "paused", "completed", "cancelled"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const PROJECT_TYPES = ["video", "design", "social_media", "campaign", "other"] as const;
+export type ProjectType = (typeof PROJECT_TYPES)[number];
 
 // ===== Projects =====
 const ProjectInput = z.object({
@@ -15,6 +19,8 @@ const ProjectInput = z.object({
   client_name: z.string().trim().max(160).nullable().optional(),
   customer_id: z.string().uuid().nullable().optional(),
   status: z.enum(PROJECT_STATUSES).default("active"),
+  project_type: z.enum(PROJECT_TYPES).default("other"),
+  platform: z.string().trim().max(60).nullable().optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   color: z.string().trim().max(20).nullable().optional(),
   start_date: z.string().nullable().optional(),
@@ -22,6 +28,7 @@ const ProjectInput = z.object({
   budget_amount: z.number().nonnegative().nullable().optional(),
   currency: z.string().trim().max(8).default("EUR"),
 });
+
 
 export type ProjectRow = {
   id: string;
