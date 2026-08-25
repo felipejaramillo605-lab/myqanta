@@ -2,15 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Clock, Briefcase, X } from "lucide-react";
+import { Plus, Trash2, Pencil, Clock, Briefcase, X, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 
 import {
   PROJECT_STATUSES, type ProjectStatus,
+  PROJECT_TYPES, type ProjectType,
   listProjects, upsertProject, deleteProject,
   listTimeEntries, upsertTimeEntry, deleteTimeEntry,
-  projectStats,
+  projectStats, projectProfitability,
   type ProjectRow, type TimeEntryRow,
 } from "@/lib/projects.functions";
+import {
+  MARGIN_STYLE, PROJECT_TYPE_COLOR, PROJECT_TYPE_LABEL,
+  expectedHours, fmtMoney, marginState, type ProjectProfitRow,
+} from "@/lib/project-ui";
+import { ProjectMarginChart } from "@/components/charts/project-margin-chart";
+import { ProjectDetailDialog } from "@/components/project-detail-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export const Route = createFileRoute("/_authenticated/projects")({
   head: () => ({ meta: [
     { title: "Qanta — Proyectos" },
-    { name: "description", content: "Proyectos, miembros y registro de horas." },
+    { name: "description", content: "Proyectos, rentabilidad, miembros y registro de horas." },
   ] }),
   loader: async ({ context }) => {
     await Promise.all([
@@ -37,6 +44,7 @@ export const Route = createFileRoute("/_authenticated/projects")({
   notFoundComponent: () => <div className="p-6">404</div>,
   component: ProjectsPage,
 });
+
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   active: "Activo",
