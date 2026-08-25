@@ -38,6 +38,9 @@ export type ProjectRow = {
   client_name: string | null;
   customer_id: string | null;
   status: ProjectStatus;
+  project_type: ProjectType;
+  platform: string | null;
+
   description: string | null;
   color: string | null;
   start_date: string | null;
