@@ -54,7 +54,7 @@ export function ProjectMarginChart({ rows }: { rows: ProjectProfitRow[] }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                 <YAxis tickFormatter={fmtShort} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                <Tooltip contentStyle={TOOLTIP} formatter={(v: unknown) => v.toFixed(2)} />
+                <Tooltip contentStyle={TOOLTIP} formatter={(v: unknown) => Number(v).toFixed(2)} />
                 <Bar dataKey="ingreso" name="Ingreso" fill={COLOR_REVENUE} radius={[6, 6, 0, 0]} />
                 <Bar dataKey="costo" name="Costo" fill={COLOR_COST} radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -95,7 +95,7 @@ export function ProjectBreakdownChart({ row }: { row: ProjectProfitRow }) {
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
           <YAxis tickFormatter={fmtShort} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-          <Tooltip contentStyle={TOOLTIP} formatter={(v: unknown) => v.toFixed(2)} />
+          <Tooltip contentStyle={TOOLTIP} formatter={(v: unknown) => Number(v).toFixed(2)} />
           <Bar dataKey="value" name="Importe" radius={[6, 6, 0, 0]}>
             {data.map((d) => (
               <Cell key={d.name} fill={d.color} />
