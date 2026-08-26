@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 
@@ -10,6 +11,7 @@ export type Notification = {
   href: string;
   severity: "info" | "warning" | "danger";
   date?: string;
+  read: boolean;
 };
 
 export const listNotifications = createServerFn({ method: "GET" })
@@ -19,6 +21,7 @@ export const listNotifications = createServerFn({ method: "GET" })
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const in48h = new Date(now.getTime() + 48 * 3600 * 1000).toISOString();
+
 
     const [lowStockRes, tasksRes, eventsRes, remindersRes] = await Promise.all([
       context.supabase
