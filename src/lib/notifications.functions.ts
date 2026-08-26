@@ -112,5 +112,57 @@ export const listNotifications = createServerFn({ method: "GET" })
       });
     }
 
-    return notifs;
+    // Las notificaciones son sintéticas (se recalculan en cada request), así que
+    // marcamos "read" cruzando sus ids contra notification_reads del usuario.
+    const readsRes = await context.supabase
+      .from("notification_reads")
+      .select("notification_id")
+      .eq("org_id", orgId)
+      .eq("user_id", context.userId);
+    const readIds = new Set((readsRes.data ?? []).map((r) => r.notification_id));
+
+    return notifs.map((n): Notification => ({ ...n, read: readIds.has(n.id) }));
+  });
+
+/**
+ * Marca una notificación sintética como leída.
+ *
+ * Nota de mantenimiento: los ids son sintéticos y dependen del estado actual
+ * (ej. `task:<uuid>` desaparece cuando la tarea se completa). Si el id ya no
+ * se genera, la fila en `notification_reads` queda huérfana. Es inofensivo
+ * (solo ocupa espacio) y no requiere limpieza inmediata; si algún día crece
+ * demasiado, se puede purgar por antigüedad de `read_at`.
+ */
+export const markNotificationRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().min(1).max(200) }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const { error } = await context.supabase
+      .from("notification_reads")
+      .upsert(
+        { org_id: orgId, user_id: context.userId, notification_id: data.id, read_at: new Date().toISOString() },
+        { onConflict: "org_id,user_id,notification_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const markAllNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    const current = await listNotifications();
+    const rows = current.map((n) => ({
+      org_id: orgId,
+      user_id: context.userId,
+      notification_id: n.id,
+      read_at: new Date().toISOString(),
+    }));
+    if (rows.length === 0) return { ok: true, count: 0 };
+    const { error } = await context.supabase
+      .from("notification_reads")
+      .upsert(rows, { onConflict: "org_id,user_id,notification_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true, count: rows.length };
   });
