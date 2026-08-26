@@ -56,7 +56,7 @@ export const listNotifications = createServerFn({ method: "GET" })
         .limit(50),
     ]);
 
-    const notifs: Notification[] = [];
+    const notifs: Omit<Notification, "read">[] = [];
 
     for (const p of lowStockRes.data ?? []) {
       if (Number(p.stock) <= Number(p.min_stock)) {
