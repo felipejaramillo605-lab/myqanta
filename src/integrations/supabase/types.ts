@@ -1713,6 +1713,35 @@ export type Database = {
           },
         ]
       }
+      notification_reads: {
+        Row: {
+          notification_id: string
+          org_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          org_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          org_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notion_connections: {
         Row: {
           access_token: string
