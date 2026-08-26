@@ -169,6 +169,9 @@ const dict = {
     "export.closing_ready": "Resumen listo. Descargando PDF…",
     "notif.title": "Notificaciones",
     "notif.empty": "Sin novedades por ahora.",
+    "notif.markAll": "Marcar todas",
+    "notif.markRead": "Marcar como leída",
+
     "ai.title": "Asistente Qanta",
     "ai.placeholder": "Pregunta sobre tu negocio…",
     "ai.send": "Enviar",
