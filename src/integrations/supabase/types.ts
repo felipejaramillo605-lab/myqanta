@@ -1792,6 +1792,56 @@ export type Database = {
           },
         ]
       }
+      obsidian_connections: {
+        Row: {
+          api_key_encrypted: string
+          base_url: string
+          connected_at: string
+          connected_by: string
+          created_at: string
+          folder: string
+          id: string
+          last_sync_at: string | null
+          org_id: string
+          updated_at: string
+          vault_name: string | null
+        }
+        Insert: {
+          api_key_encrypted: string
+          base_url: string
+          connected_at?: string
+          connected_by: string
+          created_at?: string
+          folder?: string
+          id?: string
+          last_sync_at?: string | null
+          org_id: string
+          updated_at?: string
+          vault_name?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string
+          base_url?: string
+          connected_at?: string
+          connected_by?: string
+          created_at?: string
+          folder?: string
+          id?: string
+          last_sync_at?: string | null
+          org_id?: string
+          updated_at?: string
+          vault_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obsidian_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_nodes: {
         Row: {
           created_at: string
