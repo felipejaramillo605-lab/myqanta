@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Link2, Unlink, RefreshCw } from "lucide-react";
+import { Loader2, Link2, Unlink, RefreshCw, PlugZap } from "lucide-react";
 import {
   createNotionOAuthState,
   getNotionConnection,
@@ -12,11 +12,21 @@ import {
   setNotionDatabase,
   syncContactsToNotion,
 } from "@/lib/notion.functions";
+import {
+  connectObsidian,
+  disconnectObsidian,
+  getObsidianConnection,
+  syncToObsidian,
+  testObsidianConnection,
+  updateObsidianFolder,
+} from "@/lib/obsidian.functions";
 import { usePermissions } from "@/lib/use-permissions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+
 
 export const Route = createFileRoute("/_authenticated/settings/integrations")({
   head: () => ({ meta: [
