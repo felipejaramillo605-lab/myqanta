@@ -554,6 +554,9 @@ const dict = {
     "export.closing_ready": "Summary ready. Downloading PDF…",
     "notif.title": "Notifications",
     "notif.empty": "No alerts right now.",
+    "notif.markAll": "Mark all read",
+    "notif.markRead": "Mark as read",
+
     "ai.title": "Qanta Assistant",
     "ai.placeholder": "Ask anything about your business…",
     "ai.send": "Send",
