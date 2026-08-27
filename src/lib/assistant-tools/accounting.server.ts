@@ -61,9 +61,9 @@ export function accountingTools(ctx: AssistantToolCtx) {
               disclaimer:
                 "Propuesta orientativa basada en NIIF para pymes. NO está registrada: revísala con tu contador y créala en Finanzas → Asientos contables.",
               matched_standards: matched.map((r) => `${r.code} ${r.name}`),
-              available_standards: matched.length
-                ? undefined
-                : NIIF_RULES.map((r) => `${r.code} ${r.name}`),
+              ...(matched.length
+                ? {}
+                : { available_standards: NIIF_RULES.map((r) => `${r.code} ${r.name}`) }),
               suggestions,
             },
           };
