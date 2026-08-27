@@ -355,3 +355,112 @@ export const listAttendance = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (rows ?? []) as any[];
   });
+
+// ==================== Hojas de vida (análisis con IA) ====================
+
+export type ResumeReviewRow = {
+  id: string;
+  org_id: string;
+  candidate_name: string;
+  position_applied: string | null;
+  file_name: string | null;
+  score: number;
+  recommendation: "strong" | "maybe" | "no";
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  skills: string[];
+  experience_years: number;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+};
+
+const RESUME_ERROR_MESSAGES: Record<string, string> = {
+  RESUME_TOO_LARGE: "El archivo es demasiado grande (máx. 8 MB).",
+  RESUME_UNSUPPORTED_FILE: "Formato no soportado. Usa PDF, JPG o PNG.",
+  RESUME_PARSE_FAILED: "No se pudo interpretar la hoja de vida. Intenta con un archivo más legible.",
+  RESUME_RATE_LIMITED: "Demasiadas solicitudes de IA. Espera un momento e inténtalo de nuevo.",
+  RESUME_NO_CREDITS: "Sin créditos de IA disponibles.",
+  RESUME_FAILED: "El análisis de la hoja de vida falló.",
+};
+
+export const listResumeReviews = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
+    const { data, error } = await context.supabase
+      .from("hr_resume_reviews" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as ResumeReviewRow[];
+  });
+
+export const analyzeResume = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        file_data_url: z.string().min(32).max(12_000_000),
+        mime: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
+        file_name: z.string().trim().max(200).optional(),
+        role_target: z.string().trim().max(160).optional(),
+        requirements: z.string().trim().max(2000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const { analyzeResumeFile } = await import("./resume-review.server");
+    const res = await analyzeResumeFile({
+      file_data_url: data.file_data_url,
+      mime: data.mime,
+      role_target: data.role_target ?? null,
+      requirements: data.requirements ?? null,
+      apiKey: key,
+    });
+    if (!res.ok) throw new Error(RESUME_ERROR_MESSAGES[res.error] ?? RESUME_ERROR_MESSAGES.RESUME_FAILED);
+    const review = res.data;
+    const { data: out, error } = await context.supabase
+      .from("hr_resume_reviews" as never)
+      .insert({
+        org_id: orgId,
+        candidate_name: review.candidate_name || "Candidato sin nombre",
+        position_applied: data.role_target?.trim() || review.position_applied,
+        file_name: data.file_name ?? null,
+        score: review.score,
+        recommendation: review.recommendation,
+        summary: review.summary,
+        strengths: review.strengths,
+        gaps: review.gaps,
+        skills: review.skills,
+        experience_years: review.experience_years,
+        email: review.email,
+        phone: review.phone,
+        raw: review as never,
+        created_by: context.userId,
+      } as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out as unknown as ResumeReviewRow;
+  });
+
+export const deleteResumeReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const { error } = await context.supabase
+      .from("hr_resume_reviews" as never)
+      .delete()
+      .eq("id", data.id)
+      .eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

@@ -190,5 +190,27 @@ export function opsTools(ctx: AssistantToolCtx) {
         return { ok: true, count: (data ?? []).length, members: data ?? [] };
       },
     }),
+
+    hr_resume_reviews: tool({
+      description:
+        "Read-only: AI resume (CV) reviews stored for the organization, with candidate name, fit score 0-100, recommendation, summary, strengths and gaps. Use it to compare candidates or answer who is the best fit for a role.",
+      inputSchema: z.object({
+        query: z.string().max(160).optional().describe("Optional candidate name or role filter."),
+        min_score: z.number().min(0).max(100).optional(),
+        limit: z.number().int().min(1).max(50).default(10),
+      }),
+      execute: async (input) => {
+        const orgId = await resolveOrgWithModuleAccess(ctx.supabase, ctx.userId, "/hr", "member");
+        let q = ctx.supabase
+          .from("hr_resume_reviews")
+          .select("candidate_name,position_applied,score,recommendation,summary,strengths,gaps,skills,experience_years,created_at")
+          .eq("org_id", orgId);
+        if (input.query) q = q.or(`candidate_name.ilike.%${input.query}%,position_applied.ilike.%${input.query}%`);
+        if (input.min_score !== undefined) q = q.gte("score", input.min_score);
+        const { data, error } = await q.order("score", { ascending: false }).limit(input.limit);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, count: (data ?? []).length, reviews: data ?? [] };
+      },
+    }),
   };
 }

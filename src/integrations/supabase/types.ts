@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1343,6 +1343,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "hr_payroll_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_resume_reviews: {
+        Row: {
+          candidate_name: string
+          created_at: string
+          created_by: string
+          email: string | null
+          experience_years: number
+          file_name: string | null
+          gaps: Json
+          id: string
+          org_id: string
+          phone: string | null
+          position_applied: string | null
+          raw: Json
+          recommendation: string
+          score: number
+          skills: Json
+          strengths: Json
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_name?: string
+          created_at?: string
+          created_by: string
+          email?: string | null
+          experience_years?: number
+          file_name?: string | null
+          gaps?: Json
+          id?: string
+          org_id: string
+          phone?: string | null
+          position_applied?: string | null
+          raw?: Json
+          recommendation?: string
+          score?: number
+          skills?: Json
+          strengths?: Json
+          summary?: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_name?: string
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          experience_years?: number
+          file_name?: string | null
+          gaps?: Json
+          id?: string
+          org_id?: string
+          phone?: string | null
+          position_applied?: string | null
+          raw?: Json
+          recommendation?: string
+          score?: number
+          skills?: Json
+          strengths?: Json
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_resume_reviews_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
