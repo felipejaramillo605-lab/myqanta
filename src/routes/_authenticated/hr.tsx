@@ -299,6 +299,10 @@ function HrPage() {
             </table>
           </div>
         </TabsContent>
+
+        <TabsContent value="resumes" className="mt-4">
+          <HrResumeReviews />
+        </TabsContent>
       </Tabs>
 
       {/* Edit leave dialog */}
