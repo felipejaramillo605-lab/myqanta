@@ -222,6 +222,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <DropdownMenuItem onSelect={() => setGuideOpen(true)}>
           <HelpCircle className="size-4" /> Guía de uso
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setTourOpen(true)}>
+          <Sparkles className="size-4" /> Ver tour de la app
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => toggleMode()}>
           {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} Tema
         </DropdownMenuItem>
@@ -561,6 +564,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <OnboardingWizard />
+      <ProductTour open={tourOpen} onOpenChange={setTourOpen} />
+      <ProductTourAuto />
 
       <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
