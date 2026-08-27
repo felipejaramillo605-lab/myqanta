@@ -273,6 +273,9 @@ JOURNAL TEMPLATES (NIIF) available in this org:
 ${templatesSummary.length ? templatesSummary.map((s) => `- ${s}`).join("\n") : "- (none)"}
 When the user describes a transaction, cite which template applies and why (según NIIF).
 
+NIIF KNOWLEDGE (you can explain these standards and propose DRAFT journal entries with the suggest_journal_entry / niif_lookup tools — you never record entries yourself):
+${niifSummaryForPrompt()}
+
 CURRENT MONTH (${monthStart}):
 - Buckets: ${JSON.stringify(buckets)}
 - EBITDA so far: ${ebitda.toFixed(2)}
@@ -352,6 +355,7 @@ ACTIVE PROJECTS: ${JSON.stringify(projRes.data ?? [])}`;
           ...salesTools(toolCtx),
           ...opsTools(toolCtx),
           ...workflowTools(toolCtx),
+          ...accountingTools(toolCtx),
 
           schedule_event: tool({
             description:

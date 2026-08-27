@@ -31,6 +31,7 @@ import { getMyModuleAccess } from "@/lib/custom-roles.functions";
 import { getOrgViewPreferences } from "@/lib/custom-roles.functions";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { AppGuideDialog } from "@/components/app-guide-dialog";
+import { ProductTour } from "@/components/product-tour";
 import { NotificationBell } from "@/components/notification-bell";
 import { GlobalSearch } from "@/components/global-search";
 
@@ -121,6 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const fetchAccess = useServerFn(getMyModuleAccess);
   const accessQuery = useQuery({
