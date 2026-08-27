@@ -146,6 +146,7 @@ function HrPage() {
           <TabsTrigger value="team">Personal</TabsTrigger>
           <TabsTrigger value="leaves">Ausencias</TabsTrigger>
           <TabsTrigger value="payroll">Nómina</TabsTrigger>
+          <TabsTrigger value="resumes">Hojas de vida</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-4">
