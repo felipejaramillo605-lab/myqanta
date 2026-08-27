@@ -5,6 +5,10 @@ import { toast } from "sonner";
 import { getMyEmployeeRecord, updateMyPhoto } from "@/lib/team.functions";
 import { PhotoUpload } from "@/components/photo-upload";
 import { useAuth } from "@/lib/auth-context";
+import { useState } from "react";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ProductTour } from "@/components/product-tour";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
   head: () => ({

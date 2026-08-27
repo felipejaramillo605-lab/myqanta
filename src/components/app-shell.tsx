@@ -25,6 +25,7 @@ import {
 import { BarChart3, Building2, MoreHorizontal, CheckSquare, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
 import { KeyRound } from "lucide-react";
 import { HelpCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyModuleAccess } from "@/lib/custom-roles.functions";
@@ -564,8 +565,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <OnboardingWizard />
+      {/* Tour automático (una vez por usuario) + versión controlada desde el menú */}
+      <ProductTour />
       <ProductTour open={tourOpen} onOpenChange={setTourOpen} />
-      <ProductTourAuto />
+
 
       <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
