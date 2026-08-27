@@ -12,6 +12,8 @@ import { crmTools } from "./assistant-tools/crm.server";
 import { salesTools } from "./assistant-tools/sales.server";
 import { opsTools } from "./assistant-tools/ops.server";
 import { workflowTools } from "./assistant-tools/workflow.server";
+import { accountingTools } from "./assistant-tools/accounting.server";
+import { niifSummaryForPrompt } from "./niif-knowledge";
 import type { AssistantToolCtx } from "./assistant-tools/context.server";
 
 

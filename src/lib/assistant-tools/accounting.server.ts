@@ -5,8 +5,7 @@ import { audited, type AssistantToolCtx } from "./context.server";
 import { matchNiifRules, NIIF_RULES } from "../niif-knowledge";
 
 /**
- * Herramientas contables de Qanta. Solo PROPO
-NEN asientos (nunca persisten):
+ * Herramientas contables de Qanta. Solo PROPONEN asientos (nunca persisten):
  * el usuario confirma y registra en /finance/journal.
  */
 export function accountingTools(ctx: AssistantToolCtx) {

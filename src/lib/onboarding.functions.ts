@@ -71,6 +71,29 @@ export const getOnboardingState = createServerFn({ method: "GET" })
     };
   });
 
+/** Estado del tour de producto (por usuario, no por organización). */
+export const getProductTourState = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ has_seen: boolean }> => {
+    const { data } = await context.supabase
+      .from("profiles")
+      .select("has_seen_product_tour")
+      .eq("id", context.userId)
+      .maybeSingle();
+    return { has_seen: !!(data as { has_seen_product_tour?: boolean } | null)?.has_seen_product_tour };
+  });
+
+export const markProductTourSeen = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase
+      .from("profiles")
+      .update({ has_seen_product_tour: true } as never)
+      .eq("id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getSetupChecklist = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SetupChecklist> => {
