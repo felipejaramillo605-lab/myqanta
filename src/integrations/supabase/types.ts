@@ -1350,6 +1350,77 @@ export type Database = {
           },
         ]
       }
+      hr_resume_reviews: {
+        Row: {
+          candidate_name: string
+          created_at: string
+          created_by: string
+          email: string | null
+          experience_years: number
+          file_name: string | null
+          gaps: Json
+          id: string
+          org_id: string
+          phone: string | null
+          position_applied: string | null
+          raw: Json
+          recommendation: string
+          score: number
+          skills: Json
+          strengths: Json
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_name?: string
+          created_at?: string
+          created_by: string
+          email?: string | null
+          experience_years?: number
+          file_name?: string | null
+          gaps?: Json
+          id?: string
+          org_id: string
+          phone?: string | null
+          position_applied?: string | null
+          raw?: Json
+          recommendation?: string
+          score?: number
+          skills?: Json
+          strengths?: Json
+          summary?: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_name?: string
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          experience_years?: number
+          file_name?: string | null
+          gaps?: Json
+          id?: string
+          org_id?: string
+          phone?: string | null
+          position_applied?: string | null
+          raw?: Json
+          recommendation?: string
+          score?: number
+          skills?: Json
+          strengths?: Json
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_resume_reviews_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inv_invoices: {
         Row: {
           created_at: string
