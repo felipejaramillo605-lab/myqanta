@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HrLeaveCalendar } from "@/components/hr-leave-calendar";
+import { HrResumeReviews } from "@/components/hr-resume-reviews";
 
 
 export const Route = createFileRoute("/_authenticated/hr")({
@@ -146,6 +147,7 @@ function HrPage() {
           <TabsTrigger value="team">Personal</TabsTrigger>
           <TabsTrigger value="leaves">Ausencias</TabsTrigger>
           <TabsTrigger value="payroll">Nómina</TabsTrigger>
+          <TabsTrigger value="resumes">Hojas de vida</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-4">
@@ -297,6 +299,10 @@ function HrPage() {
               </tbody>
             </table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="resumes" className="mt-4">
+          <HrResumeReviews />
         </TabsContent>
       </Tabs>
 
