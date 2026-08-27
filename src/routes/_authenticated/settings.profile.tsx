@@ -5,6 +5,10 @@ import { toast } from "sonner";
 import { getMyEmployeeRecord, updateMyPhoto } from "@/lib/team.functions";
 import { PhotoUpload } from "@/components/photo-upload";
 import { useAuth } from "@/lib/auth-context";
+import { useState } from "react";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ProductTour } from "@/components/product-tour";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
   head: () => ({
@@ -25,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/settings/profile")({
 function ProfilePage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const [tourOpen, setTourOpen] = useState(false);
   const fetchMe = useServerFn(getMyEmployeeRecord);
   const savePhoto = useServerFn(updateMyPhoto);
   const { data } = useQuery({ queryKey: ["my-employee-record"], queryFn: () => fetchMe() });
@@ -76,6 +81,17 @@ function ProfilePage() {
           )}
         </div>
       </div>
+
+      <div className="flex items-center justify-between rounded-2xl border border-border/50 bg-card/60 p-5">
+        <div>
+          <div className="text-sm font-medium">Tour de la aplicación</div>
+          <p className="text-xs text-muted-foreground">Recorre los módulos principales en 5 pantallas.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setTourOpen(true)}>
+          <Sparkles className="mr-1.5 size-3.5" /> Ver tour
+        </Button>
+      </div>
+      {tourOpen && <ProductTour open={tourOpen} onOpenChange={setTourOpen} />}
     </div>
   );
 }

@@ -25,12 +25,14 @@ import {
 import { BarChart3, Building2, MoreHorizontal, CheckSquare, BookOpen, Landmark, Banknote, Percent, GitMerge, Scale, Cog, ChevronDown } from "lucide-react";
 import { KeyRound } from "lucide-react";
 import { HelpCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyModuleAccess } from "@/lib/custom-roles.functions";
 import { getOrgViewPreferences } from "@/lib/custom-roles.functions";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { AppGuideDialog } from "@/components/app-guide-dialog";
+import { ProductTour } from "@/components/product-tour";
 import { NotificationBell } from "@/components/notification-bell";
 import { GlobalSearch } from "@/components/global-search";
 
@@ -121,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const fetchAccess = useServerFn(getMyModuleAccess);
   const accessQuery = useQuery({
@@ -219,6 +222,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setGuideOpen(true)}>
           <HelpCircle className="size-4" /> Guía de uso
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setTourOpen(true)}>
+          <Sparkles className="size-4" /> Ver tour de la app
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => toggleMode()}>
           {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} Tema
@@ -559,6 +565,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       <BusinessOnboardingDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <OnboardingWizard />
+      {/* Tour automático (una vez por usuario) + versión controlada desde el menú */}
+      <ProductTour />
+      <ProductTour open={tourOpen} onOpenChange={setTourOpen} />
+
 
       <AppGuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>

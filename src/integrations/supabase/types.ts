@@ -2186,6 +2186,7 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           full_name: string | null
+          has_seen_product_tour: boolean
           id: string
           is_blocked: boolean
           preferred_language: string
@@ -2199,6 +2200,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           full_name?: string | null
+          has_seen_product_tour?: boolean
           id: string
           is_blocked?: boolean
           preferred_language?: string
@@ -2212,6 +2214,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           full_name?: string | null
+          has_seen_product_tour?: boolean
           id?: string
           is_blocked?: boolean
           preferred_language?: string
