@@ -1574,6 +1574,124 @@ export type Database = {
           },
         ]
       }
+      hr_payroll_items: {
+        Row: {
+          base_salary: number
+          created_at: string
+          employer_arl: number
+          employer_caja: number
+          employer_health: number
+          employer_icbf: number
+          employer_pension: number
+          employer_sena: number
+          full_name: string
+          gross: number
+          health_employee: number
+          id: string
+          member_id: string | null
+          net: number
+          org_id: string
+          other_deductions: number
+          pension_employee: number
+          prov_cesantias: number
+          prov_intereses_cesantias: number
+          prov_prima: number
+          prov_vacaciones: number
+          run_id: string
+          solidarity_fund: number
+          total_deductions: number
+          total_employer: number
+          total_provisions: number
+          transport_allowance: number
+          updated_at: string
+          worked_days: number
+        }
+        Insert: {
+          base_salary?: number
+          created_at?: string
+          employer_arl?: number
+          employer_caja?: number
+          employer_health?: number
+          employer_icbf?: number
+          employer_pension?: number
+          employer_sena?: number
+          full_name: string
+          gross?: number
+          health_employee?: number
+          id?: string
+          member_id?: string | null
+          net?: number
+          org_id: string
+          other_deductions?: number
+          pension_employee?: number
+          prov_cesantias?: number
+          prov_intereses_cesantias?: number
+          prov_prima?: number
+          prov_vacaciones?: number
+          run_id: string
+          solidarity_fund?: number
+          total_deductions?: number
+          total_employer?: number
+          total_provisions?: number
+          transport_allowance?: number
+          updated_at?: string
+          worked_days?: number
+        }
+        Update: {
+          base_salary?: number
+          created_at?: string
+          employer_arl?: number
+          employer_caja?: number
+          employer_health?: number
+          employer_icbf?: number
+          employer_pension?: number
+          employer_sena?: number
+          full_name?: string
+          gross?: number
+          health_employee?: number
+          id?: string
+          member_id?: string | null
+          net?: number
+          org_id?: string
+          other_deductions?: number
+          pension_employee?: number
+          prov_cesantias?: number
+          prov_intereses_cesantias?: number
+          prov_prima?: number
+          prov_vacaciones?: number
+          run_id?: string
+          solidarity_fund?: number
+          total_deductions?: number
+          total_employer?: number
+          total_provisions?: number
+          transport_allowance?: number
+          updated_at?: string
+          worked_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_items_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_payroll_runs: {
         Row: {
           created_at: string
@@ -1581,13 +1699,17 @@ export type Database = {
           details: Json
           finance_txn_id: string | null
           id: string
+          journal_entry_id: string | null
           notes: string | null
           org_id: string
           period_month: number
           period_year: number
           status: string
+          total_deductions: number
+          total_employer: number
           total_gross: number
           total_net: number
+          total_provisions: number
           updated_at: string
         }
         Insert: {
@@ -1596,13 +1718,17 @@ export type Database = {
           details?: Json
           finance_txn_id?: string | null
           id?: string
+          journal_entry_id?: string | null
           notes?: string | null
           org_id: string
           period_month: number
           period_year: number
           status?: string
+          total_deductions?: number
+          total_employer?: number
           total_gross?: number
           total_net?: number
+          total_provisions?: number
           updated_at?: string
         }
         Update: {
@@ -1611,21 +1737,175 @@ export type Database = {
           details?: Json
           finance_txn_id?: string | null
           id?: string
+          journal_entry_id?: string | null
           notes?: string | null
           org_id?: string
           period_month?: number
           period_year?: number
           status?: string
+          total_deductions?: number
+          total_employer?: number
           total_gross?: number
           total_net?: number
+          total_provisions?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "hr_payroll_runs_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "fin_journal_entries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "hr_payroll_runs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_settings: {
+        Row: {
+          arl_rate: number
+          caja_rate: number
+          cesantias_rate: number
+          created_at: string
+          employer_expense_account_id: string | null
+          health_employee_rate: number
+          health_employer_rate: number
+          icbf_rate: number
+          id: string
+          intereses_cesantias_rate: number
+          minimum_wage: number
+          notes: string | null
+          org_id: string
+          payroll_payable_account_id: string | null
+          pension_employee_rate: number
+          pension_employer_rate: number
+          prima_rate: number
+          provisions_expense_account_id: string | null
+          provisions_payable_account_id: string | null
+          salary_expense_account_id: string | null
+          sena_rate: number
+          solidarity_rate: number
+          solidarity_threshold_smmlv: number
+          transport_allowance: number
+          transport_allowance_max_smmlv: number
+          updated_at: string
+          vacaciones_rate: number
+          withholdings_payable_account_id: string | null
+        }
+        Insert: {
+          arl_rate?: number
+          caja_rate?: number
+          cesantias_rate?: number
+          created_at?: string
+          employer_expense_account_id?: string | null
+          health_employee_rate?: number
+          health_employer_rate?: number
+          icbf_rate?: number
+          id?: string
+          intereses_cesantias_rate?: number
+          minimum_wage?: number
+          notes?: string | null
+          org_id: string
+          payroll_payable_account_id?: string | null
+          pension_employee_rate?: number
+          pension_employer_rate?: number
+          prima_rate?: number
+          provisions_expense_account_id?: string | null
+          provisions_payable_account_id?: string | null
+          salary_expense_account_id?: string | null
+          sena_rate?: number
+          solidarity_rate?: number
+          solidarity_threshold_smmlv?: number
+          transport_allowance?: number
+          transport_allowance_max_smmlv?: number
+          updated_at?: string
+          vacaciones_rate?: number
+          withholdings_payable_account_id?: string | null
+        }
+        Update: {
+          arl_rate?: number
+          caja_rate?: number
+          cesantias_rate?: number
+          created_at?: string
+          employer_expense_account_id?: string | null
+          health_employee_rate?: number
+          health_employer_rate?: number
+          icbf_rate?: number
+          id?: string
+          intereses_cesantias_rate?: number
+          minimum_wage?: number
+          notes?: string | null
+          org_id?: string
+          payroll_payable_account_id?: string | null
+          pension_employee_rate?: number
+          pension_employer_rate?: number
+          prima_rate?: number
+          provisions_expense_account_id?: string | null
+          provisions_payable_account_id?: string | null
+          salary_expense_account_id?: string | null
+          sena_rate?: number
+          solidarity_rate?: number
+          solidarity_threshold_smmlv?: number
+          transport_allowance?: number
+          transport_allowance_max_smmlv?: number
+          updated_at?: string
+          vacaciones_rate?: number
+          withholdings_payable_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_settings_employer_expense_account_id_fkey"
+            columns: ["employer_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_payroll_payable_account_id_fkey"
+            columns: ["payroll_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_provisions_expense_account_id_fkey"
+            columns: ["provisions_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_provisions_payable_account_id_fkey"
+            columns: ["provisions_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_salary_expense_account_id_fkey"
+            columns: ["salary_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_settings_withholdings_payable_account_id_fkey"
+            columns: ["withholdings_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
             referencedColumns: ["id"]
           },
         ]

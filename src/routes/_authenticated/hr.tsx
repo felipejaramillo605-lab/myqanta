@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, CheckCircle2, XCircle, PlayCircle, Loader2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, XCircle, PlayCircle, Loader2, Settings2, Eye } from "lucide-react";
 
 import {
   listLeaves, upsertLeave, deleteLeave, listHolidays,
@@ -21,6 +21,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HrLeaveCalendar } from "@/components/hr-leave-calendar";
 import { HrResumeReviews } from "@/components/hr-resume-reviews";
+import { HrPayrollDetailDialog } from "@/components/hr-payroll-detail-dialog";
+import { HrPayrollSettingsDialog } from "@/components/hr-payroll-settings-dialog";
+import { HrSeveranceCalculator } from "@/components/hr-severance-calculator";
 
 
 export const Route = createFileRoute("/_authenticated/hr")({
@@ -117,8 +120,9 @@ function HrPage() {
   });
   const finalizeRun = useMutation({
     mutationFn: (id: string) => finalizePayrollRun({ data: { id } }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       toast.success("Nómina cerrada y contabilizada");
+      for (const w of (res?.warnings ?? []) as string[]) toast.warning(w);
       qc.invalidateQueries({ queryKey: ["hr-payroll"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Error"),
@@ -127,6 +131,9 @@ function HrPage() {
     mutationFn: (id: string) => deletePayrollRun({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["hr-payroll"] }),
   });
+
+  const [payrollSettingsOpen, setPayrollSettingsOpen] = useState(false);
+  const [detailRun, setDetailRun] = useState<{ id: string; period: string } | null>(null);
 
   const openNewLeave = () =>
     setEditingLeave({
@@ -152,6 +159,7 @@ function HrPage() {
           <TabsTrigger value="team">Personal</TabsTrigger>
           <TabsTrigger value="leaves">Ausencias</TabsTrigger>
           <TabsTrigger value="payroll">Nómina</TabsTrigger>
+          <TabsTrigger value="severance">Liquidación</TabsTrigger>
           <TabsTrigger value="resumes">Hojas de vida</TabsTrigger>
         </TabsList>
 
@@ -268,6 +276,9 @@ function HrPage() {
               {genRun.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Plus className="mr-1 size-4" />}
               Generar borrador
             </Button>
+            <Button variant="outline" onClick={() => setPayrollSettingsOpen(true)}>
+              <Settings2 className="mr-1 size-4" /> Parámetros
+            </Button>
           </div>
 
           <div className="glass rounded-2xl overflow-hidden">
@@ -276,44 +287,78 @@ function HrPage() {
                 <tr>
                   <th className="px-3 py-2">Periodo</th>
                   <th className="px-3 py-2">Estado</th>
-                  <th className="px-3 py-2">Bruto</th>
-                  <th className="px-3 py-2">Neto</th>
+                  <th className="px-3 py-2 text-right">Devengado</th>
+                  <th className="px-3 py-2 text-right">Deducciones</th>
+                  <th className="px-3 py-2 text-right">Neto</th>
+                  <th className="px-3 py-2 text-right">Aportes</th>
+                  <th className="px-3 py-2 text-right">Provisiones</th>
+                  <th className="px-3 py-2 text-right">Costo total</th>
                   <th className="px-3 py-2">Personas</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {payrollQ.data.map((r: PayrollRow) => (
-                  <tr key={r.id} className="border-t border-border/40">
-                    <td className="px-3 py-2 font-mono">{r.period_year}-{String(r.period_month).padStart(2, "0")}</td>
-                    <td className="px-3 py-2">{r.status === "finalized" ? "Cerrada" : "Borrador"}</td>
-                    <td className="px-3 py-2 font-mono">{Number(r.total_gross).toFixed(2)}</td>
-                    <td className="px-3 py-2 font-mono">{Number(r.total_net).toFixed(2)}</td>
-                    <td className="px-3 py-2">{(r.details ?? []).length}</td>
-                    <td className="px-3 py-2 text-right space-x-1">
-                      {r.status === "draft" && (
-                        <Button variant="ghost" size="sm" onClick={() => finalizeRun.mutate(r.id)}>
-                          <PlayCircle className="mr-1 size-4" /> Cerrar
+                {payrollQ.data.map((r: PayrollRow) => {
+                  const row = r as PayrollRow & {
+                    total_deductions?: number; total_employer?: number; total_provisions?: number;
+                  };
+                  const employer = Number(row.total_employer ?? 0);
+                  const provisions = Number(row.total_provisions ?? 0);
+                  const period = `${r.period_year}-${String(r.period_month).padStart(2, "0")}`;
+                  return (
+                    <tr key={r.id} className="border-t border-border/40">
+                      <td className="px-3 py-2 font-mono">{period}</td>
+                      <td className="px-3 py-2">{r.status === "finalized" ? "Cerrada" : "Borrador"}</td>
+                      <td className="px-3 py-2 text-right font-mono">{Number(r.total_gross).toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2 text-right font-mono">{Number(row.total_deductions ?? 0).toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold">{Number(r.total_net).toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2 text-right font-mono">{employer.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2 text-right font-mono">{provisions.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2 text-right font-mono">{(Number(r.total_gross) + employer + provisions).toLocaleString("es-CO", { maximumFractionDigits: 0 })}</td>
+                      <td className="px-3 py-2">{(r.details ?? []).length}</td>
+                      <td className="px-3 py-2 text-right space-x-1">
+                        <Button variant="ghost" size="icon" title="Ver detalle" onClick={() => setDetailRun({ id: r.id, period })}>
+                          <Eye className="size-4" />
                         </Button>
-                      )}
-                      <Button variant="ghost" size="icon" onClick={() => removeRun.mutate(r.id)} title="Eliminar">
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                        {r.status === "draft" && (
+                          <Button variant="ghost" size="sm" onClick={() => finalizeRun.mutate(r.id)}>
+                            <PlayCircle className="mr-1 size-4" /> Cerrar
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => removeRun.mutate(r.id)} title="Eliminar">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {payrollQ.data.length === 0 && (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Sin nóminas.</td></tr>
+                  <tr><td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">Sin nóminas.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Cálculo con deducciones, aportes patronales y provisiones parametrizables. Valida los parámetros con tu
+            contador antes de usarlos para pagos reales.
+          </p>
+        </TabsContent>
+
+        <TabsContent value="severance" className="mt-4">
+          <HrSeveranceCalculator />
         </TabsContent>
 
         <TabsContent value="resumes" className="mt-4">
           <HrResumeReviews />
         </TabsContent>
       </Tabs>
+
+      <HrPayrollSettingsDialog open={payrollSettingsOpen} onClose={() => setPayrollSettingsOpen(false)} />
+      <HrPayrollDetailDialog
+        runId={detailRun?.id ?? null}
+        period={detailRun?.period ?? ""}
+        onClose={() => setDetailRun(null)}
+      />
 
       {/* Edit leave dialog */}
       <Dialog open={!!editingLeave} onOpenChange={(o) => !o && setEditingLeave(null)}>
