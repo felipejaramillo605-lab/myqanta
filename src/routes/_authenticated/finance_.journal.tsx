@@ -8,6 +8,7 @@ import {
   listJournalEntries, saveJournalEntry, deleteJournalEntry,
   listThirdParties, seedStandardPuc, seedFinanceTestData,
 } from "@/lib/finance-ext.functions";
+import { listCostCenters } from "@/lib/finance-assets.functions";
 import { listJournalTemplates } from "@/lib/journal-templates.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/finance_/journal")({
   component: JournalPage,
 });
 
-type Line = { account_id: string; debit: number; credit: number; description?: string; third_party_id?: string };
+type Line = { account_id: string; debit: number; credit: number; description?: string; third_party_id?: string; cost_center_id?: string };
 
 /** Orders accounts by code and computes nesting depth from parent_id. */
 function buildAccountTree(accounts: any[]) {
@@ -56,6 +57,7 @@ function JournalPage() {
   const coa = useSuspenseQuery({ queryKey: ["coa"], queryFn: () => listAccountsCoa() });
   const entries = useSuspenseQuery({ queryKey: ["journal"], queryFn: () => listJournalEntries() });
   const parties = useSuspenseQuery({ queryKey: ["third-parties"], queryFn: () => listThirdParties() });
+  const costCenters = useQuery({ queryKey: ["cost_centers"], queryFn: () => listCostCenters() });
 
   const accountsTree = useMemo(() => buildAccountTree(coa.data as any[]), [coa.data]);
   const accountById = useMemo(
@@ -162,7 +164,7 @@ function JournalPage() {
             <div className="space-y-2">
               {lines.map((l, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-12 md:col-span-4">
+                  <div className="col-span-12 md:col-span-3">
                     <Select value={l.account_id} onValueChange={(v) => setLines(ls => ls.map((x, j) => j === i ? { ...x, account_id: v } : x))}>
                       <SelectTrigger><SelectValue placeholder="Cuenta" /></SelectTrigger>
                       <SelectContent>
@@ -174,7 +176,7 @@ function JournalPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-12 md:col-span-3">
+                  <div className="col-span-12 md:col-span-2">
                     <Select
                       value={l.third_party_id ?? ""}
                       onValueChange={(v) => setLines(ls => ls.map((x, j) => j === i ? { ...x, third_party_id: v === "__none" ? undefined : v } : x))}
@@ -184,6 +186,20 @@ function JournalPage() {
                         <SelectItem value="__none">Sin tercero</SelectItem>
                         {(parties.data as any[]).map((tp: any) => (
                           <SelectItem key={tp.id} value={tp.id}>{tp.name} · {tp.tax_id ?? "sin NIT"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-12 md:col-span-2">
+                    <Select
+                      value={l.cost_center_id ?? ""}
+                      onValueChange={(v) => setLines(ls => ls.map((x, j) => j === i ? { ...x, cost_center_id: v === "__none" ? undefined : v } : x))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Centro de costo" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">Sin centro</SelectItem>
+                        {((costCenters.data ?? []) as any[]).map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.code} · {c.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -218,6 +234,7 @@ function JournalPage() {
                     debit: Number(l.debit) || 0,
                     credit: Number(l.credit) || 0,
                     third_party_id: l.third_party_id || null,
+                    cost_center_id: l.cost_center_id || null,
                   })),
                 })}>
                 <Save className="size-4 mr-1" /> Guardar
