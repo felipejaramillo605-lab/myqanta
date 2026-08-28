@@ -103,6 +103,19 @@ export const upsertLeave = createServerFn({ method: "POST" })
     return out;
   });
 
+export const listHolidays = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ year: z.number().int().min(1970).max(2100).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "viewer");
+    const year = data.year ?? new Date().getFullYear();
+    const country = await getOrgCountry(context.supabase, orgId);
+    const list = await getPublicHolidays(country, year, context.supabase);
+    return { country, year, holidays: list.map((h) => ({ ...h, date: h.date.slice(0, 10) })) };
+  });
+
 export const deleteLeave = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
