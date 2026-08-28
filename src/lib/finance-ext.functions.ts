@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import { bankBalancesInBaseCurrency, recordFxDifferenceForBankTx } from "./fx-journal.server";
 
 // -------------------- Chart of accounts --------------------
 
@@ -242,6 +243,13 @@ export const listBankAccounts = createServerFn({ method: "GET" })
     return (data ?? []) as any[];
   });
 
+export const getBankBalancesConverted = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    return await bankBalancesInBaseCurrency(context.supabase, orgId);
+  });
+
 const BankInput = z.object({
   id: z.string().uuid().optional(),
   bank_name: z.string().trim().min(1).max(120),
@@ -309,7 +317,14 @@ export const upsertBankTransaction = createServerFn({ method: "POST" })
     const { data: out, error } = await context.supabase.from("bank_transactions" as never)
       .upsert(payload as never).select().single();
     if (error) throw new Error(error.message);
-    return out;
+    const fx = await recordFxDifferenceForBankTx(context.supabase, orgId, {
+      id: (out as any).id,
+      bank_account_id: data.bank_account_id,
+      occurred_on: data.occurred_on,
+      amount: data.amount,
+      description: data.description ?? null,
+    });
+    return { ...(out as any), fx };
   });
 
 export const deleteBankTransaction = createServerFn({ method: "POST" })
