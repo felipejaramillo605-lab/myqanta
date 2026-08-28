@@ -131,6 +131,16 @@ const PayrollInput = z.object({
   period_year: z.number().int().min(2000).max(2100),
   period_month: z.number().int().min(1).max(12),
   notes: z.string().trim().max(500).nullable().optional(),
+  overrides: z
+    .array(
+      z.object({
+        member_id: z.string().uuid(),
+        worked_days: z.number().int().min(0).max(30).optional(),
+        other_deductions: z.number().nonnegative().max(1_000_000_000).optional(),
+      }),
+    )
+    .max(500)
+    .optional(),
 });
 
 export const listPayrollRuns = createServerFn({ method: "GET" })
@@ -147,44 +157,149 @@ export const listPayrollRuns = createServerFn({ method: "GET" })
     return (data ?? []) as unknown as PayrollRow[];
   });
 
-// Generate a monthly payroll run from team_members.salary_base and optionally
-// post a single aggregated expense transaction to Finance.
+// ---- Parámetros de nómina por empresa ----
+const PayrollSettingsInput = z.object({
+  minimum_wage: z.number().nonnegative(),
+  transport_allowance: z.number().nonnegative(),
+  transport_allowance_max_smmlv: z.number().nonnegative().max(20),
+  health_employee_rate: z.number().min(0).max(1),
+  pension_employee_rate: z.number().min(0).max(1),
+  solidarity_threshold_smmlv: z.number().min(0).max(50),
+  solidarity_rate: z.number().min(0).max(1),
+  health_employer_rate: z.number().min(0).max(1),
+  pension_employer_rate: z.number().min(0).max(1),
+  arl_rate: z.number().min(0).max(1),
+  caja_rate: z.number().min(0).max(1),
+  sena_rate: z.number().min(0).max(1),
+  icbf_rate: z.number().min(0).max(1),
+  cesantias_rate: z.number().min(0).max(1),
+  intereses_cesantias_rate: z.number().min(0).max(1),
+  prima_rate: z.number().min(0).max(1),
+  vacaciones_rate: z.number().min(0).max(1),
+  salary_expense_account_id: z.string().uuid().nullable().optional(),
+  employer_expense_account_id: z.string().uuid().nullable().optional(),
+  provisions_expense_account_id: z.string().uuid().nullable().optional(),
+  payroll_payable_account_id: z.string().uuid().nullable().optional(),
+  withholdings_payable_account_id: z.string().uuid().nullable().optional(),
+  provisions_payable_account_id: z.string().uuid().nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const getPayrollSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
+    const { DEFAULT_PAYROLL_SETTINGS } = await import("./payroll-engine.server");
+    const { data, error } = await context.supabase
+      .from("hr_payroll_settings" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return { ...DEFAULT_PAYROLL_SETTINGS, org_id: orgId, configured: false } as Record<string, unknown>;
+    return { ...(data as Record<string, unknown>), configured: true };
+  });
+
+export const savePayrollSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PayrollSettingsInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const { data: out, error } = await context.supabase
+      .from("hr_payroll_settings" as never)
+      .upsert({ ...data, org_id: orgId } as never, { onConflict: "org_id" } as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const listPayrollItems = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ run_id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
+    const { data: rows, error } = await context.supabase
+      .from("hr_payroll_items" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("run_id", data.run_id)
+      .order("full_name");
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as Record<string, number | string>[];
+  });
+
+// Genera la nómina del mes con el motor auditable (deducciones, aportes
+// patronales y provisiones) y guarda el detalle por empleado.
 export const generatePayrollRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PayrollInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const { DEFAULT_PAYROLL_SETTINGS, computePayrollItem, sumPayroll } = await import("./payroll-engine.server");
+
+    const { data: settingsRow } = await context.supabase
+      .from("hr_payroll_settings" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    const settings = { ...DEFAULT_PAYROLL_SETTINGS, ...((settingsRow ?? {}) as Record<string, never>) };
+
     const { data: members, error: mErr } = await context.supabase
       .from("team_members")
-      .select("id, full_name, salary_base, archived")
+      .select("id, full_name, salary_base, archived, contract_type")
       .eq("org_id", orgId);
     if (mErr) throw new Error(mErr.message);
+
+    const overrides = new Map((data.overrides ?? []).map((o) => [o.member_id, o]));
     const active = (members ?? []).filter((m: any) => !m.archived && Number(m.salary_base) > 0);
-    const details = active.map((m: any) => {
-      const gross = Number(m.salary_base) || 0;
-      // Simple flat retention estimate (client can tune later)
-      const net = Math.round(gross * 0.78 * 100) / 100;
-      return { member_id: m.id, full_name: m.full_name, gross, net };
+    const items = active.map((m: any) => {
+      const o = overrides.get(m.id);
+      return computePayrollItem(
+        {
+          member_id: m.id,
+          full_name: m.full_name,
+          salary_base: Number(m.salary_base) || 0,
+          contract_type: m.contract_type,
+          worked_days: o?.worked_days,
+          other_deductions: o?.other_deductions,
+        },
+        settings,
+      );
     });
-    const total_gross = details.reduce((s, d) => s + d.gross, 0);
-    const total_net = details.reduce((s, d) => s + d.net, 0);
-    const payload = {
-      org_id: orgId,
-      period_year: data.period_year,
-      period_month: data.period_month,
-      status: "draft",
-      total_gross,
-      total_net,
-      details,
-      notes: data.notes ?? null,
-      created_by: context.userId,
-    };
+    const totals = sumPayroll(items);
+
     const { data: out, error } = await context.supabase
       .from("hr_payroll_runs" as never)
-      .upsert(payload as never, { onConflict: "org_id,period_year,period_month" } as never)
+      .upsert(
+        {
+          org_id: orgId,
+          period_year: data.period_year,
+          period_month: data.period_month,
+          status: "draft",
+          total_gross: totals.total_gross,
+          total_net: totals.total_net,
+          total_deductions: totals.total_deductions,
+          total_employer: totals.total_employer,
+          total_provisions: totals.total_provisions,
+          details: items,
+          notes: data.notes ?? null,
+          created_by: context.userId,
+        } as never,
+        { onConflict: "org_id,period_year,period_month" } as never,
+      )
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    const runId = (out as any).id as string;
+    await context.supabase.from("hr_payroll_items" as never).delete().eq("run_id", runId).eq("org_id", orgId);
+    if (items.length > 0) {
+      const { error: iErr } = await context.supabase
+        .from("hr_payroll_items" as never)
+        .insert(items.map((i) => ({ ...i, org_id: orgId, run_id: runId })) as never);
+      if (iErr) throw new Error(iErr.message);
+    }
     return out;
   });
 
@@ -200,41 +315,203 @@ export const finalizePayrollRun = createServerFn({ method: "POST" })
       .eq("org_id", orgId)
       .single();
     if (rErr || !run) throw new Error(rErr?.message ?? "Nómina no encontrada");
-    const r = run as unknown as PayrollRow;
+    const r = run as unknown as PayrollRow & {
+      total_deductions?: number;
+      total_employer?: number;
+      total_provisions?: number;
+    };
     if (r.status === "finalized") return r;
-    // Post an aggregated expense to finance_transactions (opex).
-    const txnDate = new Date(r.period_year, r.period_month - 1, 28).toISOString().slice(0, 10);
+
+    const period = `${r.period_year}-${String(r.period_month).padStart(2, "0")}`;
+    const txnDate = new Date(Date.UTC(r.period_year, r.period_month - 1, 28)).toISOString().slice(0, 10);
+
+    // Asiento contable detallado si las cuentas están configuradas.
+    const { data: settingsRow } = await context.supabase
+      .from("hr_payroll_settings" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    const s = (settingsRow ?? {}) as Record<string, string | null>;
+    let journalEntryId: string | null = null;
+    const warnings: string[] = [];
+    const totalDeductions = Number(r.total_deductions ?? 0);
+    const totalEmployer = Number(r.total_employer ?? 0);
+    const totalProvisions = Number(r.total_provisions ?? 0);
+    const netTotal = Math.round((Number(r.total_gross) - totalDeductions) * 100) / 100;
+
+    if (s.salary_expense_account_id && s.payroll_payable_account_id) {
+      const lines: Array<Record<string, unknown>> = [
+        {
+          account_id: s.salary_expense_account_id,
+          debit: Number(r.total_gross),
+          credit: 0,
+          description: `Salarios ${period}`,
+        },
+      ];
+      if (totalDeductions > 0) {
+        lines.push({
+          account_id: s.withholdings_payable_account_id ?? s.payroll_payable_account_id,
+          debit: 0,
+          credit: totalDeductions,
+          description: `Deducciones de nómina ${period}`,
+        });
+      }
+      lines.push({
+        account_id: s.payroll_payable_account_id,
+        debit: 0,
+        credit: netTotal,
+        description: `Nómina por pagar ${period}`,
+      });
+      if (totalEmployer > 0 && s.employer_expense_account_id) {
+        lines.push({
+          account_id: s.employer_expense_account_id,
+          debit: totalEmployer,
+          credit: 0,
+          description: `Aportes patronales ${period}`,
+        });
+        lines.push({
+          account_id: s.withholdings_payable_account_id ?? s.payroll_payable_account_id,
+          debit: 0,
+          credit: totalEmployer,
+          description: `Aportes patronales por pagar ${period}`,
+        });
+      } else if (totalEmployer > 0) {
+        warnings.push("Aportes patronales no contabilizados: falta la cuenta de gasto de aportes.");
+      }
+      if (totalProvisions > 0 && s.provisions_expense_account_id && s.provisions_payable_account_id) {
+        lines.push({
+          account_id: s.provisions_expense_account_id,
+          debit: totalProvisions,
+          credit: 0,
+          description: `Provisiones prestaciones ${period}`,
+        });
+        lines.push({
+          account_id: s.provisions_payable_account_id,
+          debit: 0,
+          credit: totalProvisions,
+          description: `Provisiones por pagar ${period}`,
+        });
+      } else if (totalProvisions > 0) {
+        warnings.push("Provisiones no contabilizadas: faltan las cuentas de provisiones.");
+      }
+
+      const { data: nRes, error: nErr } = await (context.supabase.rpc as any)("next_journal_entry_no", {
+        _org_id: orgId,
+      });
+      if (nErr) throw new Error(nErr.message);
+      const { data: entry, error: eErr } = await context.supabase
+        .from("fin_journal_entries" as never)
+        .insert({
+          org_id: orgId,
+          entry_no: nRes as number,
+          entry_date: txnDate,
+          description: `Nómina ${period}`,
+          status: "draft",
+          created_by: context.userId,
+        } as never)
+        .select("id")
+        .single();
+      if (eErr) throw new Error(eErr.message);
+      journalEntryId = (entry as any).id as string;
+      const { error: lErr } = await context.supabase
+        .from("fin_journal_lines" as never)
+        .insert(lines.map((l) => ({ ...l, entry_id: journalEntryId, org_id: orgId })) as never);
+      if (lErr) throw new Error(lErr.message);
+    } else {
+      warnings.push(
+        "Sin cuentas de nómina configuradas: se registró solo el gasto agregado. Configúralas en Parámetros de nómina.",
+      );
+    }
+
+    // Gasto agregado en finanzas simples (compatibilidad con el resumen).
     const { data: txn, error: tErr } = await context.supabase
       .from("finance_transactions" as never)
       .insert({
         org_id: orgId,
         occurred_at: txnDate,
-        description: `Nómina ${r.period_year}-${String(r.period_month).padStart(2, "0")}`,
+        description: `Nómina ${period}`,
         bucket: "opex",
-        amount: r.total_gross,
+        amount: Number(r.total_gross) + totalEmployer + totalProvisions,
         created_by: context.userId,
       } as never)
       .select("id")
       .single();
     if (tErr) throw new Error(tErr.message);
+
     const { data: updated, error: uErr } = await context.supabase
       .from("hr_payroll_runs" as never)
-      .update({ status: "finalized", finance_txn_id: (txn as any).id } as never)
+      .update({
+        status: "finalized",
+        finance_txn_id: (txn as any).id,
+        journal_entry_id: journalEntryId,
+      } as never)
       .eq("id", data.id)
+      .eq("org_id", orgId)
       .select()
       .single();
     if (uErr) throw new Error(uErr.message);
-    return updated;
+    return { ...(updated as Record<string, unknown>), warnings };
   });
 
 export const deletePayrollRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
-    const { error } = await context.supabase.from("hr_payroll_runs" as never).delete().eq("id", data.id);
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const { error } = await context.supabase
+      .from("hr_payroll_runs" as never)
+      .delete()
+      .eq("id", data.id)
+      .eq("org_id", orgId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ---- Liquidación laboral ----
+export const calculateSeverance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        member_id: z.string().uuid(),
+        end_date: z.string().min(8),
+        pending_vacation_days: z.number().min(0).max(365).optional(),
+        reason: z.enum(["resignation", "mutual", "without_cause", "with_cause"]).default("resignation"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "admin");
+    const { data: member, error } = await context.supabase
+      .from("team_members")
+      .select("id, full_name, salary_base, hire_date")
+      .eq("id", data.member_id)
+      .eq("org_id", orgId)
+      .single();
+    if (error || !member) throw new Error(error?.message ?? "Empleado no encontrado");
+    const m = member as any;
+    if (!m.hire_date) throw new Error("El empleado no tiene fecha de ingreso registrada");
+
+    const { DEFAULT_PAYROLL_SETTINGS, computeSeverance } = await import("./payroll-engine.server");
+    const { data: settingsRow } = await context.supabase
+      .from("hr_payroll_settings" as never)
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    const settings = { ...DEFAULT_PAYROLL_SETTINGS, ...((settingsRow ?? {}) as Record<string, never>) };
+
+    const result = computeSeverance(
+      {
+        full_name: m.full_name,
+        salary_base: Number(m.salary_base) || 0,
+        hire_date: String(m.hire_date).slice(0, 10),
+        end_date: data.end_date.slice(0, 10),
+        pending_vacation_days: data.pending_vacation_days,
+        reason: data.reason,
+      },
+      settings,
+    );
+    return { member: { id: m.id, full_name: m.full_name }, ...result };
   });
 
 // Convenience for HR page: list members with HR fields.

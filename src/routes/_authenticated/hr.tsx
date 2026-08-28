@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, CheckCircle2, XCircle, PlayCircle, Loader2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, XCircle, PlayCircle, Loader2, Settings2, Eye } from "lucide-react";
 
 import {
   listLeaves, upsertLeave, deleteLeave, listHolidays,
@@ -21,6 +21,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HrLeaveCalendar } from "@/components/hr-leave-calendar";
 import { HrResumeReviews } from "@/components/hr-resume-reviews";
+import { HrPayrollDetailDialog } from "@/components/hr-payroll-detail-dialog";
+import { HrPayrollSettingsDialog } from "@/components/hr-payroll-settings-dialog";
+import { HrSeveranceCalculator } from "@/components/hr-severance-calculator";
 
 
 export const Route = createFileRoute("/_authenticated/hr")({
