@@ -819,6 +819,243 @@ export type Database = {
           },
         ]
       }
+      fin_budgets: {
+        Row: {
+          account_id: string
+          amount: number
+          cost_center_id: string | null
+          created_at: string
+          id: string
+          month: number
+          org_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          account_id: string
+          amount?: number
+          cost_center_id?: string | null
+          created_at?: string
+          id?: string
+          month: number
+          org_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          cost_center_id?: string | null
+          created_at?: string
+          id?: string
+          month?: number
+          org_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_budgets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_budgets_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "fin_cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_budgets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_cost_centers: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_cost_centers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_depreciation_entries: {
+        Row: {
+          amount: number
+          asset_id: string
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          org_id: string
+          period_month: string
+        }
+        Insert: {
+          amount?: number
+          asset_id: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          org_id: string
+          period_month: string
+        }
+        Update: {
+          amount?: number
+          asset_id?: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          org_id?: string
+          period_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_depreciation_entries_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "fin_fixed_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_depreciation_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "fin_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_depreciation_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_fixed_assets: {
+        Row: {
+          accumulated_depreciation_account_id: string | null
+          acquisition_date: string
+          asset_account_id: string | null
+          category: string | null
+          cost: number
+          created_at: string
+          depreciation_expense_account_id: string | null
+          disposed_at: string | null
+          id: string
+          method: string
+          name: string
+          notes: string | null
+          org_id: string
+          residual_value: number
+          status: string
+          updated_at: string
+          useful_life_months: number
+        }
+        Insert: {
+          accumulated_depreciation_account_id?: string | null
+          acquisition_date?: string
+          asset_account_id?: string | null
+          category?: string | null
+          cost?: number
+          created_at?: string
+          depreciation_expense_account_id?: string | null
+          disposed_at?: string | null
+          id?: string
+          method?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          residual_value?: number
+          status?: string
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Update: {
+          accumulated_depreciation_account_id?: string | null
+          acquisition_date?: string
+          asset_account_id?: string | null
+          category?: string | null
+          cost?: number
+          created_at?: string
+          depreciation_expense_account_id?: string | null
+          disposed_at?: string | null
+          id?: string
+          method?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          residual_value?: number
+          status?: string
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_fixed_assets_accumulated_depreciation_account_id_fkey"
+            columns: ["accumulated_depreciation_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_fixed_assets_depreciation_expense_account_id_fkey"
+            columns: ["depreciation_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_fixed_assets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_journal_entries: {
         Row: {
           created_at: string
@@ -873,6 +1110,7 @@ export type Database = {
         Row: {
           account_id: string
           bank_account_id: string | null
+          cost_center_id: string | null
           created_at: string
           credit: number
           debit: number
@@ -885,6 +1123,7 @@ export type Database = {
         Insert: {
           account_id: string
           bank_account_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           credit?: number
           debit?: number
@@ -897,6 +1136,7 @@ export type Database = {
         Update: {
           account_id?: string
           bank_account_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           credit?: number
           debit?: number
@@ -919,6 +1159,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_journal_lines_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "fin_cost_centers"
             referencedColumns: ["id"]
           },
           {
