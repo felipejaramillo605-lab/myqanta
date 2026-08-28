@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Link as LinkIcon } from "lucide-react";
 import { listThirdParties, upsertThirdParty, deleteThirdParty } from "@/lib/finance-ext.functions";
+import { getPartyAging } from "@/lib/finance-assets.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,6 +102,61 @@ function PartiesPage() {
       </div>
 
       <AgingSection />
+    </div>
+  );
+}
+function AgingSection() {
+  const [asOf, setAsOf] = useState(new Date().toISOString().slice(0, 10));
+  const aging = useQuery({ queryKey: ["party_aging", asOf], queryFn: () => getPartyAging({ data: { as_of: asOf } }) });
+  const fmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+
+  const table = (title: string, rows: any[]) => (
+    <div className="glass overflow-hidden rounded-2xl">
+      <div className="border-b border-border/40 px-3 py-2 text-sm font-semibold">{title}</div>
+      <table className="w-full text-sm">
+        <thead className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2">Tercero</th>
+            <th className="px-3 py-2 text-right">0-30</th>
+            <th className="px-3 py-2 text-right">31-60</th>
+            <th className="px-3 py-2 text-right">61-90</th>
+            <th className="px-3 py-2 text-right">90+</th>
+            <th className="px-3 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/40">
+          {rows.map((r) => (
+            <tr key={r.third_party_id}>
+              <td className="px-3 py-2">{r.name}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt.format(r.d0_30)}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt.format(r.d31_60)}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt.format(r.d61_90)}</td>
+              <td className="px-3 py-2 text-right font-mono text-destructive">{fmt.format(r.d90_plus)}</td>
+              <td className="px-3 py-2 text-right font-mono font-medium">{fmt.format(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Sin saldos pendientes.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-sm font-semibold text-muted-foreground">Cartera por antigüedad (30/60/90/90+)</h2>
+        <div>
+          <label className="text-xs text-muted-foreground">Corte</label>
+          <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-40" />
+        </div>
+      </div>
+      {table("Por cobrar (clientes)", aging.data?.receivables ?? [])}
+      {table("Por pagar (proveedores)", aging.data?.payables ?? [])}
+      <p className="text-xs text-muted-foreground">
+        Calculado sobre asientos publicados con tercero asociado en cuentas 13xx (por cobrar) y 22xx/23xx (por pagar).
+      </p>
     </div>
   );
 }
