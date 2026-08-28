@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
-import { listBankAccounts, upsertBankAccount, deleteBankAccount, listBankTransactions, upsertBankTransaction } from "@/lib/finance-ext.functions";
+import { listBankAccounts, upsertBankAccount, deleteBankAccount, listBankTransactions, upsertBankTransaction, getBankBalancesConverted } from "@/lib/finance-ext.functions";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_authenticated/finance_/banks")({
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({ queryKey: ["banks"], queryFn: () => listBankAccounts() });
     await context.queryClient.ensureQueryData({ queryKey: ["bank_txs"], queryFn: () => listBankTransactions({ data: {} }) });
+    await context.queryClient.ensureQueryData({ queryKey: ["bank_fx"], queryFn: () => getBankBalancesConverted() }).catch(() => null);
   },
   errorComponent: ({ error }) => <div className="glass rounded-2xl p-6 text-destructive text-sm">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">404</div>,
@@ -25,6 +27,8 @@ function BanksPage() {
   const qc = useQueryClient();
   const banks = useSuspenseQuery({ queryKey: ["banks"], queryFn: () => listBankAccounts() });
   const txs = useSuspenseQuery({ queryKey: ["bank_txs"], queryFn: () => listBankTransactions({ data: {} }) });
+  const fxQ = useQuery({ queryKey: ["bank_fx"], queryFn: () => getBankBalancesConverted(), retry: false });
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const empty = { bank_name: "", account_number_masked: "", currency: "COP", opening_balance: 0, current_balance: 0, active: true, notes: "" };
   const [form, setForm] = useState<any>(empty);
@@ -39,7 +43,21 @@ function BanksPage() {
   const [tx, setTx] = useState({ bank_account_id: "", occurred_on: new Date().toISOString().slice(0, 10), description: "", reference: "", amount: 0 });
   const saveTxMut = useMutation({
     mutationFn: (d: any) => upsertBankTransaction({ data: d }),
-    onSuccess: () => { toast.success("Movimiento registrado"); qc.invalidateQueries({ queryKey: ["bank_txs"] }); setTx({ ...tx, description: "", reference: "", amount: 0 }); },
+    onSuccess: (res: any) => {
+      toast.success("Movimiento registrado");
+      const fx = res?.fx;
+      if (fx?.difference && Math.abs(fx.difference) >= 0.01) {
+        const label = fx.applied ? t("fin.fx.diff_recorded") : t("fin.fx.diff_pending");
+        toast.info(`${label}: ${Number(fx.difference).toLocaleString()} ${fx.base_currency ?? ""}`, {
+          description: fx.warning ?? `${t("fin.fx.rate")} ${fx.rate_at_date} → ${fx.rate_latest}`,
+        });
+      } else if (fx?.warning) {
+        toast.warning(fx.warning);
+      }
+      qc.invalidateQueries({ queryKey: ["bank_txs"] });
+      qc.invalidateQueries({ queryKey: ["bank_fx"] });
+      setTx({ ...tx, description: "", reference: "", amount: 0 });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -73,6 +91,12 @@ function BanksPage() {
               <div>
                 <div className="font-medium">{b.bank_name} · {b.account_number_masked}</div>
                 <div className="text-xs text-muted-foreground">{b.currency} · Saldo: {Number(b.current_balance).toLocaleString()}</div>
+                {fxQ.data?.accounts?.[b.id] && (
+                  <div className="text-xs text-primary">
+                    {t("fin.fx.converted")} {Number(fxQ.data.accounts[b.id]!.converted).toLocaleString()} {fxQ.data.accounts[b.id]!.base_currency}
+                    <span className="text-muted-foreground"> · {t("fin.fx.rate")} {fxQ.data.accounts[b.id]!.rate} {t("fin.fx.as_of")} {fxQ.data.accounts[b.id]!.rate_date}</span>
+                  </div>
+                )}
               </div>
               <Button size="icon" variant="ghost" onClick={() => delMut.mutate(b.id)}><Trash2 className="size-4" /></Button>
             </div>
