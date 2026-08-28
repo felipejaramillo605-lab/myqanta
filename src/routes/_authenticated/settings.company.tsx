@@ -97,6 +97,7 @@ function CompanySettingsPage() {
     invoice_footer: data.invoice_footer ?? "",
     default_vat_rate: data.default_vat_rate != null ? String(data.default_vat_rate) : "",
     currency: data.currency ?? "USD",
+    country_code: data.country_code ?? "CO",
   });
 
   const [profile, setProfile] = useState({
@@ -120,6 +121,7 @@ function CompanySettingsPage() {
       invoice_footer: data.invoice_footer ?? "",
       default_vat_rate: data.default_vat_rate != null ? String(data.default_vat_rate) : "",
       currency: data.currency ?? "USD",
+    country_code: data.country_code ?? "CO",
     });
     setProfile({
       approvers_by_module: (data.approvers_by_module ?? {}) as ApproversByModule,
@@ -143,6 +145,7 @@ function CompanySettingsPage() {
       invoice_footer: form.invoice_footer.trim(),
       default_vat_rate: form.default_vat_rate.trim() ? Number(form.default_vat_rate) : null,
       currency: form.currency.trim() || "USD",
+      country_code: (form.country_code.trim() || "CO").toUpperCase().slice(0, 2),
     } }),
     onSuccess: () => {
       toast.success("Configuración guardada");
@@ -224,6 +227,12 @@ function CompanySettingsPage() {
             <Field label="Prefijo de factura" value={form.invoice_prefix} onChange={(v) => set("invoice_prefix", v)} placeholder="INV-" />
             <Field label="IVA por defecto (%)" value={form.default_vat_rate} onChange={(v) => set("default_vat_rate", v)} placeholder="21" />
             <Field label="Moneda" value={form.currency} onChange={(v) => set("currency", v)} placeholder="USD" />
+            <Field
+              label="País (ISO 2)"
+              value={form.country_code}
+              onChange={(v) => set("country_code", v.toUpperCase().slice(0, 2))}
+              placeholder="CO"
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Pie de página de facturas</label>

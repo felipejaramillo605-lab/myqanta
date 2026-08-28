@@ -17,6 +17,7 @@ export type BusinessContext = {
   goals: string | null;
   team_size: string | null;
   currency: string | null;
+  country_code: string | null;
   onboarded_at: string | null;
   tax_id: string | null;
   address: string | null;
@@ -40,7 +41,7 @@ export const getBusinessContext = createServerFn({ method: "POST" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("organizations")
-      .select("id,name,industry,business_type,description,goals,team_size,currency,onboarded_at,tax_id,address,phone,contact_email,website,logo_url,invoice_prefix,invoice_footer,default_vat_rate,approvers_by_module,vat_responsible,ica_responsible,ica_rate,other_retentions")
+      .select("id,name,industry,business_type,description,goals,team_size,currency,country_code,onboarded_at,tax_id,address,phone,contact_email,website,logo_url,invoice_prefix,invoice_footer,default_vat_rate,approvers_by_module,vat_responsible,ica_responsible,ica_rate,other_retentions")
       .eq("id", orgId)
       .single();
     if (error) throw new Error(error.message);
@@ -98,6 +99,7 @@ const companySchema = z.object({
   invoice_footer: z.string().trim().max(600).optional().default(""),
   default_vat_rate: z.number().min(0).max(100).nullable().optional(),
   currency: z.string().trim().min(1).max(8).default("USD"),
+  country_code: z.string().trim().length(2).toUpperCase().default("CO"),
 });
 
 export const updateCompanySettings = createServerFn({ method: "POST" })
@@ -119,6 +121,7 @@ export const updateCompanySettings = createServerFn({ method: "POST" })
         invoice_footer: data.invoice_footer || null,
         default_vat_rate: data.default_vat_rate ?? null,
         currency: data.currency,
+        country_code: data.country_code,
       })
       .eq("id", orgId);
     if (error) throw new Error(error.message);
