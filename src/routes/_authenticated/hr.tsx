@@ -353,6 +353,13 @@ function HrPage() {
         </TabsContent>
       </Tabs>
 
+      <HrPayrollSettingsDialog open={payrollSettingsOpen} onClose={() => setPayrollSettingsOpen(false)} />
+      <HrPayrollDetailDialog
+        runId={detailRun?.id ?? null}
+        period={detailRun?.period ?? ""}
+        onClose={() => setDetailRun(null)}
+      />
+
       {/* Edit leave dialog */}
       <Dialog open={!!editingLeave} onOpenChange={(o) => !o && setEditingLeave(null)}>
         <DialogContent>
