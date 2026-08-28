@@ -40,7 +40,13 @@ async function findAccount(supabase: Client, orgId: string, prefix: string) {
 export async function recordFxDifferenceForBankTx(
   supabase: Client,
   orgId: string,
-  tx: { id: string; bank_account_id: string; occurred_on: string; amount: number; description?: string | null },
+  tx: {
+    id: string;
+    bank_account_id: string;
+    occurred_on: string;
+    amount: number;
+    description?: string | null;
+  },
 ): Promise<FxResult> {
   try {
     const { data: acct } = await supabase
@@ -132,7 +138,10 @@ export async function bankBalancesInBaseCurrency(supabase: Client, orgId: string
     .select("id, currency, current_balance")
     .eq("org_id", orgId);
   const rows = (data ?? []) as any[];
-  const out: Record<string, { converted: number; rate: number; rate_date: string; base_currency: string } | null> = {};
+  const out: Record<
+    string,
+    { converted: number; rate: number; rate_date: string; base_currency: string } | null
+  > = {};
   for (const r of rows) {
     const cur = (r.currency ?? "").trim().toUpperCase();
     if (!cur || cur === base) {
@@ -141,7 +150,12 @@ export async function bankBalancesInBaseCurrency(supabase: Client, orgId: string
     }
     try {
       const c = await convertToOrgCurrency(supabase, orgId, Number(r.current_balance ?? 0), cur);
-      out[r.id] = { converted: c.converted, rate: c.rate, rate_date: c.rate_date, base_currency: c.to };
+      out[r.id] = {
+        converted: c.converted,
+        rate: c.rate,
+        rate_date: c.rate_date,
+        base_currency: c.to,
+      };
     } catch {
       out[r.id] = null;
     }

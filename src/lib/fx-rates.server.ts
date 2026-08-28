@@ -45,17 +45,17 @@ async function readCache(
   return { from, to, rate: Number(row.rate), rate_date: row.rate_date, source: "cache" };
 }
 
-async function writeCache(
-  supabase: Client,
-  from: string,
-  to: string,
-  date: string,
-  rate: number,
-) {
+async function writeCache(supabase: Client, from: string, to: string, date: string, rate: number) {
   await supabase
     .from("fx_rate_cache" as never)
     .upsert(
-      { from_currency: from, to_currency: to, rate_date: date, rate, fetched_at: new Date().toISOString() } as never,
+      {
+        from_currency: from,
+        to_currency: to,
+        rate_date: date,
+        rate,
+        fetched_at: new Date().toISOString(),
+      } as never,
       { onConflict: "from_currency,to_currency,rate_date" } as never,
     );
 }
@@ -74,7 +74,8 @@ export async function getExchangeRate(
   const f = norm(from);
   const t = norm(to);
   if (!f || !t) throw new Error("Monedas inválidas para conversión");
-  if (f === t) return { from: f, to: t, rate: 1, rate_date: date ?? todayIso(), source: "identity" };
+  if (f === t)
+    return { from: f, to: t, rate: 1, rate_date: date ?? todayIso(), source: "identity" };
 
   const cacheKeyDate = date ?? todayIso();
   if (supabase) {
@@ -103,7 +104,11 @@ export async function getExchangeRate(
 }
 
 export async function getOrgCurrency(supabase: Client, orgId: string): Promise<string> {
-  const { data } = await supabase.from("organizations").select("currency").eq("id", orgId).maybeSingle();
+  const { data } = await supabase
+    .from("organizations")
+    .select("currency")
+    .eq("id", orgId)
+    .maybeSingle();
   return norm((data as any)?.currency ?? "COP") || "COP";
 }
 
