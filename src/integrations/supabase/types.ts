@@ -2115,6 +2115,7 @@ export type Database = {
           approvers_by_module: Json
           business_type: string | null
           contact_email: string | null
+          country_code: string
           created_at: string
           created_by: string
           currency: string | null
@@ -2148,6 +2149,7 @@ export type Database = {
           approvers_by_module?: Json
           business_type?: string | null
           contact_email?: string | null
+          country_code?: string
           created_at?: string
           created_by: string
           currency?: string | null
@@ -2181,6 +2183,7 @@ export type Database = {
           approvers_by_module?: Json
           business_type?: string | null
           contact_email?: string | null
+          country_code?: string
           created_at?: string
           created_by?: string
           currency?: string | null
@@ -2443,6 +2446,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      public_holidays_cache: {
+        Row: {
+          country_code: string
+          created_at: string
+          fetched_at: string
+          holiday_date: string
+          id: string
+          name: string
+          year: number
+        }
+        Insert: {
+          country_code: string
+          created_at?: string
+          fetched_at?: string
+          holiday_date: string
+          id?: string
+          name: string
+          year: number
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          fetched_at?: string
+          holiday_date?: string
+          id?: string
+          name?: string
+          year?: number
+        }
+        Relationships: []
       }
       reconciliation_matches: {
         Row: {
