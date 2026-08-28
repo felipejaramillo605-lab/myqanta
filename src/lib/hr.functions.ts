@@ -69,14 +69,20 @@ export const upsertLeave = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => LeaveInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
-    const days = data.days > 0
-      ? data.days
-      : Math.max(
-          1,
-          Math.round(
-            (Date.parse(data.end_date) - Date.parse(data.start_date)) / 86400000,
-          ) + 1,
-        );
+    const calendarDays = Math.max(
+      1,
+      Math.round((Date.parse(data.end_date) - Date.parse(data.start_date)) / 86400000) + 1,
+    );
+    let days = data.days > 0 ? data.days : calendarDays;
+    if (data.days <= 0 && data.kind === "vacation") {
+      // Vacaciones se cuentan en días hábiles (sin fines de semana ni festivos).
+      try {
+        const country = await getOrgCountry(context.supabase, orgId);
+        days = await countBusinessDays(data.start_date, data.end_date, country, context.supabase);
+      } catch {
+        days = calendarDays;
+      }
+    }
     const payload: Record<string, unknown> = {
       ...data,
       days,
