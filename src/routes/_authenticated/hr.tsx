@@ -120,8 +120,9 @@ function HrPage() {
   });
   const finalizeRun = useMutation({
     mutationFn: (id: string) => finalizePayrollRun({ data: { id } }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       toast.success("Nómina cerrada y contabilizada");
+      for (const w of (res?.warnings ?? []) as string[]) toast.warning(w);
       qc.invalidateQueries({ queryKey: ["hr-payroll"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Error"),
@@ -130,6 +131,9 @@ function HrPage() {
     mutationFn: (id: string) => deletePayrollRun({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["hr-payroll"] }),
   });
+
+  const [payrollSettingsOpen, setPayrollSettingsOpen] = useState(false);
+  const [detailRun, setDetailRun] = useState<{ id: string; period: string } | null>(null);
 
   const openNewLeave = () =>
     setEditingLeave({
