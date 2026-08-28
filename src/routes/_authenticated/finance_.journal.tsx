@@ -57,6 +57,7 @@ function JournalPage() {
   const coa = useSuspenseQuery({ queryKey: ["coa"], queryFn: () => listAccountsCoa() });
   const entries = useSuspenseQuery({ queryKey: ["journal"], queryFn: () => listJournalEntries() });
   const parties = useSuspenseQuery({ queryKey: ["third-parties"], queryFn: () => listThirdParties() });
+  const costCenters = useQuery({ queryKey: ["cost_centers"], queryFn: () => listCostCenters() });
 
   const accountsTree = useMemo(() => buildAccountTree(coa.data as any[]), [coa.data]);
   const accountById = useMemo(
