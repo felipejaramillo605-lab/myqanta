@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 type Leave = {
   id: string;
@@ -11,6 +12,7 @@ type Leave = {
   end_date: string;
   days: number;
 };
+export type HolidayMark = { date: string; name: string };
 type Member = { id: string; full_name: string; vacation_days_available?: number | null; archived?: boolean };
 
 const KIND_DOT: Record<string, string> = {
@@ -24,8 +26,21 @@ function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function HrLeaveCalendar({ leaves, members }: { leaves: Leave[]; members: Member[] }) {
+export function HrLeaveCalendar({
+  leaves,
+  members,
+  holidays = [],
+}: {
+  leaves: Leave[];
+  members: Member[];
+  holidays?: HolidayMark[];
+}) {
+  const { t } = useI18n();
   const today = new Date();
+  const holidayByDate = useMemo(
+    () => new Map(holidays.map((h) => [h.date.slice(0, 10), h.name])),
+    [holidays],
+  );
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const nameById = useMemo(() => new Map(members.map((m) => [m.id, m.full_name])), [members]);
@@ -113,17 +128,28 @@ export function HrLeaveCalendar({ leaves, members }: { leaves: Leave[]; members:
           {days.map((c) => {
             const items = c.date ? (byDay.get(c.key) ?? []) : [];
             const isToday = c.date && ymd(c.date) === ymd(today);
+            const holidayName = c.date ? holidayByDate.get(c.key) : undefined;
             return (
               <div
                 key={c.key}
                 className={
                   "min-h-16 rounded-lg border p-1 text-left text-[11px] " +
-                  (c.date ? "border-border/40 bg-background/40 " : "border-transparent ") +
+                  (c.date
+                    ? holidayName
+                      ? "border-sky-500/40 bg-sky-500/10 "
+                      : "border-border/40 bg-background/40 "
+                    : "border-transparent ") +
                   (isToday ? "ring-1 ring-primary" : "")
                 }
               >
                 {c.date && <div className="font-mono text-[10px] text-muted-foreground">{c.date.getDate()}</div>}
                 <div className="space-y-0.5">
+                  {holidayName && (
+                    <div className="flex items-center gap-1 truncate text-sky-600 dark:text-sky-400" title={holidayName}>
+                      <span className="size-1.5 shrink-0 rounded-full bg-sky-500" />
+                      <span className="truncate">{holidayName}</span>
+                    </div>
+                  )}
                   {items.slice(0, 3).map((l) => (
                     <div key={l.id} className="flex items-center gap-1 truncate">
                       <span className={"size-1.5 shrink-0 rounded-full " + (KIND_DOT[l.kind] ?? "bg-primary")} />
@@ -146,7 +172,11 @@ export function HrLeaveCalendar({ leaves, members }: { leaves: Leave[]; members:
               </span>
             ),
           )}
+          <span className="flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-sky-500" /> {t("hr.holiday")}
+          </span>
         </div>
+        <p className="mt-2 text-[10px] text-muted-foreground">{t("hr.business_days_note")}</p>
       </div>
 
       <div className="glass rounded-2xl p-4">

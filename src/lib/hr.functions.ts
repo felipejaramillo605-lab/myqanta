@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
+import { countBusinessDays, getOrgCountry, getPublicHolidays } from "./holidays.server";
 
 export const LEAVE_KINDS = ["vacation", "sick", "permission", "unpaid"] as const;
 export const LEAVE_STATUSES = ["pending", "approved", "rejected"] as const;
@@ -68,14 +69,20 @@ export const upsertLeave = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => LeaveInput.parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "member");
-    const days = data.days > 0
-      ? data.days
-      : Math.max(
-          1,
-          Math.round(
-            (Date.parse(data.end_date) - Date.parse(data.start_date)) / 86400000,
-          ) + 1,
-        );
+    const calendarDays = Math.max(
+      1,
+      Math.round((Date.parse(data.end_date) - Date.parse(data.start_date)) / 86400000) + 1,
+    );
+    let days = data.days > 0 ? data.days : calendarDays;
+    if (data.days <= 0 && data.kind === "vacation") {
+      // Vacaciones se cuentan en días hábiles (sin fines de semana ni festivos).
+      try {
+        const country = await getOrgCountry(context.supabase, orgId);
+        days = await countBusinessDays(data.start_date, data.end_date, country, context.supabase);
+      } catch {
+        days = calendarDays;
+      }
+    }
     const payload: Record<string, unknown> = {
       ...data,
       days,
@@ -94,6 +101,19 @@ export const upsertLeave = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     return out;
+  });
+
+export const listHolidays = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ year: z.number().int().min(1970).max(2100).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/hr", "viewer");
+    const year = data.year ?? new Date().getFullYear();
+    const country = await getOrgCountry(context.supabase, orgId);
+    const list = await getPublicHolidays(country, year, context.supabase);
+    return { country, year, holidays: list.map((h) => ({ ...h, date: h.date.slice(0, 10) })) };
   });
 
 export const deleteLeave = createServerFn({ method: "POST" })
