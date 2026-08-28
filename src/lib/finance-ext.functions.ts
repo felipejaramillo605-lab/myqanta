@@ -90,6 +90,7 @@ const LineInput = z.object({
   description: z.string().max(400).nullable().optional(),
   third_party_id: z.string().uuid().nullable().optional(),
   bank_account_id: z.string().uuid().nullable().optional(),
+  cost_center_id: z.string().uuid().nullable().optional(),
 });
 
 const EntryInput = z.object({
@@ -161,6 +162,7 @@ export const saveJournalEntry = createServerFn({ method: "POST" })
       description: l.description ?? null,
       third_party_id: l.third_party_id ?? null,
       bank_account_id: l.bank_account_id ?? null,
+      cost_center_id: l.cost_center_id ?? null,
     }));
     const { error: lErr } = await context.supabase.from("fin_journal_lines" as never).insert(rows as never);
     if (lErr) throw new Error(lErr.message);
