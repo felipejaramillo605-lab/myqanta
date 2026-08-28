@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, CheckCircle2, XCircle, PlayCircle, Loader2 } from "lucide-react";
 
 import {
-  listLeaves, upsertLeave, deleteLeave,
+  listLeaves, upsertLeave, deleteLeave, listHolidays,
   listPayrollRuns, generatePayrollRun, finalizePayrollRun, deletePayrollRun,
   listHrMembers, updateHrMember,
   LEAVE_KINDS, LEAVE_STATUSES,
@@ -63,6 +63,11 @@ function HrPage() {
   const qc = useQueryClient();
   const membersQ = useSuspenseQuery({ queryKey: ["hr-members"], queryFn: () => listHrMembers() });
   const leavesQ = useSuspenseQuery({ queryKey: ["hr-leaves"], queryFn: () => listLeaves() });
+  const holidaysQ = useQuery({
+    queryKey: ["hr-holidays", new Date().getFullYear()],
+    queryFn: () => listHolidays({ data: { year: new Date().getFullYear() } }),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
   const payrollQ = useSuspenseQuery({ queryKey: ["hr-payroll"], queryFn: () => listPayrollRuns() });
 
   const members = (membersQ.data ?? []) as any[];
@@ -194,7 +199,11 @@ function HrPage() {
               <Plus className="mr-1 size-4" /> Nueva solicitud
             </Button>
           </div>
-          <HrLeaveCalendar leaves={(leavesQ.data ?? []) as never} members={members as never} />
+          <HrLeaveCalendar
+            leaves={(leavesQ.data ?? []) as never}
+            members={members as never}
+            holidays={holidaysQ.data?.holidays ?? []}
+          />
 
           <div className="glass rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
