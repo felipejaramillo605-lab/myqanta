@@ -196,8 +196,9 @@ export const getPayrollSettings = createServerFn({ method: "GET" })
       .eq("org_id", orgId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) return { ...DEFAULT_PAYROLL_SETTINGS, org_id: orgId, configured: false } as Record<string, unknown>;
-    return { ...(data as Record<string, unknown>), configured: true };
+    type Settings = Record<string, string | number | boolean | null>;
+    if (!data) return { ...DEFAULT_PAYROLL_SETTINGS, org_id: orgId, configured: false } as Settings;
+    return { ...(data as Settings), configured: true } as Settings;
   });
 
 export const savePayrollSettings = createServerFn({ method: "POST" })
@@ -450,7 +451,7 @@ export const finalizePayrollRun = createServerFn({ method: "POST" })
       .select()
       .single();
     if (uErr) throw new Error(uErr.message);
-    return { ...(updated as Record<string, unknown>), warnings };
+    return { ...(updated as Record<string, string | number | boolean | null>), warnings };
   });
 
 export const deletePayrollRun = createServerFn({ method: "POST" })

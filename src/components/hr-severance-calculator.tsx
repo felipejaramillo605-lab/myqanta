@@ -20,7 +20,7 @@ const money = (n: unknown) => Number(n ?? 0).toLocaleString("es-CO", { maximumFr
 
 export function HrSeveranceCalculator() {
   const membersQ = useQuery({ queryKey: ["hr-members"], queryFn: () => listHrMembers() });
-  const members = (membersQ.data ?? []) as Array<{ id: string; full_name: string; hire_date?: string | null }>;
+  const members = (membersQ.data ?? []) as unknown as Array<{ id: string; full_name: string; hire_date?: string | null }>;
 
   const [memberId, setMemberId] = useState("");
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
