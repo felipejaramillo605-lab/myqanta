@@ -99,6 +99,8 @@ function PartiesPage() {
           </div>
         ))}
       </div>
+
+      <AgingSection />
     </div>
   );
 }
