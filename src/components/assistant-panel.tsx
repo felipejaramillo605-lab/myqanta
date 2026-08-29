@@ -17,6 +17,25 @@ type ActionRecord = {
 type Msg = { role: "user" | "assistant"; content: string; actions?: ActionRecord[] };
 type ChatReply = { reply: string; actions?: ActionRecord[] };
 type Attachment = { data_url: string; mime: string; name: string };
+type MissingAccount = { code: string; name: string; nature?: string };
+type MissingSupplier = { name: string; tax_id?: string | null };
+
+/** Extract the pending missing accounts/suppliers reported by the last actions. */
+function pendingMissing(actions: ActionRecord[] | undefined) {
+  const accounts: MissingAccount[] = [];
+  const suppliers: MissingSupplier[] = [];
+  for (const a of actions ?? []) {
+    const r = a.result as { missing_accounts?: MissingAccount[]; missing_suppliers?: MissingSupplier[] };
+    for (const acc of r?.missing_accounts ?? []) {
+      if (acc?.code && !accounts.some((x) => x.code === acc.code)) accounts.push(acc);
+    }
+    for (const s of r?.missing_suppliers ?? []) {
+      if (s?.name && !suppliers.some((x) => x.name === s.name)) suppliers.push(s);
+    }
+  }
+  return { accounts, suppliers, has: accounts.length > 0 || suppliers.length > 0 };
+}
+
 
 export function AssistantPanel() {
   const { t, lang } = useI18n();
@@ -66,6 +85,13 @@ export function AssistantPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, mut.isPending, regen.isPending]);
 
+  const sendText = (text: string) => {
+    if (!text.trim() || mut.isPending) return;
+    const next: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    mut.mutate({ history: next, file: null });
+  };
+
   const send = () => {
     const v = input.trim();
     if ((!v && !attachment) || mut.isPending) return;
@@ -76,6 +102,14 @@ export function AssistantPanel() {
     mut.mutate({ history: next, file: attachment });
     setAttachment(null);
   };
+
+  // "Pendiente de creación": solo se pregunta por el último mensaje del asistente.
+  const lastMsg = messages[messages.length - 1];
+  const missing =
+    lastMsg?.role === "assistant" && !mut.isPending
+      ? pendingMissing(lastMsg.actions)
+      : { accounts: [] as MissingAccount[], suppliers: [] as MissingSupplier[], has: false };
+
 
   const onPickFile = (file: File | undefined) => {
     if (!file) return;
@@ -185,6 +219,53 @@ export function AssistantPanel() {
               ))}
             </div>
           ))}
+          {missing.has && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+                {t("ai.missing.title")}
+              </p>
+              {missing.accounts.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium">{t("ai.missing.accounts")}</p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {missing.accounts.map((a) => (
+                      <li key={a.code} className="break-words">
+                        <span className="font-mono">{a.code}</span> — {a.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {missing.suppliers.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium">{t("ai.missing.suppliers")}</p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {missing.suppliers.map((s) => (
+                      <li key={s.name} className="break-words">
+                        {s.name}
+                        {s.tax_id ? ` — NIT ${s.tax_id}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={busy} onClick={() => sendText(t("ai.missing.confirm.msg"))}>
+                  {t("ai.missing.confirm")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => sendText(t("ai.missing.cancel.msg"))}
+                >
+                  {t("ai.missing.cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {mut.isPending && (
             <div className="max-w-[85%] rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
               {t("ai.thinking")}
