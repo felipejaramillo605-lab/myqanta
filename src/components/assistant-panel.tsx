@@ -17,6 +17,25 @@ type ActionRecord = {
 type Msg = { role: "user" | "assistant"; content: string; actions?: ActionRecord[] };
 type ChatReply = { reply: string; actions?: ActionRecord[] };
 type Attachment = { data_url: string; mime: string; name: string };
+type MissingAccount = { code: string; name: string; nature?: string };
+type MissingSupplier = { name: string; tax_id?: string | null };
+
+/** Extract the pending missing accounts/suppliers reported by the last actions. */
+function pendingMissing(actions: ActionRecord[] | undefined) {
+  const accounts: MissingAccount[] = [];
+  const suppliers: MissingSupplier[] = [];
+  for (const a of actions ?? []) {
+    const r = a.result as { missing_accounts?: MissingAccount[]; missing_suppliers?: MissingSupplier[] };
+    for (const acc of r?.missing_accounts ?? []) {
+      if (acc?.code && !accounts.some((x) => x.code === acc.code)) accounts.push(acc);
+    }
+    for (const s of r?.missing_suppliers ?? []) {
+      if (s?.name && !suppliers.some((x) => x.name === s.name)) suppliers.push(s);
+    }
+  }
+  return { accounts, suppliers, has: accounts.length > 0 || suppliers.length > 0 };
+}
+
 
 export function AssistantPanel() {
   const { t, lang } = useI18n();
