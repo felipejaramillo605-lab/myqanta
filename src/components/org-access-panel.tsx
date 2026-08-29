@@ -12,15 +12,16 @@ import {
   createOrganization,
   renameOrganization,
   setActiveOrg,
+  addMemberByEmail,
 } from "@/lib/org.functions";
 import { useI18n } from "@/lib/i18n";
-import { listCustomRoles } from "@/lib/custom-roles.functions";
+import { listCustomRoles, assignCustomRole } from "@/lib/custom-roles.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Trash2, RefreshCw, Plus } from "lucide-react";
+import { Copy, Trash2, RefreshCw, Plus, UserPlus, Link2 } from "lucide-react";
 
 const ROLES = ["owner", "admin", "member", "viewer"] as const;
 
@@ -43,6 +44,8 @@ export function OrgAccessPanel() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<(typeof ROLES)[number]>("member");
   const [inviteCustomRole, setInviteCustomRole] = useState<string>("none");
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<(typeof ROLES)[number]>("member");
   const customRolesQ = useQuery({
     queryKey: ["custom-roles"],
     queryFn: () => listCustomRoles(),
@@ -118,6 +121,26 @@ export function OrgAccessPanel() {
   const removeM = useMutation({
     mutationFn: (user_id: string) => removeMember({ data: { user_id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["org-members"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addMemberM = useMutation({
+    mutationFn: () =>
+      addMemberByEmail({ data: { email: addEmail.trim(), role: addRole, custom_role_id: null, make_active: true } }),
+    onSuccess: () => {
+      setAddEmail("");
+      toast.success("Usuario asignado a esta organización");
+      qc.invalidateQueries({ queryKey: ["org-members"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assignCustomM = useMutation({
+    mutationFn: (v: { user_id: string; custom_role_id: string | null }) => assignCustomRole({ data: v }),
+    onSuccess: () => {
+      toast.success("Permisos por módulo actualizados");
+      qc.invalidateQueries({ queryKey: ["org-members"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -223,6 +246,24 @@ export function OrgAccessPanel() {
                     {m.role}
                   </Badge>
                 )}
+                {canManage && !m.is_me && (m.role === "member" || m.role === "viewer") && (
+                  <Select
+                    value={(m as { custom_role_id?: string | null }).custom_role_id ?? "none"}
+                    onValueChange={(v) =>
+                      assignCustomM.mutate({ user_id: m.user_id, custom_role_id: v === "none" ? null : v })
+                    }
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Sin restricción" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin restricción</SelectItem>
+                      {(customRolesQ.data?.roles ?? []).map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {canManage && !m.is_me && m.role !== "owner" && (
                   <Button size="icon" variant="ghost" onClick={() => removeM.mutate(m.user_id)}>
                     <Trash2 className="size-4" />
@@ -237,7 +278,11 @@ export function OrgAccessPanel() {
       {/* Invitations */}
       {canManage && (
         <section className="rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl">
-          <h2 className="mb-3 font-medium">{t("team.invites")}</h2>
+          <h2 className="font-medium">Invitar a mi equipo</h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            La persona entra a <span className="text-foreground">{activeOrg?.name}</span> con el rol que elijas: ve los
+            mismos datos del equipo. No crea una organización propia.
+          </p>
 
           <div className="grid gap-2 sm:grid-cols-[1fr_160px_180px_auto]">
             <div>
@@ -326,6 +371,51 @@ export function OrgAccessPanel() {
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <RefreshCw className="size-3" />
             {t("team.invite_hint")}
+          </div>
+
+          <div className="mt-5 border-t border-border/40 pt-5">
+            <h3 className="font-medium">Asignar un usuario existente</h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Si la persona ya creó su cuenta (y quedó en su propia organización), agrégala aquí a este equipo por correo.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-[1fr_160px_auto]">
+              <Input
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="usuario@empresa.com"
+              />
+              <Select value={addRole} onValueChange={(v) => setAddRole(v as (typeof ROLES)[number])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLES.filter((r) => r !== "owner" || myRole === "owner").map((r) => (
+                    <SelectItem key={r} value={r}>{t(`team.role.${r}` as never)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => addEmail.trim() && addMemberM.mutate()}
+                disabled={addMemberM.isPending}
+              >
+                <UserPlus className="size-4" /> Asignar al equipo
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-5 border-t border-border/40 pt-5">
+            <h3 className="font-medium">Invitar a usar Qanta (organización aparte)</h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Comparte el enlace de registro. Quien se registre así crea su propia organización y no verá los datos de
+              este equipo.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = `${window.location.origin}/auth`;
+                navigator.clipboard?.writeText(link).then(() => toast.success("Enlace de registro copiado"));
+              }}
+            >
+              <Link2 className="size-4" /> Copiar enlace de registro
+            </Button>
           </div>
         </section>
       )}

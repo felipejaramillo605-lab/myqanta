@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, BookOpen, Download } from "lucide-react";
+import { Plus, Trash2, Save, BookOpen, Download, Pencil, Eye, CheckCircle2, Undo2, X } from "lucide-react";
 import {
   listAccountsCoa, upsertAccount, deleteAccount,
-  listJournalEntries, saveJournalEntry, deleteJournalEntry,
+  listJournalEntries, saveJournalEntry, deleteJournalEntry, setJournalEntryStatus,
   listThirdParties, seedStandardPuc, seedFinanceTestData,
 } from "@/lib/finance-ext.functions";
 import { listCostCenters } from "@/lib/finance-assets.functions";
@@ -69,6 +69,9 @@ function JournalPage() {
     [parties.data],
   );
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingNo, setEditingNo] = useState<number | null>(null);
+  const [detailEntry, setDetailEntry] = useState<any | null>(null);
   const [entryDate, setEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState("");
   const [receiptId, setReceiptId] = useState<string>("");
@@ -89,6 +92,7 @@ function JournalPage() {
       qc.invalidateQueries({ queryKey: ["journal"] });
       setLines([{ account_id: "", debit: 0, credit: 0 }, { account_id: "", debit: 0, credit: 0 }]);
       setDescription(""); setReceiptId(""); setStatus("draft");
+      setEditingId(null); setEditingNo(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -96,6 +100,41 @@ function JournalPage() {
     mutationFn: (id: string) => deleteJournalEntry({ data: { id } }),
     onSuccess: () => { toast.success("Eliminado"); qc.invalidateQueries({ queryKey: ["journal"] }); },
   });
+
+  const statusMut = useMutation({
+    mutationFn: (v: { id: string; status: "draft" | "posted" }) => setJournalEntryStatus({ data: v }),
+    onSuccess: (r: any) => {
+      toast.success(r?.status === "posted" ? "Asiento publicado" : "Asiento devuelto a borrador");
+      qc.invalidateQueries({ queryKey: ["journal"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const startEdit = (e: any) => {
+    setEditingId(e.id);
+    setEditingNo(e.entry_no ?? null);
+    setEntryDate(String(e.entry_date).slice(0, 10));
+    setDescription(e.description ?? "");
+    setReceiptId(e.receipt_document_id ?? "");
+    setStatus(e.status === "posted" ? "posted" : "draft");
+    setLines(
+      ((e.lines ?? []) as any[]).map((l) => ({
+        account_id: l.account_id,
+        debit: Number(l.debit) || 0,
+        credit: Number(l.credit) || 0,
+        description: l.description ?? undefined,
+        third_party_id: l.third_party_id ?? undefined,
+        cost_center_id: l.cost_center_id ?? undefined,
+      })),
+    );
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null); setEditingNo(null);
+    setDescription(""); setReceiptId(""); setStatus("draft");
+    setLines([{ account_id: "", debit: 0, credit: 0 }, { account_id: "", debit: 0, credit: 0 }]);
+  };
 
   // Accounts management
   const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean }>({
@@ -149,6 +188,14 @@ function JournalPage() {
 
         <TabsContent value="entries" className="space-y-4">
           <div className="glass rounded-2xl p-4 space-y-3">
+            {editingId && (
+              <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+                <span>Editando asiento #{editingNo ?? "—"}</span>
+                <Button size="sm" variant="ghost" onClick={cancelEdit}>
+                  <X className="size-4 mr-1" /> Cancelar edición
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
               <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -227,6 +274,7 @@ function JournalPage() {
               </Select>
               <Button disabled={!balanced || lines.some(l => !l.account_id) || saveMut.isPending}
                 onClick={() => saveMut.mutate({
+                  ...(editingId ? { id: editingId } : {}),
                   entry_date: entryDate, description: description || null, status,
                   receipt_document_id: receiptId || null,
                   lines: lines.filter(l => l.account_id).map(l => ({
@@ -237,7 +285,7 @@ function JournalPage() {
                     cost_center_id: l.cost_center_id || null,
                   })),
                 })}>
-                <Save className="size-4 mr-1" /> Guardar
+                <Save className="size-4 mr-1" /> {editingId ? "Guardar cambios" : "Guardar"}
               </Button>
             </div>
           </div>
@@ -288,7 +336,37 @@ function JournalPage() {
                     })}
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => delEntryMut.mutate(e.id)}><Trash2 className="size-4" /></Button>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setDetailEntry(e)}>
+                      <Eye className="size-4 mr-1" /> Detalle
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(e)}>
+                      <Pencil className="size-4 mr-1" /> Editar
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {e.status === "posted" ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={statusMut.isPending}
+                        onClick={() => statusMut.mutate({ id: e.id, status: "draft" })}
+                      >
+                        <Undo2 className="size-4 mr-1" /> A borrador
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={statusMut.isPending}
+                        onClick={() => statusMut.mutate({ id: e.id, status: "posted" })}
+                      >
+                        <CheckCircle2 className="size-4 mr-1" /> Publicar
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" onClick={() => delEntryMut.mutate(e.id)}><Trash2 className="size-4" /></Button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -370,7 +448,92 @@ function JournalPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <EntryDetailDialog
+        entry={detailEntry}
+        onClose={() => setDetailEntry(null)}
+        accountById={accountById}
+        partyById={partyById}
+        costCenters={(costCenters.data ?? []) as any[]}
+        onEdit={(e) => { setDetailEntry(null); startEdit(e); }}
+        onPublish={(e) => { setDetailEntry(null); statusMut.mutate({ id: e.id, status: "posted" }); }}
+      />
     </div>
+  );
+}
+
+function EntryDetailDialog({
+  entry, onClose, accountById, partyById, costCenters, onEdit, onPublish,
+}: {
+  entry: any | null;
+  onClose: () => void;
+  accountById: Map<string, any>;
+  partyById: Map<string, any>;
+  costCenters: any[];
+  onEdit: (e: any) => void;
+  onPublish: (e: any) => void;
+}) {
+  const ccById = useMemo(() => new Map(costCenters.map((c) => [c.id, c])), [costCenters]);
+  if (!entry) return null;
+  const lines = (entry.lines ?? []) as any[];
+  const totalD = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+  const totalC = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+  return (
+    <Dialog open={!!entry} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="glass max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            Asiento #{entry.entry_no} · {String(entry.entry_date).slice(0, 10)}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Badge variant={entry.status === "posted" ? "default" : "secondary"}>{entry.status}</Badge>
+            <span className="text-muted-foreground">{entry.description ?? "Sin descripción"}</span>
+          </div>
+          {entry.receipt_document_id && (
+            <div className="font-mono text-xs text-muted-foreground">Comprobante: {entry.receipt_document_id}</div>
+          )}
+          <div className="space-y-1">
+            {lines.map((l: any, i: number) => {
+              const a = accountById.get(l.account_id);
+              const tp = l.third_party_id ? partyById.get(l.third_party_id) : null;
+              const cc = l.cost_center_id ? ccById.get(l.cost_center_id) : null;
+              return (
+                <div key={l.id ?? i} className="rounded-lg border border-border/40 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-xs">{a ? `${a.code} · ${a.name}` : "Cuenta desconocida"}</span>
+                    <span className="tabular-nums text-xs">
+                      {Number(l.debit) > 0 ? `DR ${Number(l.debit).toFixed(2)}` : `CR ${Number(l.credit).toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                    {tp && <span>Tercero: {tp.name} · {tp.tax_id ?? "sin NIT"}</span>}
+                    {cc && <span>Centro de costo: {cc.code} · {cc.name}</span>}
+                    {l.description && <span>{l.description}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-4 font-mono text-xs">
+            <span>Débito {totalD.toFixed(2)}</span>
+            <span>Crédito {totalC.toFixed(2)}</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+          <Button variant="outline" onClick={() => onEdit(entry)}>
+            <Pencil className="size-4 mr-1" /> Editar
+          </Button>
+          {entry.status !== "posted" && (
+            <Button onClick={() => onPublish(entry)}>
+              <CheckCircle2 className="size-4 mr-1" /> Publicar
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
