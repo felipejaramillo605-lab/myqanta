@@ -15,42 +15,9 @@ import { workflowTools } from "./assistant-tools/workflow.server";
 import { accountingTools } from "./assistant-tools/accounting.server";
 import { niifSummaryForPrompt } from "./niif-knowledge";
 import type { AssistantToolCtx } from "./assistant-tools/context.server";
-import { isDocumentAttachment, parseDocumentAttachment } from "./attachment-parse.server";
+import { isDocumentAttachment, parseDocumentAttachment, explainModelError } from "./attachment-parse.server";
 
-/** Turn a raw provider/network failure into an actionable message for the user. */
-function explainModelError(e: unknown, lang: "es" | "en"): string {
-  const raw = e instanceof Error ? e.message : String(e);
-  const es = lang === "es";
-  const m = raw.toLowerCase();
-  if (m.includes("429") || m.includes("rate limit")) {
-    return es
-      ? "Demasiadas solicitudes seguidas al modelo de IA. Espera unos segundos y vuelve a enviar el mensaje."
-      : "Too many requests to the AI model. Wait a few seconds and send the message again.";
-  }
-  if (m.includes("402") || m.includes("credit") || m.includes("quota")) {
-    return es
-      ? "La IA no tiene créditos disponibles en este espacio de trabajo. Agrega créditos para seguir usando el asistente."
-      : "The AI workspace has run out of credits. Add credits to keep using the assistant.";
-  }
-  if (m.includes("401") || m.includes("403") || m.includes("unauthorized")) {
-    return es
-      ? "El asistente no pudo autenticarse con el servicio de IA. Es un problema de configuración del servidor, no de tus datos."
-      : "The assistant could not authenticate against the AI service. This is a server configuration issue, not your data.";
-  }
-  if (m.includes("timeout") || m.includes("aborted") || m.includes("fetch failed") || m.includes("network")) {
-    return es
-      ? "La respuesta del modelo se interrumpió (tiempo de espera o red). Si adjuntaste un archivo grande, prueba con menos hojas o menos filas."
-      : "The model response was interrupted (timeout or network). If you attached a large file, try fewer sheets or rows.";
-  }
-  if (m.includes("too large") || m.includes("context") || m.includes("token")) {
-    return es
-      ? "El mensaje o el archivo adjunto supera el tamaño que el modelo puede leer de una vez. Divídelo (por ejemplo, una hoja o un mes por envío)."
-      : "The message or attachment exceeds what the model can read at once. Split it (for example, one sheet or one month per message).";
-  }
-  return es
-    ? `El asistente no pudo completar la respuesta. Detalle técnico: ${raw}`
-    : `The assistant could not complete the response. Technical detail: ${raw}`;
-}
+
 
 
 const messageSchema = z.object({
