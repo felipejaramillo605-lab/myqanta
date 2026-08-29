@@ -8,6 +8,36 @@ import { matchNiifRules, NIIF_RULES } from "../niif-knowledge";
  * Herramientas contables de Qanta. Solo PROPONEN asientos (nunca persisten):
  * el usuario confirma y registra en /finance/journal.
  */
+
+/** Naturaleza estándar del PUC colombiano según el primer dígito del código. */
+function natureForCode(code: string): "debit" | "credit" {
+  const g = code.trim()[0];
+  return g === "1" || g === "5" || g === "6" || g === "7" || g === "8" ? "debit" : "credit";
+}
+
+/** Clasificación contable a partir del código PUC (con la naturaleza como respaldo). */
+function typeForCode(
+  code: string,
+  nature?: "debit" | "credit",
+): "asset" | "liability" | "equity" | "income" | "expense" {
+  switch (code.trim()[0]) {
+    case "1":
+      return "asset";
+    case "2":
+      return "liability";
+    case "3":
+      return "equity";
+    case "4":
+      return "income";
+    case "5":
+    case "6":
+    case "7":
+      return "expense";
+    default:
+      return nature === "credit" ? "income" : "expense";
+  }
+}
+
 export function accountingTools(ctx: AssistantToolCtx) {
   return {
     suggest_journal_entry: tool({
