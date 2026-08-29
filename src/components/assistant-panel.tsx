@@ -219,6 +219,53 @@ export function AssistantPanel() {
               ))}
             </div>
           ))}
+          {missing.has && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+                {t("ai.missing.title")}
+              </p>
+              {missing.accounts.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium">{t("ai.missing.accounts")}</p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {missing.accounts.map((a) => (
+                      <li key={a.code} className="break-words">
+                        <span className="font-mono">{a.code}</span> — {a.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {missing.suppliers.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium">{t("ai.missing.suppliers")}</p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {missing.suppliers.map((s) => (
+                      <li key={s.name} className="break-words">
+                        {s.name}
+                        {s.tax_id ? ` — NIT ${s.tax_id}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={busy} onClick={() => sendText(t("ai.missing.confirm.msg"))}>
+                  {t("ai.missing.confirm")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => sendText(t("ai.missing.cancel.msg"))}
+                >
+                  {t("ai.missing.cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {mut.isPending && (
             <div className="max-w-[85%] rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
               {t("ai.thinking")}
