@@ -51,7 +51,7 @@ export function MustChangePasswordGate() {
   return (
     <Dialog open>
       <DialogContent
-        className="glass max-w-md [&>button]:hidden"
+        className="glass max-w-md [&>button.absolute]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
