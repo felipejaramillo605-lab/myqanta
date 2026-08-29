@@ -169,6 +169,39 @@ export const saveJournalEntry = createServerFn({ method: "POST" })
     return { id: entryId };
   });
 
+export const setJournalEntryStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), status: z.enum(["draft", "posted"]) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    const { data: entry, error: eErr } = await context.supabase
+      .from("fin_journal_entries" as never)
+      .select("id, lines:fin_journal_lines(debit, credit)")
+      .eq("id", data.id)
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (eErr) throw new Error(eErr.message);
+    if (!entry) throw new Error("Asiento no encontrado en esta organización");
+    const lines = ((entry as any).lines ?? []) as Array<{ debit: number; credit: number }>;
+    if (data.status === "posted") {
+      const totalD = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+      const totalC = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+      if (lines.length < 2) throw new Error("Un asiento necesita al menos dos líneas para publicarse");
+      if (totalD <= 0 || Math.abs(totalD - totalC) > 0.01) {
+        throw new Error("El asiento no cuadra (débito ≠ crédito); no se puede publicar");
+      }
+    }
+    const { error } = await context.supabase
+      .from("fin_journal_entries" as never)
+      .update({ status: data.status } as never)
+      .eq("id", data.id)
+      .eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    return { ok: true, status: data.status };
+  });
+
 export const deleteJournalEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
