@@ -73,9 +73,11 @@ export function MustChangePasswordGate() {
             <Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
-        <Button onClick={submit} disabled={busy} className="w-full">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : null} Guardar y continuar
-        </Button>
+        <div>
+          <Button onClick={submit} disabled={busy} className="w-full">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null} Guardar y continuar
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
