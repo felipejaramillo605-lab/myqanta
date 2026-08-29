@@ -261,3 +261,64 @@ export const acceptInvite = createServerFn({ method: "POST" })
     }
     return { org_id: orgId as string | null };
   });
+/**
+ * Adds an EXISTING Qanta user (by email) to the active organization, or updates
+ * their role/custom role if already a member. Lets an owner/admin reassign users
+ * that signed up on their own and ended up in a separate workspace.
+ */
+export const addMemberByEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      email: z.string().trim().email().max(255),
+      role: OrgRole.default("member"),
+      custom_role_id: z.string().uuid().nullable().optional(),
+      make_active: z.boolean().default(true),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveActiveOrgId(context.supabase, context.userId);
+    await assertOrgRole(context.supabase, context.userId, orgId, "admin");
+    if (data.role === "owner") {
+      await assertOrgRole(context.supabase, context.userId, orgId, "owner");
+    }
+
+    let customRoleId: string | null =
+      data.role === "member" || data.role === "viewer" ? (data.custom_role_id ?? null) : null;
+    if (customRoleId) {
+      const { data: cr, error: crErr } = await context.supabase
+        .from("custom_roles")
+        .select("org_id")
+        .eq("id", customRoleId)
+        .maybeSingle();
+      if (crErr) throw new Error(crErr.message);
+      if (!cr || cr.org_id !== orgId) throw new Error("El rol personalizado no pertenece a esta organización.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = data.email.toLowerCase();
+    let targetId: string | null = null;
+    for (let page = 1; page <= 10 && !targetId; page++) {
+      const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) throw new Error(error.message);
+      const hit = (list?.users ?? []).find((u) => (u.email ?? "").toLowerCase() === email);
+      if (hit) targetId = hit.id;
+      if ((list?.users ?? []).length < 200) break;
+    }
+    if (!targetId) {
+      throw new Error("Ese correo no tiene una cuenta en Qanta todavía. Envíale una invitación al equipo.");
+    }
+
+    const { error } = await context.supabase
+      .from("organization_members")
+      .upsert(
+        { org_id: orgId, user_id: targetId, role: data.role, custom_role_id: customRoleId },
+        { onConflict: "org_id,user_id" },
+      );
+    if (error) throw new Error(error.message);
+
+    if (data.make_active) {
+      await supabaseAdmin.from("profiles").update({ active_org_id: orgId }).eq("id", targetId);
+    }
+    return { ok: true, user_id: targetId };
+  });
