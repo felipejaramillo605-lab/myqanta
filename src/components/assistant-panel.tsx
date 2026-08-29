@@ -85,6 +85,13 @@ export function AssistantPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, mut.isPending, regen.isPending]);
 
+  const sendText = (text: string) => {
+    if (!text.trim() || mut.isPending) return;
+    const next: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    mut.mutate({ history: next, file: null });
+  };
+
   const send = () => {
     const v = input.trim();
     if ((!v && !attachment) || mut.isPending) return;
@@ -95,6 +102,14 @@ export function AssistantPanel() {
     mut.mutate({ history: next, file: attachment });
     setAttachment(null);
   };
+
+  // "Pendiente de creación": solo se pregunta por el último mensaje del asistente.
+  const lastMsg = messages[messages.length - 1];
+  const missing =
+    lastMsg?.role === "assistant" && !mut.isPending
+      ? pendingMissing(lastMsg.actions)
+      : { accounts: [] as MissingAccount[], suppliers: [] as MissingSupplier[], has: false };
+
 
   const onPickFile = (file: File | undefined) => {
     if (!file) return;
