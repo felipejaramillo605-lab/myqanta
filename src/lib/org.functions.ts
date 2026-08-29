@@ -79,7 +79,7 @@ export const listMembers = createServerFn({ method: "GET" })
     const orgId = await resolveActiveOrgId(context.supabase, context.userId);
     const { data: members, error } = await context.supabase
       .from("organization_members")
-      .select("user_id, role, created_at")
+      .select("user_id, role, custom_role_id, created_at")
       .eq("org_id", orgId)
       .order("created_at");
     if (error) throw new Error(error.message);
