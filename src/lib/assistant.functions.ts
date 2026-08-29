@@ -15,11 +15,14 @@ import { workflowTools } from "./assistant-tools/workflow.server";
 import { accountingTools } from "./assistant-tools/accounting.server";
 import { niifSummaryForPrompt } from "./niif-knowledge";
 import type { AssistantToolCtx } from "./assistant-tools/context.server";
+import { isDocumentAttachment, parseDocumentAttachment, explainModelError } from "./attachment-parse.server";
+
+
 
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().min(1).max(4000),
+  content: z.string().min(1).max(30000),
 });
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
@@ -166,14 +169,14 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      messages: z.array(messageSchema).min(1).max(20),
+      messages: z.array(messageSchema).min(1).max(40),
       lang: z.enum(["es", "en"]).default("en"),
       // Optional invoice/receipt the user attached in the chat composer. Kept
       // out of the model's tool arguments (data URLs are far too large for a
       // tool call) — the accounting tool reads it from the request instead.
       attachment: z
         .object({
-          data_url: z.string().startsWith("data:").max(12_000_000),
+          data_url: z.string().startsWith("data:").max(30_000_000),
           mime: z.string().max(120),
           name: z.string().max(200).default("comprobante"),
         })
@@ -885,13 +888,43 @@ ACTIVE PROJECTS: ${JSON.stringify(projRes.data ?? [])}`;
       ? `\n\nYou can take actions on behalf of the user via tools: schedule_event, create_employee, adjust_stock, find_document, list_bank_accounts, record_purchase_or_expense. Use find_document whenever the user asks where a document/file is or asks you to look for one by name: it searches the document repository by name fragment and returns the full folder path (e.g. 'Contratos / 2026 / factura_enero.pdf'). If it returns no results, tell the user plainly that you did not find any document with that name. Only use them when the user clearly requests the action. Note: create_employee does NOT create an active employee — it only files a request that the organization owner must approve; only after approval are the employee_id and a temporary password generated. Never tell the user the employee is already created or has an account. After a tool runs, reply in natural language confirming what changed. Never invent identifiers. Never try to reference or access data from any other organization — you only know the active one.\n\nrecord_purchase_or_expense registers a purchase or an expense as a double-entry journal entry using THIS organization's chart of accounts (PUC) and its configured accounting policies. Before calling it, ask conversationally for whatever is missing — never dump all the questions at once: (1) whether it is inventory bought to resell or an operating expense — infer it from the business context, the existing products and the description, and only ask '¿Es para revender o es un gasto del negocio?' when it is genuinely ambiguous; (2) '¿Pagaste en efectivo o con banco?' if unknown; (3) if bank, call list_bank_accounts and ask which account, showing the bank name and the last 4 digits; (4) '¿Tienes la factura?' — if the user says no, tell them to get it and that they can finish the registration later by attaching it right here in the chat. It respects the rule that every PUBLISHED entry requires a receipt: with no invoice the entry is saved as a DRAFT, and with the invoice attached in the chat it is read by OCR, the supplier is created or matched, the file is stored as the receipt document and the entry is POSTED. If the user says they have the invoice but has not attached it, ask them to attach the photo or PDF in the chat instead of calling the tool. Never fill invoice_image_data_url yourself. ${data.attachment ? "A FILE IS ATTACHED to the current message — treat it as the invoice/receipt." : "No file is attached to the current message."}${modulesHint}`
       : `\n\nYou are in read-only mode for this user role. Do not offer to perform actions.`;
 
-    const { text } = await generateText({
-      model: createLovableAiGatewayProvider(key)("google/gemini-2.5-flash"),
-      system: system + crossModuleContext + toolsHint,
-      messages: data.messages,
-      tools,
-      stopWhen: stepCountIs(8),
-    });
+    // Documents (Excel / CSV / Markdown / text) are parsed server-side and
+    // injected as plain text so Qanta can read financial statements and draft
+    // the corresponding journal entries. Images/PDFs keep going through OCR.
+    let docBlock = "";
+    if (data.attachment && isDocumentAttachment(data.attachment.mime, data.attachment.name)) {
+      const parsed = await parseDocumentAttachment(
+        data.attachment.data_url,
+        data.attachment.mime,
+        data.attachment.name,
+      );
+      if ("error" in parsed) {
+        docBlock = `\n\nATTACHED DOCUMENT could not be read: ${parsed.error} Explain this to the user and ask for a different format.`;
+      } else {
+        docBlock = `\n\nATTACHED DOCUMENT "${parsed.name}" (${parsed.kind}${parsed.truncated ? ", truncated" : ""}):\n\`\`\`\n${parsed.text}\n\`\`\`\nRead it carefully. If it contains a financial statement, trial balance or a list of transactions: summarize what you understood, map each item to the org's PUC accounts and use create_draft_journal_entry to create the DRAFT entries (one call per entry, balanced). Never post entries. If a required account code does not exist, say exactly which one is missing.`;
+      }
+    }
+
+    const reasoningHint = `\n\nHOW TO THINK (internal):
+1. Restate the user's goal in one line for yourself before acting.
+2. Prefer reading the data/context above over asking; ask only for what is genuinely missing.
+3. When a tool fails, DO NOT repeat the same call: read the returned error, explain in plain ${lang} what exactly went wrong (missing account, unbalanced entry, ambiguous name, missing permission, missing receipt), state the concrete cause and the exact next step the user must take (which screen, which data), and offer to retry once the blocker is solved.
+4. Never say "hubo un error" without the specific reason. Never invent identifiers or amounts.
+5. For accounting work: cite the NIIF standard and the PUC codes you used, and show the debit/credit lines you proposed.`;
+
+    let text: string;
+    try {
+      const res = await generateText({
+        model: createLovableAiGatewayProvider(key)("google/gemini-2.5-pro"),
+        system: system + crossModuleContext + toolsHint + reasoningHint + docBlock,
+        messages: data.messages,
+        tools,
+        stopWhen: stepCountIs(14),
+      });
+      text = res.text;
+    } catch (e) {
+      throw new Error(explainModelError(e, data.lang));
+    }
 
     return { reply: text, actions };
   });

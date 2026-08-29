@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, Send, RefreshCw, Wrench, Paperclip, X } from "lucide-react";
+import { Sparkles, Send, RefreshCw, Wrench, Paperclip, X, Trash2, FileSpreadsheet } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { chatWithAssistant } from "@/lib/assistant.functions";
 import { useI18n } from "@/lib/i18n";
 
@@ -79,8 +79,8 @@ export function AssistantPanel() {
 
   const onPickFile = (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) {
-      setMessages((m) => [...m, { role: "assistant", content: "⚠️ El archivo supera los 8 MB." }]);
+    if (file.size > 20 * 1024 * 1024) {
+      setMessages((m) => [...m, { role: "assistant", content: "⚠️ El archivo supera los 20 MB." }]);
       return;
     }
     const reader = new FileReader();
@@ -120,6 +120,21 @@ export function AssistantPanel() {
             >
               <RefreshCw className={"size-3.5 " + (regen.isPending ? "animate-spin" : "")} />
               {t("ai.regen")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMessages([]);
+                setAttachment(null);
+                setInput("");
+              }}
+              disabled={busy || messages.length === 0}
+              className="gap-2"
+            >
+              <Trash2 className="size-3.5" />
+              {t("ai.clear")}
             </Button>
             <span
               className={
@@ -186,7 +201,11 @@ export function AssistantPanel() {
         >
           {attachment && (
             <div className="flex items-center gap-2 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-[11px]">
-              <Paperclip className="size-3 shrink-0" />
+              {/\.(xlsx|xls|xlsm|csv|md|markdown|txt)$/i.test(attachment.name) ? (
+                <FileSpreadsheet className="size-3 shrink-0" />
+              ) : (
+                <Paperclip className="size-3 shrink-0" />
+              )}
               <span className="truncate">{attachment.name}</span>
               <button
                 type="button"
@@ -202,7 +221,7 @@ export function AssistantPanel() {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.xlsx,.xls,.xlsm,.csv,.md,.markdown,.txt"
               className="hidden"
               onChange={(e) => {
                 onPickFile(e.target.files?.[0]);
@@ -213,18 +232,27 @@ export function AssistantPanel() {
               type="button"
               size="icon"
               variant="ghost"
-              aria-label="Adjuntar factura"
+              aria-label="Adjuntar factura, Excel o Markdown"
               disabled={busy}
               onClick={() => fileRef.current?.click()}
             >
               <Paperclip className="size-4" />
             </Button>
-            <Input
+            <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
               placeholder={t("ai.placeholder")}
               disabled={busy}
               autoFocus
+              rows={2}
+              maxLength={30000}
+              className="max-h-40 min-h-[40px] resize-y"
             />
             <Button type="submit" size="icon" disabled={busy || (!input.trim() && !attachment)}>
               <Send className="size-4" />
