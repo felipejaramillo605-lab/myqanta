@@ -51,7 +51,7 @@ export function MustChangePasswordGate() {
   return (
     <Dialog open>
       <DialogContent
-        className="glass max-w-md [&>button]:hidden"
+        className="glass max-w-md [&>button.absolute]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -73,9 +73,11 @@ export function MustChangePasswordGate() {
             <Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
-        <Button onClick={submit} disabled={busy} className="w-full">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : null} Guardar y continuar
-        </Button>
+        <div>
+          <Button onClick={submit} disabled={busy} className="w-full">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null} Guardar y continuar
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
