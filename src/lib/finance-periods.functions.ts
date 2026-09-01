@@ -26,6 +26,14 @@ function monthBounds(periodMonth: string) {
   return { year: y!, month: m!, from, to, firstDay: `${periodMonth}-01` };
 }
 
+export type ReconItem = {
+  id: string;
+  occurred_on: string;
+  description: string | null;
+  reference: string | null;
+  amount: number;
+};
+
 export type BankMonthSummary = {
   bank_account_id: string;
   bank_name: string;
@@ -41,6 +49,8 @@ export type BankMonthSummary = {
   status: "open" | "closed";
   closed_at: string | null;
   notes: string | null;
+  /** Partidas conciliatorias: movimientos del extracto sin asiento asociado. */
+  items: ReconItem[];
 };
 
 export type ThirdPartyMonthSummary = {
@@ -112,7 +122,7 @@ export const getMonthlyReconciliation = createServerFn({ method: "GET" })
     const [banksRes, txRes, periodRes, closesRes, partiesRes] = await Promise.all([
       context.supabase.from("bank_accounts" as never).select("*").eq("org_id", orgId).order("bank_name"),
       context.supabase.from("bank_transactions" as never)
-        .select("id, bank_account_id, occurred_on, amount, reconciled_entry_id")
+        .select("id, bank_account_id, occurred_on, amount, description, reference, reconciled_entry_id")
         .eq("org_id", orgId).lte("occurred_on", to),
       context.supabase.from("accounting_periods" as never)
         .select("status, closed_at").eq("org_id", orgId).eq("year", year).eq("month", month).maybeSingle(),
@@ -156,6 +166,16 @@ export const getMonthlyReconciliation = createServerFn({ method: "GET" })
         statement_balance,
         difference: book_closing - statement_balance,
         unreconciled: inMonth.filter((t) => !t.reconciled_entry_id).length,
+        items: inMonth
+          .filter((t) => !t.reconciled_entry_id)
+          .sort((x, y) => String(x.occurred_on).localeCompare(String(y.occurred_on)))
+          .map((t) => ({
+            id: String(t.id),
+            occurred_on: String(t.occurred_on),
+            description: t.description ?? null,
+            reference: t.reference ?? null,
+            amount: Number(t.amount ?? 0),
+          })),
         status: close?.status === "closed" ? "closed" : "open",
         closed_at: close?.closed_at ?? null,
         notes: close?.notes ?? null,
