@@ -88,8 +88,8 @@ function PeriodsPage() {
     onError: (e: any) => toast.error(e.message),
   });
   const periodMut = useMutation({
-    mutationFn: (d: { month: number; status: "open" | "closed" }) =>
-      setAccountingPeriodStatus({ data: { year, ...d } }),
+    mutationFn: (d: { month: number; status: "open" | "closed"; year?: number }) =>
+      setAccountingPeriodStatus({ data: { year: d.year ?? year, month: d.month, status: d.status } }),
     onSuccess: (r: any) => {
       toast.success(r.status === "closed" ? "Periodo cerrado" : "Periodo reabierto");
       invalidate();
@@ -98,6 +98,8 @@ function PeriodsPage() {
   });
 
   const data = recon.data;
+  const selYear = Number(month.slice(0, 4));
+  const selMonth = Number(month.slice(5, 7));
 
   return (
     <div className="space-y-6">
@@ -114,6 +116,24 @@ function PeriodsPage() {
             <Badge variant="secondary" className="gap-1"><Lock className="size-3" /> Periodo cerrado</Badge>
           ) : (
             <Badge className="gap-1"><LockOpen className="size-3" /> Periodo abierto</Badge>
+          )}
+          {data.period_status === "closed" ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={periodMut.isPending}
+              onClick={() => periodMut.mutate({ month: selMonth, status: "open", year: selYear })}
+            >
+              <LockOpen className="size-4 mr-1" /> Reabrir periodo
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              disabled={periodMut.isPending}
+              onClick={() => periodMut.mutate({ month: selMonth, status: "closed", year: selYear })}
+            >
+              <Lock className="size-4 mr-1" /> Cerrar periodo {month}
+            </Button>
           )}
         </div>
       </div>
@@ -164,6 +184,34 @@ function PeriodsPage() {
                 <div className="text-xs text-muted-foreground">
                   Movimientos del mes sin conciliar: <strong>{b.unreconciled}</strong>
                 </div>
+
+                {b.items.length > 0 && (
+                  <div className="rounded-xl border border-border/40 overflow-x-auto">
+                    <div className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Partidas conciliatorias
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead className="text-xs text-muted-foreground">
+                        <tr className="border-b border-border/40">
+                          <th className="p-2 text-left">Fecha</th>
+                          <th className="p-2 text-left">Descripción</th>
+                          <th className="p-2 text-left">Referencia</th>
+                          <th className="p-2 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {b.items.map((it) => (
+                          <tr key={it.id} className="border-b border-border/20">
+                            <td className="p-2 whitespace-nowrap">{it.occurred_on}</td>
+                            <td className="p-2">{it.description ?? "—"}</td>
+                            <td className="p-2 text-muted-foreground">{it.reference ?? "—"}</td>
+                            <td className="p-2 text-right font-mono tabular-nums">{money(it.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {b.status === "closed" ? (
                   <Button size="sm" variant="ghost" onClick={() => reopenBankMut.mutate(b.bank_account_id)}>
