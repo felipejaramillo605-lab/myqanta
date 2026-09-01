@@ -151,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (access.allowed_modules ?? []).includes(key);
   };
   const MODULE_KEY_SET = new Set([
-    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/assets","/finance/budgets",
+    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/statements","/finance/assets","/finance/budgets",
     "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reports",
   ]);
