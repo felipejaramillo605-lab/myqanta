@@ -5,7 +5,29 @@ import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 import { bankBalancesInBaseCurrency, recordFxDifferenceForBankTx } from "./fx-journal.server";
 
+/**
+ * Blocks postings into a closed accounting period (Phase 4.3).
+ * Absent period rows mean "open", so existing orgs keep working.
+ */
+export async function assertPeriodOpen(supabase: any, orgId: string, entryDate: string) {
+  const d = new Date(entryDate);
+  if (Number.isNaN(d.getTime())) return;
+  const { data } = await supabase
+    .from("accounting_periods")
+    .select("status")
+    .eq("org_id", orgId)
+    .eq("year", d.getUTCFullYear())
+    .eq("month", d.getUTCMonth() + 1)
+    .maybeSingle();
+  if (data && (data as any).status === "closed") {
+    throw new Error(
+      `El periodo ${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")} está cerrado; no se puede contabilizar en él`,
+    );
+  }
+}
+
 // -------------------- Chart of accounts --------------------
+
 
 export const listAccountsCoa = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -28,7 +50,9 @@ const AccountInput = z.object({
   parent_id: z.string().uuid().nullable().optional(),
   active: z.boolean().default(true),
   is_current: z.boolean().nullable().optional(),
+  requires_third_party: z.boolean().default(false),
 });
+
 
 export const upsertAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -114,10 +138,33 @@ export const saveJournalEntry = createServerFn({ method: "POST" })
     const totalC = data.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
     if (Math.abs(totalD - totalC) > 0.01) throw new Error("El asiento no cuadra (débito ≠ crédito)");
 
+    // Enforce third party on accounts flagged as "third-party managed" (SAP-style
+    // reconciliation accounts): AR, AP, advances, withholdings payable, etc.
+    const accountIds = [...new Set(data.lines.map((l) => l.account_id))];
+    const { data: accRows, error: accErr } = await context.supabase
+      .from("fin_accounts" as never)
+      .select("id, code, name, requires_third_party")
+      .eq("org_id", orgId)
+      .in("id", accountIds);
+    if (accErr) throw new Error(accErr.message);
+    const accById = new Map(((accRows ?? []) as any[]).map((a) => [a.id as string, a]));
+    if (accById.size !== accountIds.length) {
+      throw new Error("Alguna cuenta del asiento no pertenece a esta organización");
+    }
+    for (const l of data.lines) {
+      const acc = accById.get(l.account_id);
+      if (acc?.requires_third_party && !l.third_party_id) {
+        throw new Error(`La cuenta ${acc.code} - ${acc.name} requiere tercero`);
+      }
+    }
+
     // Enforce receipt when posted
     if (data.status === "posted" && !data.receipt_document_id) {
       throw new Error("Un asiento publicado requiere comprobante adjunto");
     }
+    if (data.status === "posted") await assertPeriodOpen(context.supabase, orgId, data.entry_date);
+
+
 
     let entryId = data.id;
     if (!entryId) {
@@ -178,13 +225,15 @@ export const setJournalEntryStatus = createServerFn({ method: "POST" })
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
     const { data: entry, error: eErr } = await context.supabase
       .from("fin_journal_entries" as never)
-      .select("id, lines:fin_journal_lines(debit, credit)")
+      .select("id, entry_date, lines:fin_journal_lines(debit, credit, account_id, third_party_id)")
       .eq("id", data.id)
       .eq("org_id", orgId)
       .maybeSingle();
     if (eErr) throw new Error(eErr.message);
     if (!entry) throw new Error("Asiento no encontrado en esta organización");
-    const lines = ((entry as any).lines ?? []) as Array<{ debit: number; credit: number }>;
+    const lines = ((entry as any).lines ?? []) as Array<{
+      debit: number; credit: number; account_id: string; third_party_id: string | null;
+    }>;
     if (data.status === "posted") {
       const totalD = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
       const totalC = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
@@ -192,7 +241,21 @@ export const setJournalEntryStatus = createServerFn({ method: "POST" })
       if (totalD <= 0 || Math.abs(totalD - totalC) > 0.01) {
         throw new Error("El asiento no cuadra (débito ≠ crédito); no se puede publicar");
       }
+      const { data: accRows } = await context.supabase
+        .from("fin_accounts" as never)
+        .select("id, code, name, requires_third_party")
+        .eq("org_id", orgId)
+        .in("id", [...new Set(lines.map((l) => l.account_id))]);
+      const accById = new Map(((accRows ?? []) as any[]).map((a) => [a.id as string, a]));
+      for (const l of lines) {
+        const acc = accById.get(l.account_id);
+        if (acc?.requires_third_party && !l.third_party_id) {
+          throw new Error(`La cuenta ${acc.code} - ${acc.name} requiere tercero`);
+        }
+      }
+      await assertPeriodOpen(context.supabase, orgId, String((entry as any).entry_date));
     }
+
     const { error } = await context.supabase
       .from("fin_journal_entries" as never)
       .update({ status: data.status } as never)

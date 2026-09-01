@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveOrgId } from "./org-helpers";
 import { assertModuleAccess, resolveOrgWithModuleAccess } from "./permissions";
 import { computeFinancialIndicators, type FinancialIndicators } from "./financial-indicators";
+import { aggregatePnl, fetchPostedLines, pnlTotals } from "./accounting-core";
+
 
 
 export type ReportRange = { from: string; to: string };
@@ -63,8 +65,8 @@ export const getConsolidatedReport = createServerFn({ method: "POST" })
     const s = context.supabase;
     const { from, to } = data;
 
-    const [finRes, invRes, prodRes, projRes, entriesRes, teamRes, payrollRes, leavesRes, dealsRes] = await Promise.all([
-      s.from("finance_transactions").select("amount,bucket").eq("org_id", orgId).gte("occurred_on", from).lte("occurred_on", to),
+    const [finLines, invRes, prodRes, projRes, entriesRes, teamRes, payrollRes, leavesRes, dealsRes] = await Promise.all([
+      fetchPostedLines(s, orgId, { from, to }),
       s.from("sales_invoices").select("id,customer_id,total,status,paid_amount").eq("org_id", orgId).gte("issue_date", from).lte("issue_date", to),
       s.from("inv_products").select("id,stock,cost,min_stock").eq("org_id", orgId),
       s.from("projects").select("id,status").eq("org_id", orgId),
@@ -75,18 +77,15 @@ export const getConsolidatedReport = createServerFn({ method: "POST" })
       s.from("crm_deals").select("id,stage,amount").eq("org_id", orgId),
     ]);
 
-    const fin = finRes.data ?? [];
-    const byBucket: Record<string, number> = {};
-    let revenue = 0, cogs = 0, opex = 0;
-    for (const r of fin) {
-      const amt = Number(r.amount ?? 0);
-      const bucket = String(r.bucket ?? "other");
-      byBucket[bucket] = (byBucket[bucket] ?? 0) + amt;
-      if (bucket === "revenue" || bucket === "other_income") revenue += amt;
-      else if (bucket === "cogs") cogs += amt;
-      else if (bucket === "opex" || bucket === "other_expense") opex += amt;
-    }
-    const ebitda = revenue - cogs - opex;
+    // Finance figures come from POSTED journal lines (single source of truth).
+    const buckets = aggregatePnl(finLines);
+    const totals = pnlTotals(buckets);
+    const byBucket = buckets as unknown as Record<string, number>;
+    const revenue = totals.revenue;
+    const cogs = totals.cogs;
+    const opex = totals.opex;
+    const ebitda = totals.ebitda;
+
 
     const inv = invRes.data ?? [];
     const byStatus: Record<string, number> = {};
@@ -140,7 +139,7 @@ export const getConsolidatedReport = createServerFn({ method: "POST" })
 
     return {
       range: { from, to },
-      finance: { revenue, cogs, opex, ebitda, net: ebitda, by_bucket: byBucket },
+      finance: { revenue, cogs, opex, ebitda, net: totals.net, by_bucket: byBucket },
       sales: {
         invoiced_total: invoicedTotal,
         paid_total: paidTotal,
