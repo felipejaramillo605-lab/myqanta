@@ -501,8 +501,11 @@ Dates must be YYYY-MM-DD. ${sepHint} Output a concise summary in the document's 
       statement: stmt,
       summary: parsed.summary,
       transactions: parsed.transactions,
-      inserted: 0,
+      inserted: 0 as number,
+      // Preview only: nothing hits the ledger until the user applies the lines.
+      journal: null as Awaited<ReturnType<typeof autopostTransactions>> | null,
     };
+
   });
 
 // ===== Apply hand-edited statement transactions (after preview) =====
