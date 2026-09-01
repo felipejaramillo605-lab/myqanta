@@ -73,6 +73,7 @@ const CATEGORIES: NavCategory[] = [
       { to: "/finance/banks", label: "Bancos", icon: Landmark, group: "Contabilidad" },
       { to: "/finance/taxes", label: "Impuestos", icon: Percent, group: "Contabilidad" },
       { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge, group: "Contabilidad" },
+      { to: "/finance/periods", label: "Cierre mensual", icon: Lock, group: "Contabilidad" },
       { to: "/finance/balances", label: "Balances", icon: Scale, group: "Contabilidad" },
       { to: "/finance/statements", label: "Estados financieros", icon: Scale, group: "Contabilidad" },
       { to: "/finance/assets", label: "Activos fijos", icon: Landmark, group: "Contabilidad" },
