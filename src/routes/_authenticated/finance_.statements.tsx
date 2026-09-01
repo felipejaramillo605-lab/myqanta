@@ -9,8 +9,11 @@ import { Download, FileText, ScrollText } from "lucide-react";
 import { downloadCsv } from "@/lib/export-utils";
 import {
   getBalanceSheet,
+  getCashFlowStatement,
+  getEquityStatement,
   getIncomeStatement,
   getTrialBalance,
+  type CashFlowSection,
   type StatementLine,
 } from "@/lib/finance-statements.functions";
 
@@ -98,6 +101,14 @@ function StatementsPage() {
     queryKey: ["balance-sheet", to],
     queryFn: () => getBalanceSheet({ data: { as_of: to } }),
   });
+  const cf = useQuery({
+    queryKey: ["cash-flow", from, to],
+    queryFn: () => getCashFlowStatement({ data: { from, to } }),
+  });
+  const eq = useQuery({
+    queryKey: ["equity-statement", from, to],
+    queryFn: () => getEquityStatement({ data: { from, to } }),
+  });
 
   return (
     <div className="space-y-6">
@@ -127,6 +138,8 @@ function StatementsPage() {
           <TabsTrigger value="trial">Balance de comprobación</TabsTrigger>
           <TabsTrigger value="pl">Estado de resultados</TabsTrigger>
           <TabsTrigger value="bs">Situación financiera</TabsTrigger>
+          <TabsTrigger value="cf">Flujo de efectivo</TabsTrigger>
+          <TabsTrigger value="eq">Cambios en el patrimonio</TabsTrigger>
         </TabsList>
 
         <TabsContent value="trial" className="pt-4">
@@ -262,7 +275,149 @@ function StatementsPage() {
             </table>
           </div>
         </TabsContent>
+
+        <TabsContent value="cf" className="pt-4">
+          {cf.data && (
+            <div className="mb-3 flex items-center gap-2">
+              <Badge variant={cf.data.reconciled ? "secondary" : "destructive"}>
+                {cf.data.reconciled
+                  ? "Conciliado con el movimiento de caja"
+                  : "Diferencia frente al movimiento de caja"}
+              </Badge>
+              <span className="text-xs text-muted-foreground">Método indirecto</span>
+            </div>
+          )}
+          <div className="overflow-x-auto rounded-xl border border-border/40">
+            <table className="w-full text-sm">
+              <tbody>
+                {cf.isLoading && (
+                  <tr>
+                    <td className="py-6 text-center text-muted-foreground">Cargando…</td>
+                  </tr>
+                )}
+                {cf.data && (
+                  <>
+                    <GroupHeader title="Actividades de operación" total={cf.data.operating} />
+                    <Row label="Resultado neto del periodo" amount={cf.data.net_income} />
+                    <Row label="(+) Depreciación" amount={cf.data.depreciation} />
+                    <Row label="(+) Amortización" amount={cf.data.amortization} />
+                    <FlowRows rows={cf.data.working_capital} />
+                    <GroupHeader title="Actividades de inversión" total={cf.data.investing} />
+                    <FlowRows rows={cf.data.investing_items} />
+                    <GroupHeader title="Actividades de financiación" total={cf.data.financing} />
+                    <FlowRows rows={cf.data.financing_items} />
+                    <tr className="border-t border-border/40 font-semibold">
+                      <td className="py-2 pl-3 pr-3">Variación neta de efectivo</td>
+                      <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(cf.data.net_change)}</td>
+                    </tr>
+                    <Row label="Efectivo al inicio" amount={cf.data.cash_opening} />
+                    <Row label="Efectivo al final" amount={cf.data.cash_closing} />
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="eq" className="pt-4">
+          <div className="overflow-x-auto rounded-xl border border-border/40">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border/40">
+                  <th className="py-2 pl-3 pr-3 text-left">Cuenta de patrimonio</th>
+                  <th className="py-2 pr-3 text-right">Saldo inicial</th>
+                  <th className="py-2 pr-3 text-right">Aumentos</th>
+                  <th className="py-2 pr-3 text-right">Disminuciones</th>
+                  <th className="py-2 pr-3 text-right">Saldo final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eq.isLoading && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-muted-foreground">Cargando…</td>
+                  </tr>
+                )}
+                {eq.data?.rows.map((r) => (
+                  <tr key={r.code + r.name} className="border-b border-border/20">
+                    <td className="py-1.5 pl-3 pr-3">
+                      <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.opening)}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.increase)}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.decrease)}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.closing)}</td>
+                  </tr>
+                ))}
+                {eq.data && !eq.data.rows.length && !eq.isLoading && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                      Sin cuentas de patrimonio con movimiento.
+                    </td>
+                  </tr>
+                )}
+                {eq.data && (
+                  <>
+                    <tr className="border-t border-border/40">
+                      <td className="py-2 pl-3 pr-3">Resultado del ejercicio</td>
+                      <td colSpan={3} />
+                      <td className="py-2 pr-3 text-right font-mono tabular-nums">
+                        {money(eq.data.result_of_period)}
+                      </td>
+                    </tr>
+                    <tr className="font-semibold">
+                      <td className="py-2 pl-3 pr-3">Patrimonio al inicio / al final</td>
+                      <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(eq.data.opening_total)}</td>
+                      <td colSpan={2} />
+                      <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(eq.data.closing_total)}</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function GroupHeader({ title, total }: { title: string; total: number }) {
+  return (
+    <tr className="bg-muted/40">
+      <td className="py-2 pl-3 pr-3 text-xs font-semibold uppercase tracking-wider">{title}</td>
+      <td className="py-2 pr-3 text-right font-mono text-xs font-semibold tabular-nums">{money(total)}</td>
+    </tr>
+  );
+}
+
+function Row({ label, amount }: { label: string; amount: number }) {
+  return (
+    <tr className="border-b border-border/20">
+      <td className="py-1.5 pl-3 pr-3">{label}</td>
+      <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(amount)}</td>
+    </tr>
+  );
+}
+
+function FlowRows({ rows }: { rows: CashFlowSection[] }) {
+  if (!rows.length)
+    return (
+      <tr>
+        <td colSpan={2} className="py-2 pl-3 text-sm text-muted-foreground">
+          Sin variaciones.
+        </td>
+      </tr>
+    );
+  return (
+    <>
+      {rows.map((r) => (
+        <tr key={r.code + r.name} className="border-b border-border/20">
+          <td className="py-1.5 pl-3 pr-3">
+            <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+          </td>
+          <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.amount)}</td>
+        </tr>
+      ))}
+    </>
   );
 }
