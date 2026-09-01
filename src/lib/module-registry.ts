@@ -13,6 +13,7 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   { key: "/finance/taxes", label: "Impuestos", group: "Finanzas" },
   { key: "/finance/reconciliation", label: "Conciliación bancaria", group: "Finanzas" },
   { key: "/finance/balances", label: "Balances", group: "Finanzas" },
+  { key: "/finance/statements", label: "Estados financieros", group: "Finanzas" },
   { key: "/finance/assets", label: "Activos fijos y depreciación", group: "Finanzas" },
   { key: "/finance/budgets", label: "Presupuestos y flujo de caja", group: "Finanzas" },
   { key: "/inventory", label: "Compras / Inventario", group: "Finanzas" },
