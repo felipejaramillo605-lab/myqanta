@@ -270,6 +270,16 @@ export const deleteJournalEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    // Phase 4: a posted entry inside a closed period can no longer be removed.
+    const { data: existing } = await context.supabase
+      .from("fin_journal_entries" as never)
+      .select("entry_date, status")
+      .eq("id", data.id)
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (existing && (existing as any).status === "posted") {
+      await assertPeriodOpen(context.supabase, orgId, String((existing as any).entry_date));
+    }
     const { error } = await context.supabase.from("fin_journal_entries" as never)
       .delete().eq("id", data.id).eq("org_id", orgId);
     if (error) throw new Error(error.message);
