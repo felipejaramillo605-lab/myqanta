@@ -74,6 +74,7 @@ const CATEGORIES: NavCategory[] = [
       { to: "/finance/taxes", label: "Impuestos", icon: Percent, group: "Contabilidad" },
       { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge, group: "Contabilidad" },
       { to: "/finance/balances", label: "Balances", icon: Scale, group: "Contabilidad" },
+      { to: "/finance/statements", label: "Estados financieros", icon: Scale, group: "Contabilidad" },
       { to: "/finance/assets", label: "Activos fijos", icon: Landmark, group: "Contabilidad" },
       { to: "/finance/budgets", label: "Presupuestos y caja", icon: BarChart3, group: "Contabilidad" },
       { to: "/finance/policies", label: "Políticas contables", icon: FolderOpen, group: "Contabilidad" },
@@ -150,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (access.allowed_modules ?? []).includes(key);
   };
   const MODULE_KEY_SET = new Set([
-    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/assets","/finance/budgets",
+    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/statements","/finance/assets","/finance/budgets",
     "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reports",
   ]);
