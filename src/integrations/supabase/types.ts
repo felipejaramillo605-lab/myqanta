@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          month: number
+          org_id: string
+          status: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          month: number
+          org_id: string
+          status?: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          month?: number
+          org_id?: string
+          status?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_periods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_policies: {
         Row: {
           active: boolean
@@ -291,6 +335,66 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "bank_accounts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliation_periods: {
+        Row: {
+          bank_account_id: string
+          book_balance: number
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          org_id: string
+          period_month: string
+          statement_balance: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id: string
+          book_balance?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          period_month: string
+          statement_balance?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string
+          book_balance?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          period_month?: string
+          statement_balance?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliation_periods_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliation_periods_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -775,6 +879,7 @@ export type Database = {
           name: string
           org_id: string
           parent_id: string | null
+          requires_third_party: boolean
           type: string
           updated_at: string
         }
@@ -787,6 +892,7 @@ export type Database = {
           name: string
           org_id: string
           parent_id?: string | null
+          requires_third_party?: boolean
           type: string
           updated_at?: string
         }
@@ -799,6 +905,7 @@ export type Database = {
           name?: string
           org_id?: string
           parent_id?: string | null
+          requires_third_party?: boolean
           type?: string
           updated_at?: string
         }

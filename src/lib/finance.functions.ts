@@ -4,6 +4,9 @@ import { z } from "zod";
 import { resolveActiveOrgId } from "./org-helpers";
 import { resolveOrgWithRole , resolveOrgWithModuleAccess } from "./permissions";
 import { parseNumberWithSeparator } from "./categories";
+import { aggregatePnl, fetchPostedLines, pnlTotals } from "./accounting-core";
+import { autopostTransactions } from "./journal-autopost";
+
 
 const BUCKETS = [
   "revenue",
@@ -19,18 +22,10 @@ const BUCKETS = [
 
 const BucketEnum = z.enum(BUCKETS);
 
-// Buckets that represent outflows. Amounts here are always treated as
-// magnitudes (absolute value) so an accidental negative sign cannot flip the
-// math and "add" costs to revenue.
-const COST_BUCKETS = new Set(["cogs", "opex", "depreciation", "amortization", "interest", "tax", "other_expense"]);
-const INCOME_BUCKETS = new Set(["revenue", "other_income"]);
+// NOTE: `finance_transactions` remains a fast-capture layer only. Every KPI and
+// report below is computed from POSTED journal lines (`fin_journal_lines`), the
+// single source of truth, using the shared aggregation in `accounting-core`.
 
-function signedAmount(bucket: string, amount: number): number {
-  const v = Math.abs(Number(amount) || 0);
-  if (COST_BUCKETS.has(bucket)) return v;       // stored as positive magnitude
-  if (INCOME_BUCKETS.has(bucket)) return v;     // stored as positive magnitude
-  return Number(amount) || 0;
-}
 
 export const listTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -67,49 +62,31 @@ export const getKpis = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const now = data.month ? new Date(data.month + "-01") : new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+    const endInclusive = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
-    const { data: rows, error } = await context.supabase
-      .from("finance_transactions")
-      .select("amount,bucket,occurred_on")
-      .eq("org_id", orgId)
-      .gte("occurred_on", prevStart)
-      .lt("occurred_on", end);
-    if (error) throw new Error(error.message);
 
-    const empty = { revenue: 0, cogs: 0, opex: 0, depreciation: 0, amortization: 0, interest: 0, tax: 0, other_income: 0, other_expense: 0 };
-    const cur = { ...empty } as Record<string, number>;
-    const prev = { ...empty } as Record<string, number>;
-    for (const r of rows ?? []) {
-      const target = r.occurred_on >= start ? cur : prev;
-      target[r.bucket] = (target[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
-    }
-    const compute = (b: Record<string, number>) => {
-      const revenue = b.revenue;
-      const costs = b.cogs + b.opex;
-      const ebitda = revenue - costs;
-      const net = ebitda - b.depreciation - b.amortization - b.interest - b.tax + b.other_income - b.other_expense;
-      return { revenue, costs, ebitda, net };
-    };
-    const c = compute(cur);
-    const p = compute(prev);
+    const lines = await fetchPostedLines(context.supabase, orgId, { from: prevStart, to: endInclusive });
+    const cur = aggregatePnl(lines.filter((l) => l.entry_date >= start));
+    const prev = aggregatePnl(lines.filter((l) => l.entry_date < start));
+    const c = pnlTotals(cur);
+    const p = pnlTotals(prev);
     const delta = (a: number, b: number) => (b === 0 ? (a === 0 ? 0 : 100) : ((a - b) / Math.abs(b)) * 100);
     return {
       month: start,
-      current: c,
-      previous: p,
+      current: { revenue: c.revenue, costs: c.costs, ebitda: c.ebitda, net: c.net },
+      previous: { revenue: p.revenue, costs: p.costs, ebitda: p.ebitda, net: p.net },
       deltas: {
         revenue: delta(c.revenue, p.revenue),
         costs: delta(c.costs, p.costs),
         ebitda: delta(c.ebitda, p.ebitda),
         net: delta(c.net, p.net),
       },
-      byBucket: cur,
+      byBucket: cur as unknown as Record<string, number>,
     };
   });
 
-// 12-month EBITDA time series
+// 12-month EBITDA time series, from posted journal lines
 export const getEbitdaSeries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -120,40 +97,26 @@ export const getEbitdaSeries = createServerFn({ method: "GET" })
     const start = new Date(now.getFullYear(), now.getMonth() - (data.months - 1), 1);
     const startStr = start.toISOString().slice(0, 10);
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
-    const { data: rows, error } = await context.supabase
-      .from("finance_transactions")
-      .select("amount,bucket,occurred_on")
-      .eq("org_id", orgId)
-      .gte("occurred_on", startStr);
-    if (error) throw new Error(error.message);
+    const lines = await fetchPostedLines(context.supabase, orgId, { from: startStr });
 
-    const buckets = ["revenue", "cogs", "opex", "depreciation", "amortization", "interest", "tax", "other_income", "other_expense"] as const;
-    const months: { key: string; label: string; agg: Record<string, number> }[] = [];
+    const keys: string[] = [];
     for (let i = 0; i < data.months; i++) {
       const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const agg: Record<string, number> = {};
-      for (const b of buckets) agg[b] = 0;
-      months.push({ key, label: key, agg });
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
     }
-    const idx = new Map(months.map((m, i) => [m.key, i]));
-    for (const r of rows ?? []) {
-      const key = r.occurred_on.slice(0, 7);
-      const i = idx.get(key);
-      if (i === undefined) continue;
-      months[i].agg[r.bucket] = (months[i].agg[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
+    const byMonth = new Map<string, typeof lines>();
+    for (const l of lines) {
+      const key = String(l.entry_date).slice(0, 7);
+      if (!byMonth.has(key)) byMonth.set(key, []);
+      byMonth.get(key)!.push(l);
     }
-    return months.map((m) => {
-      const a = m.agg;
-      const revenue = a.revenue;
-      const costs = a.cogs + a.opex;
-      const ebitda = revenue - costs;
-      const net = ebitda - a.depreciation - a.amortization - a.interest - a.tax + a.other_income - a.other_expense;
-      return { month: m.label, revenue, costs, ebitda, net };
+    return keys.map((key) => {
+      const t = pnlTotals(aggregatePnl(byMonth.get(key) ?? []));
+      return { month: key, revenue: t.revenue, costs: t.costs, ebitda: t.ebitda, net: t.net };
     });
   });
 
-// Monthly closing report — AI executive summary
+// Monthly closing report — AI executive summary over the real ledger
 export const monthlyClosingSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -165,40 +128,22 @@ export const monthlyClosingSummary = createServerFn({ method: "POST" })
 
     const now = data.month ? new Date(data.month + "-01") : new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+    const endInclusive = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
     const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
-    const { data: rows } = await context.supabase
-      .from("finance_transactions")
-      .select("amount,bucket,description,occurred_on")
-      .eq("org_id", orgId)
-      .gte("occurred_on", prevStart)
-      .lt("occurred_on", end);
 
-    const empty = { revenue: 0, cogs: 0, opex: 0, depreciation: 0, amortization: 0, interest: 0, tax: 0, other_income: 0, other_expense: 0 } as Record<string, number>;
-    const cur = { ...empty };
-    const prev = { ...empty };
-    for (const r of rows ?? []) {
-      const target = r.occurred_on >= start ? cur : prev;
-      target[r.bucket] = (target[r.bucket] ?? 0) + signedAmount(r.bucket, Number(r.amount));
-    }
-    const stats = (b: Record<string, number>) => {
-      const revenue = b.revenue;
-      const costs = b.cogs + b.opex;
-      const ebitda = revenue - costs;
-      const net = ebitda - b.depreciation - b.amortization - b.interest - b.tax + b.other_income - b.other_expense;
-      return { revenue, costs, ebitda, net, margin: revenue ? (ebitda / revenue) * 100 : 0 };
-    };
-
-    const c = stats(cur);
-    const p = stats(prev);
+    const lines = await fetchPostedLines(context.supabase, orgId, { from: prevStart, to: endInclusive });
+    const cur = aggregatePnl(lines.filter((l) => l.entry_date >= start));
+    const prev = aggregatePnl(lines.filter((l) => l.entry_date < start));
+    const c = pnlTotals(cur);
+    const p = pnlTotals(prev);
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const gateway = createLovableAiGatewayProvider(key);
 
     const lang = data.lang === "es" ? "Spanish" : "English";
-    const prompt = `You are a senior financial controller. Write a concise executive summary (3-5 sentences, no bullet points) in ${lang} for month ${start}.
+    const prompt = `You are a senior financial controller. Write a concise executive summary (3-5 sentences, no bullet points) in ${lang} for month ${start}. All figures come from posted double-entry journal lines.
 
 Current month KPIs:
 - Revenue: ${c.revenue.toFixed(2)}
@@ -220,6 +165,7 @@ Focus on EBITDA evolution, margin, and the largest cost drivers. Be specific wit
     return { month: start, summary: text, current: c, previous: p, byBucket: cur };
   });
 
+
 const TxInput = z.object({
   occurred_on: z.string(),
   description: z.string().min(1),
@@ -240,8 +186,13 @@ export const createTransaction = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return row;
+    // Feed the real ledger with a draft entry for the accountant to review.
+    const journal = await autopostTransactions(context.supabase, orgId, context.userId, [
+      { occurred_on: data.occurred_on, description: data.description, amount: data.amount, bucket: data.bucket },
+    ]);
+    return { ...row, journal };
   });
+
 
 export const deleteTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -370,6 +321,8 @@ Dates must be YYYY-MM-DD. ${
     if (stmtErr) throw new Error(stmtErr.message);
 
     let inserted = 0;
+    let journal: Awaited<ReturnType<typeof autopostTransactions>> | null = null;
+
     if (data.commit && parsed.transactions.length) {
       const rows = parsed.transactions.map((t) => ({
         user_id: context.userId,
@@ -388,6 +341,17 @@ Dates must be YYYY-MM-DD. ${
         .insert(rows, { count: "exact" });
       if (txErr) throw new Error(txErr.message);
       inserted = count ?? rows.length;
+      journal = await autopostTransactions(
+        context.supabase,
+        orgId,
+        context.userId,
+        parsed.transactions.map((t) => ({
+          occurred_on: t.occurred_on,
+          description: t.description,
+          amount: t.amount,
+          bucket: t.bucket,
+        })),
+      );
     }
 
     return {
@@ -395,7 +359,9 @@ Dates must be YYYY-MM-DD. ${
       summary: parsed.summary,
       transactions: parsed.transactions,
       inserted,
+      journal,
     };
+
   });
 
 // ===== AI: scan bank-statement image / PDF -> structured tx list =====
@@ -591,5 +557,18 @@ export const applyExtractedTransactions = createServerFn({ method: "POST" })
       currency: data.currency,
       affected,
     });
-    return { inserted: affected.length };
+
+    // Mirror the captured lines into the journal as draft entries.
+    const journal = await autopostTransactions(
+      context.supabase,
+      orgId,
+      context.userId,
+      data.transactions.map((t) => ({
+        occurred_on: t.occurred_on,
+        description: t.description,
+        amount: t.amount,
+        bucket: t.bucket,
+      })),
+    );
+    return { inserted: affected.length, journal };
   });

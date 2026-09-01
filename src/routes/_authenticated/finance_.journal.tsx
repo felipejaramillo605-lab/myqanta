@@ -84,6 +84,11 @@ function JournalPage() {
   const totalD = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
   const totalC = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
   const balanced = Math.abs(totalD - totalC) < 0.01 && totalD > 0;
+  /** Lines whose account is flagged requires_third_party but have no third party yet. */
+  const missingThirdParty = lines.filter(
+    (l) => l.account_id && accountById.get(l.account_id)?.requires_third_party && !l.third_party_id,
+  );
+
 
   const saveMut = useMutation({
     mutationFn: (payload: any) => saveJournalEntry({ data: payload }),
@@ -137,12 +142,13 @@ function JournalPage() {
   };
 
   // Accounts management
-  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean }>({
-    code: "", name: "", type: "asset", parent_id: "", is_current: false,
+  const [acc, setAcc] = useState<{ code: string; name: string; type: string; parent_id: string; is_current: boolean; requires_third_party: boolean }>({
+    code: "", name: "", type: "asset", parent_id: "", is_current: false, requires_third_party: false,
   });
   const saveAccMut = useMutation({
     mutationFn: (payload: any) => upsertAccount({ data: payload }),
-    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "", is_current: false }); },
+    onSuccess: () => { toast.success("Cuenta creada"); qc.invalidateQueries({ queryKey: ["coa"] }); setAcc({ code: "", name: "", type: "asset", parent_id: "", is_current: false, requires_third_party: false }); },
+
     onError: (e: any) => toast.error(e.message),
   });
   const delAccMut = useMutation({
@@ -228,15 +234,32 @@ function JournalPage() {
                       value={l.third_party_id ?? ""}
                       onValueChange={(v) => setLines(ls => ls.map((x, j) => j === i ? { ...x, third_party_id: v === "__none" ? undefined : v } : x))}
                     >
-                      <SelectTrigger><SelectValue placeholder="Tercero (opcional)" /></SelectTrigger>
+                      <SelectTrigger
+                        className={
+                          accountById.get(l.account_id)?.requires_third_party && !l.third_party_id
+                            ? "border-destructive text-destructive"
+                            : undefined
+                        }
+                      >
+                        <SelectValue
+                          placeholder={
+                            accountById.get(l.account_id)?.requires_third_party
+                              ? "Tercero *"
+                              : "Tercero (opcional)"
+                          }
+                        />
+                      </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none">Sin tercero</SelectItem>
+                        {!accountById.get(l.account_id)?.requires_third_party && (
+                          <SelectItem value="__none">Sin tercero</SelectItem>
+                        )}
                         {(parties.data as any[]).map((tp: any) => (
                           <SelectItem key={tp.id} value={tp.id}>{tp.name} · {tp.tax_id ?? "sin NIT"}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="col-span-12 md:col-span-2">
                     <Select
                       value={l.cost_center_id ?? ""}
@@ -264,6 +287,13 @@ function JournalPage() {
                 <Plus className="size-4 mr-1" /> Añadir línea
               </Button>
             </div>
+            {missingThirdParty.length > 0 && (
+              <p className="text-xs text-destructive">
+                {missingThirdParty.length === 1
+                  ? "Una línea usa una cuenta que exige tercero: selecciónalo para poder guardar."
+                  : `${missingThirdParty.length} líneas usan cuentas que exigen tercero: selecciónalo para poder guardar.`}
+              </p>
+            )}
             <div className="flex gap-2 justify-end">
               <Select value={status} onValueChange={(v: any) => setStatus(v)}>
                 <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -272,7 +302,8 @@ function JournalPage() {
                   <SelectItem value="posted">Publicado</SelectItem>
                 </SelectContent>
               </Select>
-              <Button disabled={!balanced || lines.some(l => !l.account_id) || saveMut.isPending}
+              <Button disabled={!balanced || lines.some(l => !l.account_id) || missingThirdParty.length > 0 || saveMut.isPending}
+
                 onClick={() => saveMut.mutate({
                   ...(editingId ? { id: editingId } : {}),
                   entry_date: entryDate, description: description || null, status,
@@ -420,6 +451,13 @@ function JournalPage() {
                 Cuenta corriente
               </label>
             )}
+            <label className="flex items-center gap-2 text-sm px-1">
+              <Checkbox
+                checked={acc.requires_third_party}
+                onCheckedChange={(v) => setAcc({ ...acc, requires_third_party: v === true })}
+              />
+              Requiere tercero
+            </label>
             <Button
               disabled={!acc.code || !acc.name}
               onClick={() => saveAccMut.mutate({
@@ -440,8 +478,12 @@ function JournalPage() {
               >
                 <div>
                   <div className="font-mono text-sm">{a.code} · {a.name}</div>
-                  <div className="text-xs text-muted-foreground">{a.type}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    {a.type}
+                    {a.requires_third_party && <Badge variant="outline">requiere tercero</Badge>}
+                  </div>
                 </div>
+
                 <Button size="icon" variant="ghost" onClick={() => delAccMut.mutate(a.id)}><Trash2 className="size-4" /></Button>
               </div>
             ))}

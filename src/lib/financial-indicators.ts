@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { signedBalance } from "./accounting-core";
+
 
 export type IndicatorValue = { value: number | null; label: string | null };
 
@@ -57,9 +59,10 @@ export async function computeFinancialIndicators(
     const debit = Number(l.debit ?? 0);
     const credit = Number(l.credit ?? 0);
     const code = String(acc.code ?? "");
+    // Shared sign convention (see accounting-core.signedBalance).
+    const bal = signedBalance(acc.type, debit, credit);
     switch (acc.type) {
       case "asset": {
-        const bal = debit - credit; // saldo natural débito
         activoTotal += bal;
         if (acc.is_current === true) activoCorriente += bal;
         else if (acc.is_current === false) activoNoCorriente += bal;
@@ -67,22 +70,22 @@ export async function computeFinancialIndicators(
         break;
       }
       case "liability": {
-        const bal = credit - debit;
         pasivoTotal += bal;
         if (acc.is_current === true) pasivoCorriente += bal;
         break;
       }
       case "equity":
-        patrimonio += credit - debit;
+        patrimonio += bal;
         break;
       case "income":
-        ingresos += credit - debit;
+        ingresos += bal;
         break;
       case "expense":
-        gastos += debit - credit;
+        gastos += bal;
         break;
     }
   }
+
 
   const utilidadNeta = ingresos - gastos;
   const patrimonioTotal = patrimonio + utilidadNeta;
