@@ -283,14 +283,13 @@ function StatementsPage() {
                 {tb.data.balanced ? "Cuadrado" : "Descuadrado"}
               </Badge>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!tb.data?.rows.length}
-              onClick={() => downloadCsv(`balance-comprobacion-${from}-${to}.csv`, tb.data?.rows ?? [])}
-            >
-              <Download className="mr-2 h-4 w-4" /> CSV
-            </Button>
+            {tb.data && !tb.data.balanced && (
+              <span className="text-xs text-destructive">
+                Débitos {money(tb.data.total_debit)} ≠ créditos {money(tb.data.total_credit)} · revisa los asientos en{" "}
+                <Link to="/finance/period-entries" search={{ month: from.slice(0, 7) }} className="underline">Asientos por periodo</Link>.
+              </span>
+            )}
+            <span className="ml-auto text-xs text-muted-foreground">Clic en una cuenta para ver sus asientos</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-border/40">
             <table className="w-full text-sm">
@@ -301,25 +300,42 @@ function StatementsPage() {
                   <th className="py-2 pr-3 text-right">Débito</th>
                   <th className="py-2 pr-3 text-right">Crédito</th>
                   <th className="py-2 pr-3 text-right">Saldo final</th>
+                  <th className="py-2 pr-3" />
                 </tr>
               </thead>
               <tbody>
                 {tb.isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
                       Cargando…
                     </td>
                   </tr>
                 )}
                 {tb.data?.rows.map((r) => (
-                  <tr key={r.account_id} className="border-b border-border/20">
+                  <tr key={r.account_id} className="border-b border-border/20 hover:bg-muted/30">
                     <td className="py-1.5 pl-3 pr-3">
-                      <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+                      <Link
+                        to="/finance/balances"
+                        search={{ account: r.account_id, from, to }}
+                        className="hover:underline"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+                      </Link>
                     </td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.opening)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.debit)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.credit)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.closing)}</td>
+                    <td className="py-1.5 pr-3 text-right">
+                      <Link
+                        to="/finance/balances"
+                        search={{ account: r.account_id, from, to }}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        aria-label={`Ver asientos de ${r.code}`}
+                      >
+                        <ExternalLink className="size-3" /> Detalle
+                      </Link>
+                    </td>
                   </tr>
                 ))}
                 {tb.data && !tb.data.rows.length && !tb.isLoading && (
