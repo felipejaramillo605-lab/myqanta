@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, ScrollText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, FileText, ScrollText, ExternalLink } from "lucide-react";
 import { downloadCsv } from "@/lib/export-utils";
 import {
   getBalanceSheet,
@@ -17,7 +19,14 @@ import {
   type StatementLine,
 } from "@/lib/finance-statements.functions";
 
+const searchSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/finance_/statements")({
+  validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [
       { title: "Qanta — Estados financieros" },
@@ -47,6 +56,31 @@ function monthStart() {
 }
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+function iso(y: number, m0: number, d: number) {
+  return new Date(Date.UTC(y, m0, d)).toISOString().slice(0, 10);
+}
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return { from: iso(y!, m! - 1, 1), to: iso(y!, m!, 0) };
+}
+
+type Preset = "this_month" | "last_month" | "quarter" | "ytd" | "year" | "last_year" | "custom";
+
+/** Rango de fechas para cada preset de periodo. */
+function presetRange(p: Preset): { from: string; to: string } | null {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  switch (p) {
+    case "this_month": return { from: iso(y, m, 1), to: today() };
+    case "last_month": return { from: iso(y, m - 1, 1), to: iso(y, m, 0) };
+    case "quarter": { const qs = Math.floor(m / 3) * 3; return { from: iso(y, qs, 1), to: today() }; }
+    case "ytd": return { from: iso(y, 0, 1), to: today() };
+    case "year": return { from: iso(y, 0, 1), to: iso(y, 11, 31) };
+    case "last_year": return { from: iso(y - 1, 0, 1), to: iso(y - 1, 11, 31) };
+    default: return null;
+  }
 }
 
 function LineRows({ rows }: { rows: StatementLine[] }) {
