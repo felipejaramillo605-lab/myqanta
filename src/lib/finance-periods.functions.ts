@@ -282,12 +282,134 @@ export const getMonthlyReconciliation = createServerFn({ method: "GET" })
       .sort((a, b) => Math.abs(b.closing) - Math.abs(a.closing));
 
     const period = periodRes.data as any;
+    const check = await computePeriodCheck(context.supabase, orgId, from, to, banks);
     return {
       period_month: data.period_month,
       period_status: period?.status === "closed" ? "closed" : "open",
       period_closed_at: period?.closed_at ?? null,
       banks,
       third_parties,
+      check,
+    };
+  });
+
+/** Carga masiva del extracto bancario (filas pegadas o CSV) para un mes. */
+export const importBankStatement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    MonthInput.extend({
+      bank_account_id: z.string().uuid(),
+      rows: z.array(z.object({
+        occurred_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        description: z.string().trim().max(400).optional().nullable(),
+        reference: z.string().trim().max(120).optional().nullable(),
+        amount: z.number().finite(),
+      })).min(1).max(2000),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(
+      context.supabase, context.userId, "/finance/reconciliation", "member",
+    );
+    const { from, to } = monthBounds(data.period_month);
+    const { data: bank } = await context.supabase
+      .from("bank_accounts" as never)
+      .select("id").eq("id", data.bank_account_id).eq("org_id", orgId).maybeSingle();
+    if (!bank) throw new Error("Cuenta bancaria no encontrada en esta organización");
+    const outside = data.rows.filter((r) => r.occurred_on < from || r.occurred_on > to);
+    if (outside.length) {
+      throw new Error(`${outside.length} fila(s) tienen fecha fuera de ${data.period_month}`);
+    }
+    // Evita duplicar filas idénticas ya cargadas (misma fecha, referencia y valor).
+    const { data: existing } = await context.supabase
+      .from("bank_transactions" as never)
+      .select("occurred_on, reference, amount")
+      .eq("org_id", orgId).eq("bank_account_id", data.bank_account_id)
+      .gte("occurred_on", from).lte("occurred_on", to);
+    const seen = new Set(
+      ((existing ?? []) as any[]).map((t) => `${t.occurred_on}|${t.reference ?? ""}|${Number(t.amount).toFixed(2)}`),
+    );
+    const fresh = data.rows.filter(
+      (r) => !seen.has(`${r.occurred_on}|${r.reference ?? ""}|${r.amount.toFixed(2)}`),
+    );
+    if (!fresh.length) return { inserted: 0, skipped: data.rows.length };
+    const { error } = await context.supabase.from("bank_transactions" as never).insert(
+      fresh.map((r) => ({
+        org_id: orgId,
+        bank_account_id: data.bank_account_id,
+        occurred_on: r.occurred_on,
+        description: r.description ?? null,
+        reference: r.reference ?? null,
+        amount: r.amount,
+      })) as never,
+    );
+    if (error) throw new Error(error.message);
+    return { inserted: fresh.length, skipped: data.rows.length - fresh.length };
+  });
+
+export type PeriodEntry = {
+  id: string;
+  entry_no: number | null;
+  entry_date: string;
+  description: string | null;
+  status: "draft" | "posted" | string;
+  debit: number;
+  credit: number;
+  lines: number;
+  balanced: boolean;
+  created_at: string | null;
+  posted_at: string | null;
+};
+
+/** Asientos de un mes, con estado y totales, para revisar qué se contabilizó. */
+export const listJournalEntriesByMonth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    MonthInput.extend({ status: z.enum(["all", "posted", "draft"]).optional() }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance/journal", "member");
+    const { from, to, year, month } = monthBounds(data.period_month);
+    const [entriesRes, periodRes] = await Promise.all([
+      context.supabase.from("fin_journal_entries" as never)
+        .select("id, entry_no, entry_date, description, status, created_at, posted_at, fin_journal_lines(debit, credit)")
+        .eq("org_id", orgId).gte("entry_date", from).lte("entry_date", to)
+        .order("entry_date", { ascending: true }).order("entry_no", { ascending: true }),
+      context.supabase.from("accounting_periods" as never)
+        .select("status, closed_at").eq("org_id", orgId).eq("year", year).eq("month", month).maybeSingle(),
+    ]);
+    if (entriesRes.error) throw new Error(entriesRes.error.message);
+    const entries: PeriodEntry[] = ((entriesRes.data ?? []) as any[]).map((e) => {
+      const debit = (e.fin_journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.debit ?? 0), 0);
+      const credit = (e.fin_journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.credit ?? 0), 0);
+      return {
+        id: String(e.id),
+        entry_no: e.entry_no ?? null,
+        entry_date: String(e.entry_date),
+        description: e.description ?? null,
+        status: String(e.status ?? "draft"),
+        debit, credit,
+        lines: (e.fin_journal_lines ?? []).length,
+        balanced: Math.abs(debit - credit) <= 0.01,
+        created_at: e.created_at ?? null,
+        posted_at: e.posted_at ?? null,
+      };
+    }).filter((e) =>
+      !data.status || data.status === "all" ? true : data.status === "posted" ? e.status === "posted" : e.status !== "posted",
+    );
+    const period = periodRes.data as any;
+    const posted = entries.filter((e) => e.status === "posted");
+    return {
+      period_month: data.period_month,
+      period_status: (period?.status === "closed" ? "closed" : "open") as "open" | "closed",
+      period_closed_at: period?.closed_at ?? null,
+      entries,
+      totals: {
+        posted: posted.length,
+        drafts: entries.length - posted.length,
+        posted_debit: posted.reduce((s, e) => s + e.debit, 0),
+        posted_credit: posted.reduce((s, e) => s + e.credit, 0),
+      },
     };
   });
 
@@ -427,14 +549,10 @@ export const setAccountingPeriodStatus = createServerFn({ method: "POST" })
     const { from, to } = monthBounds(periodMonth);
 
     if (data.status === "closed") {
-      const { data: drafts } = await context.supabase
-        .from("fin_journal_entries" as never)
-        .select("id").eq("org_id", orgId).neq("status", "posted")
-        .gte("entry_date", from).lte("entry_date", to);
-      if ((drafts ?? []).length > 0) {
-        throw new Error(
-          `Hay ${(drafts ?? []).length} asientos en borrador en ${periodMonth}; publícalos o elimínalos antes de cerrar`,
-        );
+      // Reutiliza el mismo chequeo que muestra la UI para que el mensaje coincida.
+      const recon = await getMonthlyReconciliation({ data: { period_month: periodMonth } });
+      if (!recon.check.ready) {
+        throw new Error(`No se puede cerrar ${periodMonth}: ${recon.check.issues.join(" · ")}`);
       }
     }
 
