@@ -47,6 +47,7 @@ import { Route as AuthenticatedFinanceStatementsRouteImport } from './routes/_au
 import { Route as AuthenticatedFinanceReconciliationRouteImport } from './routes/_authenticated/finance_.reconciliation'
 import { Route as AuthenticatedFinancePoliciesRouteImport } from './routes/_authenticated/finance_.policies'
 import { Route as AuthenticatedFinancePeriodsRouteImport } from './routes/_authenticated/finance_.periods'
+import { Route as AuthenticatedFinancePeriodEntriesRouteImport } from './routes/_authenticated/finance_.period-entries'
 import { Route as AuthenticatedFinancePartiesRouteImport } from './routes/_authenticated/finance_.parties'
 import { Route as AuthenticatedFinanceJournalRouteImport } from './routes/_authenticated/finance_.journal'
 import { Route as AuthenticatedFinanceBudgetsRouteImport } from './routes/_authenticated/finance_.budgets'
@@ -268,6 +269,12 @@ const AuthenticatedFinancePeriodsRoute =
     path: '/finance/periods',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinancePeriodEntriesRoute =
+  AuthenticatedFinancePeriodEntriesRouteImport.update({
+    id: '/finance_/period-entries',
+    path: '/finance/period-entries',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFinancePartiesRoute =
   AuthenticatedFinancePartiesRouteImport.update({
     id: '/finance_/parties',
@@ -411,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/finance/budgets': typeof AuthenticatedFinanceBudgetsRoute
   '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/finance/parties': typeof AuthenticatedFinancePartiesRoute
+  '/finance/period-entries': typeof AuthenticatedFinancePeriodEntriesRoute
   '/finance/periods': typeof AuthenticatedFinancePeriodsRoute
   '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
@@ -468,6 +476,7 @@ export interface FileRoutesByTo {
   '/finance/budgets': typeof AuthenticatedFinanceBudgetsRoute
   '/finance/journal': typeof AuthenticatedFinanceJournalRoute
   '/finance/parties': typeof AuthenticatedFinancePartiesRoute
+  '/finance/period-entries': typeof AuthenticatedFinancePeriodEntriesRoute
   '/finance/periods': typeof AuthenticatedFinancePeriodsRoute
   '/finance/policies': typeof AuthenticatedFinancePoliciesRoute
   '/finance/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
@@ -527,6 +536,7 @@ export interface FileRoutesById {
   '/_authenticated/finance_/budgets': typeof AuthenticatedFinanceBudgetsRoute
   '/_authenticated/finance_/journal': typeof AuthenticatedFinanceJournalRoute
   '/_authenticated/finance_/parties': typeof AuthenticatedFinancePartiesRoute
+  '/_authenticated/finance_/period-entries': typeof AuthenticatedFinancePeriodEntriesRoute
   '/_authenticated/finance_/periods': typeof AuthenticatedFinancePeriodsRoute
   '/_authenticated/finance_/policies': typeof AuthenticatedFinancePoliciesRoute
   '/_authenticated/finance_/reconciliation': typeof AuthenticatedFinanceReconciliationRoute
@@ -586,6 +596,7 @@ export interface FileRouteTypes {
     | '/finance/budgets'
     | '/finance/journal'
     | '/finance/parties'
+    | '/finance/period-entries'
     | '/finance/periods'
     | '/finance/policies'
     | '/finance/reconciliation'
@@ -643,6 +654,7 @@ export interface FileRouteTypes {
     | '/finance/budgets'
     | '/finance/journal'
     | '/finance/parties'
+    | '/finance/period-entries'
     | '/finance/periods'
     | '/finance/policies'
     | '/finance/reconciliation'
@@ -701,6 +713,7 @@ export interface FileRouteTypes {
     | '/_authenticated/finance_/budgets'
     | '/_authenticated/finance_/journal'
     | '/_authenticated/finance_/parties'
+    | '/_authenticated/finance_/period-entries'
     | '/_authenticated/finance_/periods'
     | '/_authenticated/finance_/policies'
     | '/_authenticated/finance_/reconciliation'
@@ -1013,6 +1026,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinancePeriodsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance_/period-entries': {
+      id: '/_authenticated/finance_/period-entries'
+      path: '/finance/period-entries'
+      fullPath: '/finance/period-entries'
+      preLoaderRoute: typeof AuthenticatedFinancePeriodEntriesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/finance_/parties': {
       id: '/_authenticated/finance_/parties'
       path: '/finance/parties'
@@ -1167,6 +1187,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFinanceBudgetsRoute: typeof AuthenticatedFinanceBudgetsRoute
   AuthenticatedFinanceJournalRoute: typeof AuthenticatedFinanceJournalRoute
   AuthenticatedFinancePartiesRoute: typeof AuthenticatedFinancePartiesRoute
+  AuthenticatedFinancePeriodEntriesRoute: typeof AuthenticatedFinancePeriodEntriesRoute
   AuthenticatedFinancePeriodsRoute: typeof AuthenticatedFinancePeriodsRoute
   AuthenticatedFinancePoliciesRoute: typeof AuthenticatedFinancePoliciesRoute
   AuthenticatedFinanceReconciliationRoute: typeof AuthenticatedFinanceReconciliationRoute
@@ -1206,6 +1227,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFinanceBudgetsRoute: AuthenticatedFinanceBudgetsRoute,
   AuthenticatedFinanceJournalRoute: AuthenticatedFinanceJournalRoute,
   AuthenticatedFinancePartiesRoute: AuthenticatedFinancePartiesRoute,
+  AuthenticatedFinancePeriodEntriesRoute:
+    AuthenticatedFinancePeriodEntriesRoute,
   AuthenticatedFinancePeriodsRoute: AuthenticatedFinancePeriodsRoute,
   AuthenticatedFinancePoliciesRoute: AuthenticatedFinancePoliciesRoute,
   AuthenticatedFinanceReconciliationRoute:

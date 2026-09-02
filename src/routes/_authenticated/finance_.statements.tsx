@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, ScrollText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, FileText, ScrollText, ExternalLink } from "lucide-react";
 import { downloadCsv } from "@/lib/export-utils";
 import {
   getBalanceSheet,
@@ -17,7 +19,14 @@ import {
   type StatementLine,
 } from "@/lib/finance-statements.functions";
 
+const searchSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/finance_/statements")({
+  validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [
       { title: "Qanta — Estados financieros" },
@@ -47,6 +56,31 @@ function monthStart() {
 }
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+function iso(y: number, m0: number, d: number) {
+  return new Date(Date.UTC(y, m0, d)).toISOString().slice(0, 10);
+}
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return { from: iso(y!, m! - 1, 1), to: iso(y!, m!, 0) };
+}
+
+type Preset = "this_month" | "last_month" | "quarter" | "ytd" | "year" | "last_year" | "custom";
+
+/** Rango de fechas para cada preset de periodo. */
+function presetRange(p: Preset): { from: string; to: string } | null {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  switch (p) {
+    case "this_month": return { from: iso(y, m, 1), to: today() };
+    case "last_month": return { from: iso(y, m - 1, 1), to: iso(y, m, 0) };
+    case "quarter": { const qs = Math.floor(m / 3) * 3; return { from: iso(y, qs, 1), to: today() }; }
+    case "ytd": return { from: iso(y, 0, 1), to: today() };
+    case "year": return { from: iso(y, 0, 1), to: iso(y, 11, 31) };
+    case "last_year": return { from: iso(y - 1, 0, 1), to: iso(y - 1, 11, 31) };
+    default: return null;
+  }
 }
 
 function LineRows({ rows }: { rows: StatementLine[] }) {
@@ -86,8 +120,29 @@ function Section({ title, rows }: { title: string; rows: StatementLine[] }) {
 }
 
 function StatementsPage() {
-  const [from, setFrom] = useState(monthStart());
-  const [to, setTo] = useState(today());
+  const search = Route.useSearch();
+  const initial = search.from && search.to
+    ? { from: search.from, to: search.to }
+    : search.month
+      ? monthRange(search.month)
+      : { from: monthStart(), to: today() };
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [preset, setPreset] = useState<Preset>(search.month || search.from ? "custom" : "this_month");
+  const [month, setMonth] = useState(search.month ?? "");
+  const [tab, setTab] = useState("trial");
+
+  const applyPreset = (p: Preset) => {
+    setPreset(p);
+    const r = presetRange(p);
+    if (r) { setFrom(r.from); setTo(r.to); setMonth(""); }
+  };
+  const applyMonth = (m: string) => {
+    setMonth(m);
+    if (!m) return;
+    const r = monthRange(m);
+    setFrom(r.from); setTo(r.to); setPreset("custom");
+  };
 
   const tb = useQuery({
     queryKey: ["trial-balance", from, to],
@@ -110,6 +165,58 @@ function StatementsPage() {
     queryFn: () => getEquityStatement({ data: { from, to } }),
   });
 
+  const suffix = `${from}_${to}`;
+  const flat = (rows: StatementLine[], seccion: string) =>
+    rows.map((r) => ({ seccion, codigo: r.code, cuenta: r.name, valor: r.amount }));
+
+  const exportCurrent = () => {
+    if (tab === "trial" && tb.data) {
+      downloadCsv(`balance-comprobacion_${suffix}.csv`, tb.data.rows.map((r) => ({
+        codigo: r.code, cuenta: r.name, tipo: r.type,
+        saldo_inicial: r.opening, debito: r.debit, credito: r.credit, saldo_final: r.closing,
+      })));
+    } else if (tab === "pl" && pl.data) {
+      downloadCsv(`estado-resultados_${suffix}.csv`, [
+        ...flat(pl.data.revenue, "Ingresos operacionales"),
+        ...flat(pl.data.cogs, "Costo de ventas"),
+        ...flat(pl.data.opex, "Gastos operacionales"),
+        ...flat(pl.data.other, "Otros ingresos y egresos"),
+        { seccion: "Totales", codigo: "", cuenta: "EBITDA", valor: pl.data.totals.ebitda },
+        { seccion: "Totales", codigo: "", cuenta: "Resultado neto", valor: pl.data.totals.net },
+      ]);
+    } else if (tab === "bs" && bs.data) {
+      downloadCsv(`situacion-financiera_${to}.csv`, [
+        ...flat(bs.data.assets_current, "Activo corriente"),
+        ...flat(bs.data.assets_non_current, "Activo no corriente"),
+        ...flat(bs.data.liabilities_current, "Pasivo corriente"),
+        ...flat(bs.data.liabilities_non_current, "Pasivo no corriente"),
+        ...flat(bs.data.equity, "Patrimonio"),
+        { seccion: "Totales", codigo: "", cuenta: "Resultado del ejercicio", valor: bs.data.result_of_period },
+        { seccion: "Totales", codigo: "", cuenta: "Total activo", valor: bs.data.total_assets },
+        { seccion: "Totales", codigo: "", cuenta: "Total pasivo + patrimonio", valor: bs.data.total_liabilities + bs.data.total_equity },
+      ]);
+    } else if (tab === "cf" && cf.data) {
+      downloadCsv(`flujo-efectivo_${suffix}.csv`, [
+        { seccion: "Operación", codigo: "", cuenta: "Resultado neto", valor: cf.data.net_income },
+        { seccion: "Operación", codigo: "", cuenta: "Depreciación", valor: cf.data.depreciation },
+        { seccion: "Operación", codigo: "", cuenta: "Amortización", valor: cf.data.amortization },
+        ...flat(cf.data.working_capital, "Capital de trabajo"),
+        ...flat(cf.data.investing_items, "Inversión"),
+        ...flat(cf.data.financing_items, "Financiación"),
+        { seccion: "Totales", codigo: "", cuenta: "Variación neta de efectivo", valor: cf.data.net_change },
+        { seccion: "Totales", codigo: "", cuenta: "Efectivo al inicio", valor: cf.data.cash_opening },
+        { seccion: "Totales", codigo: "", cuenta: "Efectivo al final", valor: cf.data.cash_closing },
+      ]);
+    } else if (tab === "eq" && eq.data) {
+      downloadCsv(`cambios-patrimonio_${suffix}.csv`, eq.data.rows.map((r) => ({
+        codigo: r.code, cuenta: r.name, saldo_inicial: r.opening, aumentos: r.increase, disminuciones: r.decrease, saldo_final: r.closing,
+      })));
+    }
+  };
+  const canExport =
+    (tab === "trial" && !!tb.data?.rows.length) || (tab === "pl" && !!pl.data) || (tab === "bs" && !!bs.data) ||
+    (tab === "cf" && !!cf.data) || (tab === "eq" && !!eq.data);
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -122,18 +229,45 @@ function StatementsPage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="glass rounded-2xl p-4 flex flex-wrap items-end gap-3">
+        <label className="text-xs text-muted-foreground">
+          Periodo
+          <Select value={preset} onValueChange={(v) => applyPreset(v as Preset)}>
+            <SelectTrigger className="mt-1 w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this_month">Mes actual</SelectItem>
+              <SelectItem value="last_month">Mes anterior</SelectItem>
+              <SelectItem value="quarter">Trimestre actual</SelectItem>
+              <SelectItem value="ytd">Año a la fecha</SelectItem>
+              <SelectItem value="year">Año completo</SelectItem>
+              <SelectItem value="last_year">Año anterior</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="text-xs text-muted-foreground">
+          Mes
+          <Input type="month" value={month} onChange={(e) => applyMonth(e.target.value)} className="mt-1 w-40" />
+        </label>
         <label className="text-xs text-muted-foreground">
           Desde
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-40" />
+          <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset("custom"); setMonth(""); }} className="mt-1 w-40" />
         </label>
         <label className="text-xs text-muted-foreground">
-          Hasta / corte
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="mt-1 w-40" />
+          Fecha de corte
+          <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); setMonth(""); }} className="mt-1 w-40" />
         </label>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={!canExport} onClick={exportCurrent}>
+            <Download className="mr-2 h-4 w-4" /> Exportar CSV
+          </Button>
+        </div>
       </div>
+      {from > to && (
+        <div className="text-sm text-destructive">La fecha inicial es posterior a la fecha de corte.</div>
+      )}
 
-      <Tabs defaultValue="trial">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="trial">Balance de comprobación</TabsTrigger>
           <TabsTrigger value="pl">Estado de resultados</TabsTrigger>
@@ -149,14 +283,13 @@ function StatementsPage() {
                 {tb.data.balanced ? "Cuadrado" : "Descuadrado"}
               </Badge>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!tb.data?.rows.length}
-              onClick={() => downloadCsv(`balance-comprobacion-${from}-${to}.csv`, tb.data?.rows ?? [])}
-            >
-              <Download className="mr-2 h-4 w-4" /> CSV
-            </Button>
+            {tb.data && !tb.data.balanced && (
+              <span className="text-xs text-destructive">
+                Débitos {money(tb.data.total_debit)} ≠ créditos {money(tb.data.total_credit)} · revisa los asientos en{" "}
+                <Link to="/finance/period-entries" search={{ month: from.slice(0, 7) }} className="underline">Asientos por periodo</Link>.
+              </span>
+            )}
+            <span className="ml-auto text-xs text-muted-foreground">Clic en una cuenta para ver sus asientos</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-border/40">
             <table className="w-full text-sm">
@@ -167,30 +300,47 @@ function StatementsPage() {
                   <th className="py-2 pr-3 text-right">Débito</th>
                   <th className="py-2 pr-3 text-right">Crédito</th>
                   <th className="py-2 pr-3 text-right">Saldo final</th>
+                  <th className="py-2 pr-3" />
                 </tr>
               </thead>
               <tbody>
                 {tb.isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
                       Cargando…
                     </td>
                   </tr>
                 )}
                 {tb.data?.rows.map((r) => (
-                  <tr key={r.account_id} className="border-b border-border/20">
+                  <tr key={r.account_id} className="border-b border-border/20 hover:bg-muted/30">
                     <td className="py-1.5 pl-3 pr-3">
-                      <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+                      <Link
+                        to="/finance/balances"
+                        search={{ account: r.account_id, from, to }}
+                        className="hover:underline"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{r.code}</span> {r.name}
+                      </Link>
                     </td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.opening)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.debit)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.credit)}</td>
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{money(r.closing)}</td>
+                    <td className="py-1.5 pr-3 text-right">
+                      <Link
+                        to="/finance/balances"
+                        search={{ account: r.account_id, from, to }}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        aria-label={`Ver asientos de ${r.code}`}
+                      >
+                        <ExternalLink className="size-3" /> Detalle
+                      </Link>
+                    </td>
                   </tr>
                 ))}
                 {tb.data && !tb.data.rows.length && !tb.isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
                       Sin movimientos contabilizados en el periodo.
                     </td>
                   </tr>
@@ -201,7 +351,7 @@ function StatementsPage() {
                     <td />
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(tb.data.total_debit)}</td>
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(tb.data.total_credit)}</td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 ) : null}
               </tbody>

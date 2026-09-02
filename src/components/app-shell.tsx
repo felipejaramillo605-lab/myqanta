@@ -70,6 +70,7 @@ const CATEGORIES: NavCategory[] = [
     key: "finance", label: "Finanzas", icon: Wallet, items: [
       { to: "/finance", label: "Resumen", icon: Wallet, group: "Contabilidad" },
       { to: "/finance/journal", label: "Asientos contables", icon: BookOpen, group: "Contabilidad" },
+      { to: "/finance/period-entries", label: "Asientos por periodo", icon: BookOpen, group: "Contabilidad" },
       { to: "/finance/banks", label: "Bancos", icon: Landmark, group: "Contabilidad" },
       { to: "/finance/taxes", label: "Impuestos", icon: Percent, group: "Contabilidad" },
       { to: "/finance/reconciliation", label: "Conciliación", icon: GitMerge, group: "Contabilidad" },
@@ -152,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (access.allowed_modules ?? []).includes(key);
   };
   const MODULE_KEY_SET = new Set([
-    "/finance","/finance/journal","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/statements","/finance/periods","/finance/assets","/finance/budgets",
+    "/finance","/finance/journal","/finance/period-entries","/finance/policies","/finance/parties","/finance/banks","/finance/taxes","/finance/reconciliation","/finance/balances","/finance/statements","/finance/periods","/finance/assets","/finance/budgets",
     "/inventory","/sales","/hr","/hr/org-chart","/hr/attendance","/agenda","/documents","/team",
     "/crm","/projects","/approvals","/reports",
   ]);
