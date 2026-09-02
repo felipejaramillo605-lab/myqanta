@@ -1,19 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Lock, LockOpen, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Lock, LockOpen, CheckCircle2, AlertTriangle, Upload, ListChecks, ExternalLink } from "lucide-react";
 import {
   getMonthlyReconciliation,
   closeBankReconciliation,
   reopenBankReconciliation,
   listAccountingPeriods,
   setAccountingPeriodStatus,
+  importBankStatement,
 } from "@/lib/finance-periods.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -21,6 +24,33 @@ const MONTHS = [
 ];
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
+
+type ParsedRow = { occurred_on: string; description: string | null; reference: string | null; amount: number };
+
+/** Acepta filas "fecha;descripción;referencia;valor" o "fecha,descripción,valor" (CSV o pegado). */
+function parseStatementText(text: string): { rows: ParsedRow[]; errors: string[] } {
+  const rows: ParsedRow[] = [];
+  const errors: string[] = [];
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  lines.forEach((line, idx) => {
+    if (idx === 0 && /fecha|date/i.test(line) && /valor|monto|amount/i.test(line)) return; // encabezado
+    const sep = line.includes(";") ? ";" : line.includes("\t") ? "\t" : ",";
+    const cells = line.split(sep).map((c) => c.replace(/^"|"$/g, "").trim());
+    if (cells.length < 2) { errors.push(`Línea ${idx + 1}: faltan columnas`); return; }
+    const rawDate = cells[0]!;
+    let occurred_on = rawDate;
+    const dmy = rawDate.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (dmy) occurred_on = `${dmy[3]}-${dmy[2]!.padStart(2, "0")}-${dmy[1]!.padStart(2, "0")}`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(occurred_on)) { errors.push(`Línea ${idx + 1}: fecha inválida "${rawDate}"`); return; }
+    const rawAmount = cells[cells.length - 1]!.replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+    const amount = Number(rawAmount);
+    if (!Number.isFinite(amount)) { errors.push(`Línea ${idx + 1}: valor inválido "${cells[cells.length - 1]}"`); return; }
+    const description = cells.length >= 3 ? cells[1] || null : null;
+    const reference = cells.length >= 4 ? cells[2] || null : null;
+    rows.push({ occurred_on, description, reference, amount });
+  });
+  return { rows, errors };
+}
 
 export const Route = createFileRoute("/_authenticated/finance_/periods")({
   head: () => ({
