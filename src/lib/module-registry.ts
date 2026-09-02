@@ -7,6 +7,7 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   // Finanzas
   { key: "/finance", label: "Resumen financiero", group: "Finanzas" },
   { key: "/finance/journal", label: "Asientos contables", group: "Finanzas" },
+  { key: "/finance/period-entries", label: "Asientos por periodo", group: "Finanzas" },
   { key: "/finance/policies", label: "Políticas contables", group: "Finanzas" },
   { key: "/finance/parties", label: "Matriz de terceros", group: "Finanzas" },
   { key: "/finance/banks", label: "Bancos", group: "Finanzas" },
