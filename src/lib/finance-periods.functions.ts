@@ -358,7 +358,7 @@ export type PeriodEntry = {
   lines: number;
   balanced: boolean;
   created_at: string | null;
-  posted_at: string | null;
+  updated_at: string | null;
 };
 
 /** Asientos de un mes, con estado y totales, para revisar qué se contabilizó. */
@@ -372,7 +372,7 @@ export const listJournalEntriesByMonth = createServerFn({ method: "GET" })
     const { from, to, year, month } = monthBounds(data.period_month);
     const [entriesRes, periodRes] = await Promise.all([
       context.supabase.from("fin_journal_entries" as never)
-        .select("id, entry_no, entry_date, description, status, created_at, posted_at, fin_journal_lines(debit, credit)")
+        .select("id, entry_no, entry_date, description, status, created_at, updated_at, fin_journal_lines(debit, credit)")
         .eq("org_id", orgId).gte("entry_date", from).lte("entry_date", to)
         .order("entry_date", { ascending: true }).order("entry_no", { ascending: true }),
       context.supabase.from("accounting_periods" as never)
@@ -392,7 +392,7 @@ export const listJournalEntriesByMonth = createServerFn({ method: "GET" })
         lines: (e.fin_journal_lines ?? []).length,
         balanced: Math.abs(debit - credit) <= 0.01,
         created_at: e.created_at ?? null,
-        posted_at: e.posted_at ?? null,
+        updated_at: e.updated_at ?? null,
       };
     }).filter((e) =>
       !data.status || data.status === "all" ? true : data.status === "posted" ? e.status === "posted" : e.status !== "posted",
