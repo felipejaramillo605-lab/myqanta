@@ -63,13 +63,89 @@ export type ThirdPartyMonthSummary = {
   closing: number;
 };
 
+export type PeriodCheck = {
+  /** Suma de débitos de asientos publicados en el mes. */
+  posted_debit: number;
+  posted_credit: number;
+  /** Asientos publicados cuyas líneas no cuadran. */
+  unbalanced_entries: { id: string; entry_no: number | null; entry_date: string; diff: number }[];
+  posted_entries: number;
+  draft_entries: number;
+  /** Cuentas bancarias con movimientos del mes sin cerrar su conciliación. */
+  open_bank_reconciliations: number;
+  /** Diferencia total libros vs extractos en bancos abiertos. */
+  bank_difference: number;
+  ready: boolean;
+  issues: string[];
+};
+
 export type MonthlyReconciliation = {
   period_month: string;
   period_status: "open" | "closed";
   period_closed_at: string | null;
   banks: BankMonthSummary[];
   third_parties: ThirdPartyMonthSummary[];
+  check: PeriodCheck;
 };
+
+/** Evalúa si un mes está listo para cerrarse (cuadre de asientos + bancos + borradores). */
+async function computePeriodCheck(
+  supabase: any,
+  orgId: string,
+  from: string,
+  to: string,
+  banks: Pick<BankMonthSummary, "status" | "difference" | "unreconciled" | "statement_movement" | "book_movement">[],
+): Promise<PeriodCheck> {
+  const { data: entries, error } = await supabase
+    .from("fin_journal_entries")
+    .select("id, entry_no, entry_date, status, fin_journal_lines(debit, credit)")
+    .eq("org_id", orgId)
+    .gte("entry_date", from)
+    .lte("entry_date", to);
+  if (error) throw new Error(error.message);
+  let posted_debit = 0;
+  let posted_credit = 0;
+  let posted_entries = 0;
+  let draft_entries = 0;
+  const unbalanced: PeriodCheck["unbalanced_entries"] = [];
+  for (const e of (entries ?? []) as any[]) {
+    if (e.status !== "posted") { draft_entries++; continue; }
+    posted_entries++;
+    const d = (e.fin_journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.debit ?? 0), 0);
+    const c = (e.fin_journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.credit ?? 0), 0);
+    posted_debit += d;
+    posted_credit += c;
+    if (Math.abs(d - c) > 0.01) {
+      unbalanced.push({ id: String(e.id), entry_no: e.entry_no ?? null, entry_date: String(e.entry_date), diff: d - c });
+    }
+  }
+  const activeBanks = banks.filter(
+    (b) => Math.abs(b.statement_movement) > 0.005 || Math.abs(b.book_movement) > 0.005 || b.unreconciled > 0,
+  );
+  const openBanks = activeBanks.filter((b) => b.status !== "closed");
+  const bank_difference = openBanks.reduce((s, b) => s + Math.abs(b.difference), 0);
+
+  const issues: string[] = [];
+  if (draft_entries > 0) issues.push(`${draft_entries} asiento(s) en borrador sin publicar`);
+  if (unbalanced.length > 0) issues.push(`${unbalanced.length} asiento(s) publicados con débito ≠ crédito`);
+  if (Math.abs(posted_debit - posted_credit) > 0.01) {
+    issues.push(`El libro diario no cuadra: débitos ${posted_debit.toFixed(2)} vs créditos ${posted_credit.toFixed(2)}`);
+  }
+  if (openBanks.length > 0) issues.push(`${openBanks.length} cuenta(s) bancaria(s) sin cerrar conciliación`);
+  if (bank_difference > 0.01) issues.push(`Diferencia libros vs extracto de ${bank_difference.toFixed(2)}`);
+
+  return {
+    posted_debit,
+    posted_credit,
+    unbalanced_entries: unbalanced,
+    posted_entries,
+    draft_entries,
+    open_bank_reconciliations: openBanks.length,
+    bank_difference,
+    ready: issues.length === 0,
+    issues,
+  };
+}
 
 async function postedBankLines(supabase: any, orgId: string, to: string) {
   const { data, error } = await supabase
