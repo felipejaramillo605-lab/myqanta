@@ -329,14 +329,40 @@ function PeriodsPage() {
                   />
                 </div>
 
-                <div className="text-xs text-muted-foreground">
-                  Movimientos del mes sin conciliar: <strong>{b.unreconciled}</strong>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>
+                    Extracto del mes: <strong>{money(b.statement_movement)}</strong> · Movimientos sin conciliar:{" "}
+                    <strong className={b.unreconciled ? "text-destructive" : ""}>{b.unreconciled}</strong>
+                  </span>
+                  {b.status !== "closed" && (
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setImportFor(b.bank_account_id)}>
+                        <Upload className="size-4 mr-1" /> Cargar extracto
+                      </Button>
+                      {b.unreconciled > 0 && (
+                        <Link to="/finance/reconciliation" className="text-primary hover:underline inline-flex items-center gap-1">
+                          <ExternalLink className="size-3" /> Conciliar
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {Math.abs(b.difference) > 0.01 && b.status !== "closed" && (
+                  <div className="rounded-xl bg-destructive/10 text-destructive text-xs p-3 flex items-start gap-2">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                    <span>
+                      No cuadra: el saldo en libros ({money(b.book_closing)}) difiere del extracto ({money(b.statement_balance)}) en{" "}
+                      <strong>{money(b.difference)}</strong>. Revisa las partidas conciliatorias, registra los asientos faltantes
+                      (comisiones, intereses, GMF) o corrige el saldo del extracto.
+                    </span>
+                  </div>
+                )}
 
                 {b.items.length > 0 && (
                   <div className="rounded-xl border border-border/40 overflow-x-auto">
                     <div className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Partidas conciliatorias
+                      Partidas conciliatorias ({b.items.length}) · total {money(b.items.reduce((s, i) => s + i.amount, 0))}
                     </div>
                     <table className="w-full text-sm">
                       <thead className="text-xs text-muted-foreground">
