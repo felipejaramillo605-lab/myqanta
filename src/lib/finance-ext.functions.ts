@@ -666,7 +666,7 @@ export type LedgerRow = {
 async function fetchPostedLines(
   supabase: any,
   orgId: string,
-  opts: { accountId?: string | null; thirdPartyId?: string | null },
+  opts: { accountId?: string | null; thirdPartyId?: string | null; from?: string | null; to?: string | null },
 ): Promise<LedgerRow[]> {
   let q = supabase
     .from("fin_journal_lines")
@@ -677,6 +677,8 @@ async function fetchPostedLines(
     .eq("fin_journal_entries.status", "posted");
   if (opts.accountId) q = q.eq("account_id", opts.accountId);
   if (opts.thirdPartyId) q = q.eq("third_party_id", opts.thirdPartyId);
+  // El saldo acumulado sigue partiendo del primer movimiento histórico, por eso
+  // el rango de fechas se aplica al final (se filtra después de calcular el saldo).
   const { data, error } = await q;
   if (error) throw new Error(error.message);
 
@@ -719,15 +721,30 @@ async function fetchPostedLines(
     running.set(r.account_id, next);
     r.balance = next;
   }
+  if (opts.from || opts.to) {
+    return rows.filter(
+      (r) => (!opts.from || r.entry_date >= opts.from) && (!opts.to || r.entry_date <= opts.to),
+    );
+  }
   return rows;
 }
 
 export const getLedger = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ account_id: z.string().uuid().optional() }).parse(d ?? {}))
+  .inputValidator((d: unknown) =>
+    z.object({
+      account_id: z.string().uuid().optional(),
+      from: z.string().min(10).optional(),
+      to: z.string().min(10).optional(),
+    }).parse(d ?? {}),
+  )
   .handler(async ({ context, data }): Promise<LedgerRow[]> => {
     const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
-    return fetchPostedLines(context.supabase, orgId, { accountId: data.account_id ?? null });
+    return fetchPostedLines(context.supabase, orgId, {
+      accountId: data.account_id ?? null,
+      from: data.from ?? null,
+      to: data.to ?? null,
+    });
   });
 
 export const getSubledger = createServerFn({ method: "GET" })
