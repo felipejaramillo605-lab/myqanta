@@ -126,10 +126,24 @@ function PeriodsPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const [importFor, setImportFor] = useState<string | null>(null);
+  const [importText, setImportText] = useState("");
+  const importMut = useMutation({
+    mutationFn: (d: { bank_account_id: string; rows: ParsedRow[] }) =>
+      importBankStatement({ data: { ...d, period_month: month } }),
+    onSuccess: (r) => {
+      toast.success(`Extracto cargado: ${r.inserted} movimientos nuevos${r.skipped ? `, ${r.skipped} duplicados omitidos` : ""}`);
+      setImportFor(null); setImportText(""); invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const parsed = importFor ? parseStatementText(importText) : { rows: [], errors: [] };
 
   const data = recon.data;
+  const check = data.check;
   const selYear = Number(month.slice(0, 4));
   const selMonth = Number(month.slice(5, 7));
+  const monthLabel = `${MONTHS[selMonth - 1]} ${selYear}`;
 
   return (
     <div className="space-y-6">
@@ -140,7 +154,7 @@ function PeriodsPage() {
             Concilia bancos y terceros, luego bloquea el periodo contable.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input type="month" value={month} onChange={(e) => setMonth(e.target.value || currentMonth())} className="w-40" />
           {data.period_status === "closed" ? (
             <Badge variant="secondary" className="gap-1"><Lock className="size-3" /> Periodo cerrado</Badge>
@@ -159,14 +173,118 @@ function PeriodsPage() {
           ) : (
             <Button
               size="sm"
-              disabled={periodMut.isPending}
+              disabled={periodMut.isPending || !check.ready}
+              title={check.ready ? undefined : "Resuelve los puntos pendientes antes de cerrar"}
               onClick={() => periodMut.mutate({ month: selMonth, status: "closed", year: selYear })}
             >
-              <Lock className="size-4 mr-1" /> Cerrar periodo {month}
+              <Lock className="size-4 mr-1" /> Cerrar {monthLabel}
             </Button>
           )}
         </div>
       </div>
+
+      {/* Validación de cuadre del periodo */}
+      <div className={`glass rounded-2xl p-4 space-y-3 border ${check.ready ? "border-primary/30" : "border-destructive/30"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-medium">
+            <ListChecks className="size-4" /> Validación de cuadre · {monthLabel}
+          </div>
+          {data.period_status === "closed" ? (
+            <Badge variant="secondary" className="gap-1"><Lock className="size-3" /> Cerrado {data.period_closed_at ? new Date(data.period_closed_at).toLocaleDateString("es-CO") : ""}</Badge>
+          ) : check.ready ? (
+            <Badge className="gap-1"><CheckCircle2 className="size-3" /> Todo cuadra · listo para cerrar</Badge>
+          ) : (
+            <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" /> No cuadra</Badge>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+          <Stat label="Asientos publicados" value={String(check.posted_entries)} />
+          <Stat label="Borradores" value={String(check.draft_entries)} tone={check.draft_entries ? "bad" : "good"} />
+          <Stat label="Débitos del mes" value={money(check.posted_debit)} />
+          <Stat label="Créditos del mes" value={money(check.posted_credit)} />
+          <Stat
+            label="Diferencia diario"
+            value={money(check.posted_debit - check.posted_credit)}
+            tone={Math.abs(check.posted_debit - check.posted_credit) > 0.01 ? "bad" : "good"}
+          />
+        </div>
+        {!check.ready && (
+          <ul className="text-sm space-y-1">
+            {check.issues.map((i) => (
+              <li key={i} className="flex items-start gap-2 text-destructive">
+                <AlertTriangle className="size-4 mt-0.5 shrink-0" /> <span>{i}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {check.unbalanced_entries.length > 0 && (
+          <div className="text-xs text-muted-foreground">
+            Asientos descuadrados:{" "}
+            {check.unbalanced_entries.map((e) => `#${e.entry_no ?? "?"} (${e.entry_date}, dif ${money(e.diff)})`).join(", ")}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Link to="/finance/period-entries" search={{ month }} className="inline-flex items-center gap-1 text-primary hover:underline">
+            <ExternalLink className="size-3" /> Ver asientos del periodo
+          </Link>
+          <Link to="/finance/statements" search={{ month }} className="inline-flex items-center gap-1 text-primary hover:underline">
+            <ExternalLink className="size-3" /> Estados financieros del periodo
+          </Link>
+        </div>
+      </div>
+
+      <Dialog open={!!importFor} onOpenChange={(o) => { if (!o) { setImportFor(null); setImportText(""); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cargar extracto bancario · {monthLabel}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Pega las filas del extracto o el contenido de un CSV. Formato por línea:{" "}
+              <code>fecha;descripción;referencia;valor</code> (también <code>fecha,descripción,valor</code>).
+              Los retiros van en negativo. Fechas en <code>AAAA-MM-DD</code> o <code>DD/MM/AAAA</code>.
+            </p>
+            <Input
+              type="file"
+              accept=".csv,.txt"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                f.text().then(setImportText);
+              }}
+            />
+            <Textarea
+              rows={8}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={`${month}-03;Pago cliente ACME;TRF-1234;1500000\n${month}-05;Comisión bancaria;;-18500`}
+              className="font-mono text-xs"
+            />
+            {parsed.errors.length > 0 && (
+              <div className="text-xs text-destructive space-y-0.5">
+                {parsed.errors.slice(0, 5).map((e) => <div key={e}>{e}</div>)}
+                {parsed.errors.length > 5 && <div>… y {parsed.errors.length - 5} más</div>}
+              </div>
+            )}
+            {parsed.rows.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {parsed.rows.length} movimientos listos · total{" "}
+                <strong>{money(parsed.rows.reduce((s, r) => s + r.amount, 0))}</strong>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setImportFor(null); setImportText(""); }}>Cancelar</Button>
+            <Button
+              disabled={!parsed.rows.length || parsed.errors.length > 0 || importMut.isPending}
+              onClick={() => importFor && importMut.mutate({ bank_account_id: importFor, rows: parsed.rows })}
+            >
+              <Upload className="size-4 mr-1" /> Cargar {parsed.rows.length || ""} movimientos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Tabs defaultValue="banks">
         <TabsList>
