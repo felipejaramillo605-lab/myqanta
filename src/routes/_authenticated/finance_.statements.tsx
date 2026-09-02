@@ -267,7 +267,7 @@ function StatementsPage() {
         <div className="text-sm text-destructive">La fecha inicial es posterior a la fecha de corte.</div>
       )}
 
-      <Tabs defaultValue="trial">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="trial">Balance de comprobación</TabsTrigger>
           <TabsTrigger value="pl">Estado de resultados</TabsTrigger>
@@ -340,7 +340,7 @@ function StatementsPage() {
                 ))}
                 {tb.data && !tb.data.rows.length && !tb.isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
                       Sin movimientos contabilizados en el periodo.
                     </td>
                   </tr>
@@ -351,7 +351,7 @@ function StatementsPage() {
                     <td />
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(tb.data.total_debit)}</td>
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{money(tb.data.total_credit)}</td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 ) : null}
               </tbody>
