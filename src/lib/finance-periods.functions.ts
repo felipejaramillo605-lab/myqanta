@@ -470,8 +470,16 @@ export const closeBankReconciliation = createServerFn({ method: "POST" })
         notes: data.notes ?? null,
       } as never, { onConflict: "org_id,bank_account_id,period_month" } as never);
     if (error) throw new Error(error.message);
+    await logPeriodAudit(context.supabase, orgId, context.userId, {
+      year: monthBounds(data.period_month).year,
+      month: monthBounds(data.period_month).month,
+      action: "bank_reconciliation_closed",
+      reason: data.notes ?? null,
+      meta: { bank_account_id: data.bank_account_id, book_balance, statement_balance: data.statement_balance },
+    });
     return { ok: true, book_balance };
   });
+
 
 export const reopenBankReconciliation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
