@@ -483,12 +483,17 @@ export const closeBankReconciliation = createServerFn({ method: "POST" })
 
 export const reopenBankReconciliation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => MonthInput.extend({ bank_account_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    MonthInput.extend({
+      bank_account_id: z.string().uuid(),
+      reason: z.string().trim().max(400).optional(),
+    }).parse(d),
+  )
   .handler(async ({ context, data }) => {
     const orgId = await resolveOrgWithModuleAccess(
       context.supabase, context.userId, "/finance/reconciliation", "admin",
     );
-    const { firstDay } = monthBounds(data.period_month);
+    const { firstDay, year, month } = monthBounds(data.period_month);
     const { error } = await context.supabase
       .from("bank_reconciliation_periods" as never)
       .update({ status: "open", closed_at: null, closed_by: null } as never)
@@ -496,8 +501,14 @@ export const reopenBankReconciliation = createServerFn({ method: "POST" })
       .eq("bank_account_id", data.bank_account_id)
       .eq("period_month", firstDay);
     if (error) throw new Error(error.message);
+    await logPeriodAudit(context.supabase, orgId, context.userId, {
+      year, month, action: "bank_reconciliation_reopened",
+      reason: data.reason ?? null,
+      meta: { bank_account_id: data.bank_account_id },
+    });
     return { ok: true };
   });
+
 
 // -------------------- Accounting period lock --------------------
 
