@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Lock, LockOpen, CheckCircle2, AlertTriangle, Upload, ListChecks, ExternalLink, History, Archive, Undo2 } from "lucide-react";
+import { Lock, LockOpen, CheckCircle2, AlertTriangle, Upload, ListChecks, ExternalLink, Archive, Undo2 } from "lucide-react";
 import {
   getMonthlyReconciliation,
   closeBankReconciliation,
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PeriodAuditList } from "@/components/period-audit-list";
 
 
 const MONTHS = [
