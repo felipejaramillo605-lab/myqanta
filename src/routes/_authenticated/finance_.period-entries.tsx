@@ -4,7 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { BookOpen, Download, Lock, LockOpen, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
-import { listJournalEntriesByMonth, setAccountingPeriodStatus, type PeriodEntry } from "@/lib/finance-periods.functions";
+import { listJournalEntriesByMonth, setAccountingPeriodStatus, listPeriodAudit, type PeriodEntry } from "@/lib/finance-periods.functions";
+import { PeriodAuditList } from "@/components/period-audit-list";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,16 +58,33 @@ function PeriodEntriesPage() {
     queryFn: () => listJournalEntriesByMonth({ data: { period_month: month } }),
   });
 
+  const audit = useQuery({
+    queryKey: ["period_audit", Number(month.slice(0, 4)), Number(month.slice(5, 7))],
+    queryFn: () =>
+      listPeriodAudit({ data: { year: Number(month.slice(0, 4)), month: Number(month.slice(5, 7)) } }),
+  });
+
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
   const periodMut = useMutation({
     mutationFn: (s: "open" | "closed") =>
       setAccountingPeriodStatus({
-        data: { year: Number(month.slice(0, 4)), month: Number(month.slice(5, 7)), status: s },
+        data: {
+          year: Number(month.slice(0, 4)),
+          month: Number(month.slice(5, 7)),
+          status: s,
+          ...(s === "open" && reason.trim() ? { reason: reason.trim() } : {}),
+        },
       }),
     onSuccess: (r: any) => {
       toast.success(r.status === "closed" ? "Periodo cerrado" : "Periodo reabierto");
+      setReopenOpen(false);
+      setReason("");
       qc.invalidateQueries({ queryKey: ["period_entries"] });
       qc.invalidateQueries({ queryKey: ["month_recon"] });
       qc.invalidateQueries({ queryKey: ["acc_periods"] });
+      qc.invalidateQueries({ queryKey: ["period_audit"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -121,7 +141,7 @@ function PeriodEntriesPage() {
             closed ? (
               <>
                 <Badge variant="secondary" className="gap-1"><Lock className="size-3" /> Periodo cerrado</Badge>
-                <Button size="sm" variant="ghost" disabled={periodMut.isPending} onClick={() => periodMut.mutate("open")}>
+                <Button size="sm" variant="ghost" disabled={periodMut.isPending} onClick={() => { setReason(""); setReopenOpen(true); }}>
                   <LockOpen className="size-4 mr-1" /> Reabrir
                 </Button>
               </>
@@ -235,6 +255,34 @@ function PeriodEntriesPage() {
           </tbody>
         </table>
       </div>
+
+      <PeriodAuditList
+        rows={audit.data ?? []}
+        loading={audit.isLoading}
+        title={`Historial del periodo ${month}`}
+        emptyText="Este mes no tiene cierres ni reaperturas registrados."
+      />
+
+      <Dialog open={reopenOpen} onOpenChange={(o) => { if (!o) { setReopenOpen(false); setReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reabrir el periodo {month}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Escribe el motivo de la reapertura. Queda registrado con tu nombre y la fecha.
+            </p>
+            <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="Ej.: llegó un documento con fecha de este mes." />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setReopenOpen(false); setReason(""); }}>Cancelar</Button>
+            <Button disabled={reason.trim().length < 3 || periodMut.isPending} onClick={() => periodMut.mutate("open")}>
+              <LockOpen className="size-4 mr-1" /> Reabrir periodo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
