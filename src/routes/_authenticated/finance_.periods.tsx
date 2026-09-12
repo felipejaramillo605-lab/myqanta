@@ -106,9 +106,21 @@ function PeriodsPage() {
     queryFn: () => listAccountingPeriods({ data: { year } }),
   });
 
+  const audit = useQuery({
+    queryKey: ["period_audit", year],
+    queryFn: () => listPeriodAudit({ data: { year } }),
+  });
+  const yearEnd = useQuery({
+    queryKey: ["year_end", year],
+    queryFn: () => getYearEndPreview({ data: { year } }),
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["month_recon"] });
     qc.invalidateQueries({ queryKey: ["acc_periods"] });
+    qc.invalidateQueries({ queryKey: ["period_audit"] });
+    qc.invalidateQueries({ queryKey: ["year_end"] });
+    qc.invalidateQueries({ queryKey: ["period_entries"] });
   };
 
   const closeBankMut = useMutation({
@@ -123,14 +135,36 @@ function PeriodsPage() {
     onError: (e: any) => toast.error(e.message),
   });
   const periodMut = useMutation({
-    mutationFn: (d: { month: number; status: "open" | "closed"; year?: number }) =>
-      setAccountingPeriodStatus({ data: { year: d.year ?? year, month: d.month, status: d.status } }),
+    mutationFn: (d: { month: number; status: "open" | "closed"; year?: number; reason?: string }) =>
+      setAccountingPeriodStatus({
+        data: { year: d.year ?? year, month: d.month, status: d.status, ...(d.reason ? { reason: d.reason } : {}) },
+      }),
     onSuccess: (r: any) => {
       toast.success(r.status === "closed" ? "Periodo cerrado" : "Periodo reabierto");
+      setReopenFor(null);
+      setReason("");
       invalidate();
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const [reopenFor, setReopenFor] = useState<{ year: number; month: number } | null>(null);
+  const [reason, setReason] = useState("");
+
+  const yearEndMut = useMutation({
+    mutationFn: () => postYearEndClosing({ data: { year, ...(reason.trim() ? { reason: reason.trim() } : {}) } }),
+    onSuccess: (r: any) => {
+      toast.success(`Cierre anual generado: asiento #${r.entry_no ?? ""} · resultado ${money(r.result)}`);
+      setReason("");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const revertYearEndMut = useMutation({
+    mutationFn: () => revertYearEndClosing({ data: { year, reason: reason.trim() || "Anulación del cierre anual" } }),
+    onSuccess: () => { toast.success("Cierre anual anulado"); setReason(""); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const [importFor, setImportFor] = useState<string | null>(null);
   const [importText, setImportText] = useState("");
   const importMut = useMutation({
