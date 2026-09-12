@@ -542,6 +542,7 @@ export const setAccountingPeriodStatus = createServerFn({ method: "POST" })
       year: z.number().int().min(2000).max(2200),
       month: z.number().int().min(1).max(12),
       status: z.enum(["open", "closed"]),
+      reason: z.string().trim().max(400).optional(),
     }).parse(d),
   )
   .handler(async ({ context, data }) => {
@@ -557,6 +558,13 @@ export const setAccountingPeriodStatus = createServerFn({ method: "POST" })
       if (!recon.check.ready) {
         throw new Error(`No se puede cerrar ${periodMonth}: ${recon.check.issues.join(" · ")}`);
       }
+    } else {
+      const { data: current } = await context.supabase
+        .from("accounting_periods" as never)
+        .select("status").eq("org_id", orgId).eq("year", data.year).eq("month", data.month).maybeSingle();
+      if ((current as any)?.status === "closed" && !(data.reason && data.reason.length >= 3)) {
+        throw new Error("Indica el motivo para reabrir un periodo cerrado");
+      }
     }
 
     const { error } = await context.supabase
@@ -570,8 +578,16 @@ export const setAccountingPeriodStatus = createServerFn({ method: "POST" })
         closed_by: data.status === "closed" ? context.userId : null,
       } as never, { onConflict: "org_id,year,month" } as never);
     if (error) throw new Error(error.message);
+    await logPeriodAudit(context.supabase, orgId, context.userId, {
+      year: data.year,
+      month: data.month,
+      action: data.status === "closed" ? "period_closed" : "period_reopened",
+      reason: data.reason ?? null,
+      meta: { from, to },
+    });
     return { ok: true, status: data.status };
   });
+
 
 // -------------------- Period audit trail --------------------
 
