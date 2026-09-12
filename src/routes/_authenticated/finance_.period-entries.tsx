@@ -227,7 +227,10 @@ function PeriodEntriesPage() {
               <tr key={e.id} className="border-b border-border/30">
                 <td className="p-3 font-mono text-xs">{e.entry_no ?? "—"}</td>
                 <td className="p-3 whitespace-nowrap">{e.entry_date}</td>
-                <td className="p-3">{e.description ?? "—"}</td>
+                <td className="p-3">
+                  {e.description ?? "—"}
+                  {e.is_closing && <Badge variant="outline" className="ml-2">Cierre anual</Badge>}
+                </td>
                 <td className="p-3">
                   {e.status === "posted" ? (
                     <Badge variant="secondary">Contabilizado</Badge>

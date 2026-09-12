@@ -360,6 +360,7 @@ export type PeriodEntry = {
   credit: number;
   lines: number;
   balanced: boolean;
+  is_closing: boolean;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -375,7 +376,7 @@ export const listJournalEntriesByMonth = createServerFn({ method: "GET" })
     const { from, to, year, month } = monthBounds(data.period_month);
     const [entriesRes, periodRes] = await Promise.all([
       context.supabase.from("fin_journal_entries" as never)
-        .select("id, entry_no, entry_date, description, status, created_at, updated_at, fin_journal_lines(debit, credit)")
+        .select("id, entry_no, entry_date, description, status, is_closing, created_at, updated_at, fin_journal_lines(debit, credit)")
         .eq("org_id", orgId).gte("entry_date", from).lte("entry_date", to)
         .order("entry_date", { ascending: true }).order("entry_no", { ascending: true }),
       context.supabase.from("accounting_periods" as never)
@@ -394,6 +395,7 @@ export const listJournalEntriesByMonth = createServerFn({ method: "GET" })
         debit, credit,
         lines: (e.fin_journal_lines ?? []).length,
         balanced: Math.abs(debit - credit) <= 0.01,
+        is_closing: !!e.is_closing,
         created_at: e.created_at ?? null,
         updated_at: e.updated_at ?? null,
       };
