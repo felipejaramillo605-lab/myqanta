@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Lock, LockOpen, CheckCircle2, AlertTriangle, Upload, ListChecks, ExternalLink } from "lucide-react";
+import { Lock, LockOpen, CheckCircle2, AlertTriangle, Upload, ListChecks, ExternalLink, History, Archive, Undo2 } from "lucide-react";
 import {
   getMonthlyReconciliation,
   closeBankReconciliation,
@@ -10,6 +10,10 @@ import {
   listAccountingPeriods,
   setAccountingPeriodStatus,
   importBankStatement,
+  listPeriodAudit,
+  getYearEndPreview,
+  postYearEndClosing,
+  revertYearEndClosing,
 } from "@/lib/finance-periods.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
