@@ -324,13 +324,43 @@ function PeriodsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!reopenFor} onOpenChange={(o) => { if (!o) { setReopenFor(null); setReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Reabrir {reopenFor ? `${MONTHS[reopenFor.month - 1]} ${reopenFor.year}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Escribe el motivo de la reapertura. Queda registrado en el historial con tu nombre y la fecha.
+            </p>
+            <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="Ej.: se recibió una factura de proveedor con fecha del mes cerrado." />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setReopenFor(null); setReason(""); }}>Cancelar</Button>
+            <Button
+              disabled={reason.trim().length < 3 || periodMut.isPending}
+              onClick={() =>
+                reopenFor && periodMut.mutate({ year: reopenFor.year, month: reopenFor.month, status: "open", reason: reason.trim() })
+              }
+            >
+              <LockOpen className="size-4 mr-1" /> Reabrir periodo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="banks">
         <TabsList>
           <TabsTrigger value="banks">Bancos ({data.banks.length})</TabsTrigger>
           <TabsTrigger value="parties">Terceros ({data.third_parties.length})</TabsTrigger>
           <TabsTrigger value="periods">Periodos contables</TabsTrigger>
+          <TabsTrigger value="yearend">Cierre anual</TabsTrigger>
+          <TabsTrigger value="audit">Historial</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="banks" className="space-y-3">
           {!data.banks.length && (
