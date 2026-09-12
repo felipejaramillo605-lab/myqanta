@@ -541,7 +541,7 @@ function PeriodsPage() {
                     <>
                       <Badge variant="secondary" className="gap-1"><Lock className="size-3" /> Cerrado</Badge>
                       <Button size="sm" variant="ghost"
-                        onClick={() => periodMut.mutate({ month: p.month, status: "open" })}>
+                        onClick={() => { setReason(""); setReopenFor({ year: p.year, month: p.month }); }}>
                         Reabrir
                       </Button>
                     </>
@@ -556,7 +556,116 @@ function PeriodsPage() {
             ))}
           </div>
         </TabsContent>
+
+        <TabsContent value="yearend" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground">Año</div>
+            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
+          </div>
+          {yearEnd.isLoading && <div className="text-sm text-muted-foreground">Calculando…</div>}
+          {yearEnd.data && (
+            <div className="glass rounded-2xl p-4 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-medium">
+                  <Archive className="size-4" /> Cierre del ejercicio {yearEnd.data.year}
+                </div>
+                {yearEnd.data.existing_closing ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <Lock className="size-3" /> Generado · asiento #{yearEnd.data.existing_closing.entry_no ?? "?"}
+                  </Badge>
+                ) : yearEnd.data.ready ? (
+                  <Badge className="gap-1"><CheckCircle2 className="size-3" /> Listo para generar</Badge>
+                ) : (
+                  <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" /> Pendiente</Badge>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <Stat label="Ingresos del año" value={money(yearEnd.data.income_total)} />
+                <Stat label="Gastos y costos" value={money(yearEnd.data.expense_total)} />
+                <Stat
+                  label={yearEnd.data.result >= 0 ? "Utilidad del ejercicio" : "Pérdida del ejercicio"}
+                  value={money(Math.abs(yearEnd.data.result))}
+                  tone={yearEnd.data.result >= 0 ? "good" : "bad"}
+                />
+                <Stat label="Cuenta destino" value={`${yearEnd.data.retained_account.code} ${yearEnd.data.retained_account.name}`} />
+              </div>
+
+              {yearEnd.data.issues.length > 0 && (
+                <ul className="text-sm space-y-1">
+                  {yearEnd.data.issues.map((i) => (
+                    <li key={i} className="flex items-start gap-2 text-destructive">
+                      <AlertTriangle className="size-4 mt-0.5 shrink-0" /> <span>{i}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {yearEnd.data.accounts.length > 0 && (
+                <div className="rounded-xl border border-border/40 overflow-x-auto">
+                  <div className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Cuentas que se cancelan ({yearEnd.data.accounts.length})
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-muted-foreground">
+                      <tr className="border-b border-border/40">
+                        <th className="p-2 text-left">Código</th>
+                        <th className="p-2 text-left">Cuenta</th>
+                        <th className="p-2 text-left">Tipo</th>
+                        <th className="p-2 text-right">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearEnd.data.accounts.map((a) => (
+                        <tr key={a.account_id} className="border-b border-border/20">
+                          <td className="p-2 font-mono text-xs">{a.code}</td>
+                          <td className="p-2">{a.name}</td>
+                          <td className="p-2 text-muted-foreground">{a.type === "income" ? "Ingreso" : "Gasto / costo"}</td>
+                          <td className="p-2 text-right font-mono tabular-nums">{money(a.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
+                placeholder="Motivo o nota del cierre anual (opcional)" />
+
+              <div className="flex flex-wrap items-center gap-2">
+                {yearEnd.data.existing_closing ? (
+                  <>
+                    <Link
+                      to="/finance/period-entries"
+                      search={{ month: `${yearEnd.data.year}-12` }}
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="size-3" /> Ver el asiento de cierre
+                    </Link>
+                    <Button size="sm" variant="ghost" disabled={revertYearEndMut.isPending}
+                      onClick={() => revertYearEndMut.mutate()}>
+                      <Undo2 className="size-4 mr-1" /> Anular cierre anual
+                    </Button>
+                  </>
+                ) : (
+                  <Button disabled={!yearEnd.data.ready || yearEndMut.isPending} onClick={() => yearEndMut.mutate()}>
+                    <Archive className="size-4 mr-1" /> Generar asiento de cierre {yearEnd.data.year}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground">Año</div>
+            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
+          </div>
+          <PeriodAuditList rows={audit.data ?? []} loading={audit.isLoading} />
+        </TabsContent>
       </Tabs>
+
     </div>
   );
 }
