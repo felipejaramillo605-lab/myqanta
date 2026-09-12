@@ -27,20 +27,41 @@ function ReconciliationPage() {
   const [amtTol, setAmtTol] = useState(500);
   const [dateTol, setDateTol] = useState(3);
   const [manualEntry, setManualEntry] = useState<Record<string, string>>({});
+  const [ignored, setIgnored] = useState<Record<string, boolean>>({});
+
+  const suggestions = useQuery({
+    queryKey: ["recon_suggestions", amtTol, dateTol],
+    queryFn: () =>
+      suggestReconciliationMatches({ data: { amount_tolerance: amtTol, date_tolerance_days: dateTol, min_score: 0.4 } }),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["recon"] });
+    qc.invalidateQueries({ queryKey: ["recon_suggestions"] });
+  };
 
   const autoMut = useMutation({
-    mutationFn: () => autoReconcile({ data: { amount_tolerance: amtTol, date_tolerance_days: dateTol } }),
-    onSuccess: (r: any) => { toast.success(`${r.matched} conciliados automáticamente`); qc.invalidateQueries({ queryKey: ["recon"] }); },
+    mutationFn: () => autoReconcile({ data: { amount_tolerance: amtTol, date_tolerance_days: dateTol, min_score: 0.85 } }),
+    onSuccess: (r: any) => {
+      toast.success(
+        `${r.matched} conciliados automáticamente${r.skipped ? ` · ${r.skipped} quedaron para revisión manual` : ""}`,
+      );
+      invalidate();
+    },
     onError: (e: any) => toast.error(e.message),
   });
   const manualMut = useMutation({
     mutationFn: (d: any) => manualReconcile({ data: d }),
-    onSuccess: () => { toast.success("Conciliado"); qc.invalidateQueries({ queryKey: ["recon"] }); },
+    onSuccess: () => { toast.success("Conciliado"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
   });
   const unMut = useMutation({
     mutationFn: (id: string) => unmatchReconciliation({ data: { bank_transaction_id: id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recon"] }),
+    onSuccess: () => invalidate(),
   });
+
+  const suggestionsByTx = new Map((suggestions.data ?? []).map((g) => [g.bank_transaction_id, g]));
+
 
   const pending = (data.data.txs as any[]).filter((t) => !t.reconciled_entry_id);
   const matched = (data.data.txs as any[]).filter((t) => t.reconciled_entry_id);
