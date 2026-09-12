@@ -26,6 +26,9 @@ function monthBounds(periodMonth: string) {
   return { year: y!, month: m!, from, to, firstDay: `${periodMonth}-01` };
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+
 export type ReconItem = {
   id: string;
   occurred_on: string;
