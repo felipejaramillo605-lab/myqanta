@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_period_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          meta: Json
+          month: number | null
+          org_id: string
+          reason: string | null
+          year: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          month?: number | null
+          org_id: string
+          reason?: string | null
+          year: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          month?: number | null
+          org_id?: string
+          reason?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_period_audit_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_periods: {
         Row: {
           closed_at: string | null
@@ -1165,12 +1209,14 @@ export type Database = {
       }
       fin_journal_entries: {
         Row: {
+          closing_year: number | null
           created_at: string
           created_by: string | null
           description: string | null
           entry_date: string
           entry_no: number
           id: string
+          is_closing: boolean
           org_id: string
           receipt_document_id: string | null
           related_invoice_id: string | null
@@ -1178,12 +1224,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          closing_year?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           entry_date?: string
           entry_no: number
           id?: string
+          is_closing?: boolean
           org_id: string
           receipt_document_id?: string | null
           related_invoice_id?: string | null
@@ -1191,12 +1239,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          closing_year?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           entry_date?: string
           entry_no?: number
           id?: string
+          is_closing?: boolean
           org_id?: string
           receipt_document_id?: string | null
           related_invoice_id?: string | null

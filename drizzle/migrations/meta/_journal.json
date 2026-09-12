@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789227627949,
+      "tag": "0000_year_end_closing_and_period_audit",
+      "breakpoints": true
+    }
+  ]
+}
