@@ -82,6 +82,9 @@ function ReconciliationPage() {
         <Button onClick={() => autoMut.mutate()} disabled={autoMut.isPending}>
           <Zap className="size-4 mr-1" /> Auto-conciliar
         </Button>
+        <div className="text-xs text-muted-foreground">
+          El automático solo empareja coincidencias de alta confianza; el resto aparece como sugerencia.
+        </div>
       </div>
 
       <Tabs defaultValue="pending">
@@ -91,26 +94,64 @@ function ReconciliationPage() {
         </TabsList>
 
         <TabsContent value="pending" className="space-y-2">
-          {pending.map((t) => (
-            <div key={t.id} className="glass rounded-xl p-4 flex items-center gap-3">
-              <div className="flex-1">
-                <div className="text-sm">{t.occurred_on} · {t.description}</div>
-                <div className="text-xs text-muted-foreground">Ref: {t.reference} · {Number(t.amount).toLocaleString()}</div>
+          {pending.map((t) => {
+            const group = suggestionsByTx.get(String(t.id));
+            const visible = ignored[String(t.id)] ? [] : (group?.suggestions ?? []);
+            return (
+              <div key={t.id} className="glass rounded-xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-48">
+                    <div className="text-sm">{t.occurred_on} · {t.description}</div>
+                    <div className="text-xs text-muted-foreground">Ref: {t.reference} · {Number(t.amount).toLocaleString()}</div>
+                  </div>
+                  <Select value={manualEntry[t.id] ?? ""} onValueChange={(v) => setManualEntry({ ...manualEntry, [t.id]: v })}>
+                    <SelectTrigger className="w-64"><SelectValue placeholder="Elegir asiento" /></SelectTrigger>
+                    <SelectContent>
+                      {(data.data.entries as any[]).map((e) => (
+                        <SelectItem key={e.id} value={e.id}>#{e.entry_no} · {e.entry_date} · {e.description}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" disabled={!manualEntry[t.id]}
+                    onClick={() => manualMut.mutate({ bank_transaction_id: t.id, journal_entry_id: manualEntry[t.id] })}>
+                    <Link2 className="size-4 mr-1" /> Conciliar
+                  </Button>
+                </div>
+
+                {visible.length > 0 && (
+                  <div className="rounded-xl border border-border/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-medium inline-flex items-center gap-1">
+                        <Sparkles className="size-3 text-primary" /> Sugerencias
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs"
+                        onClick={() => setIgnored({ ...ignored, [String(t.id)]: true })}>
+                        Ignorar
+                      </Button>
+                    </div>
+                    {visible.map((s) => (
+                      <div key={s.journal_entry_id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <Badge variant={s.score >= 0.85 ? "default" : "secondary"}>
+                          {Math.round(s.score * 100)}%
+                        </Badge>
+                        <span className="font-mono text-xs">#{s.entry_no ?? "?"}</span>
+                        <span>{s.entry_date} · {s.description ?? "—"}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {s.reasons.join(" · ")}
+                        </span>
+                        <Button size="sm" variant="outline" className="ml-auto"
+                          disabled={manualMut.isPending}
+                          onClick={() => manualMut.mutate({ bank_transaction_id: t.id, journal_entry_id: s.journal_entry_id })}>
+                          <Link2 className="size-4 mr-1" /> Aceptar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <Select value={manualEntry[t.id] ?? ""} onValueChange={(v) => setManualEntry({ ...manualEntry, [t.id]: v })}>
-                <SelectTrigger className="w-64"><SelectValue placeholder="Elegir asiento" /></SelectTrigger>
-                <SelectContent>
-                  {(data.data.entries as any[]).map((e) => (
-                    <SelectItem key={e.id} value={e.id}>#{e.entry_no} · {e.entry_date} · {e.description}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button size="sm" disabled={!manualEntry[t.id]}
-                onClick={() => manualMut.mutate({ bank_transaction_id: t.id, journal_entry_id: manualEntry[t.id] })}>
-                <Link2 className="size-4 mr-1" /> Conciliar
-              </Button>
-            </div>
-          ))}
+            );
+          })}
+
           {!pending.length && <div className="text-sm text-muted-foreground">Nada pendiente 🎉</div>}
         </TabsContent>
 
