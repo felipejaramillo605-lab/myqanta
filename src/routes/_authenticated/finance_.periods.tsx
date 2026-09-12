@@ -205,7 +205,7 @@ function PeriodsPage() {
               size="sm"
               variant="ghost"
               disabled={periodMut.isPending}
-              onClick={() => periodMut.mutate({ month: selMonth, status: "open", year: selYear })}
+              onClick={() => { setReason(""); setReopenFor({ year: selYear, month: selMonth }); }}
             >
               <LockOpen className="size-4 mr-1" /> Reabrir periodo
             </Button>
