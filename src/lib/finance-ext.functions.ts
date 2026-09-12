@@ -556,13 +556,148 @@ export const listReconciliation = createServerFn({ method: "GET" })
     return { matches: matches ?? [], txs: txs ?? [], entries: entries ?? [] };
   });
 
-// Auto-match: same amount, within date tolerance, similar reference.
+// -------------------- Reglas de conciliación sugeridas --------------------
+
+/** Normaliza texto para comparar referencias/descripciones. */
+function normalizeRef(s: unknown): string {
+  return String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Similitud simple 0..1 entre dos referencias (coincidencia exacta, contención o dígitos comunes). */
+function refSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length >= 4 && b.includes(a)) return 0.85;
+  if (b.length >= 4 && a.includes(b)) return 0.85;
+  const da = a.replace(/\D/g, "");
+  const db = b.replace(/\D/g, "");
+  if (da.length >= 4 && db.length >= 4 && (da.includes(db) || db.includes(da))) return 0.7;
+  const setB = new Set(b.split(""));
+  const common = [...new Set(a.split(""))].filter((c) => setB.has(c)).length;
+  return Math.min(0.5, common / Math.max(a.length, b.length));
+}
+
+export type ReconSuggestion = {
+  journal_entry_id: string;
+  entry_no: number | null;
+  entry_date: string;
+  description: string | null;
+  entry_amount: number;
+  diff: number;
+  days_apart: number;
+  score: number;
+  reasons: string[];
+};
+
+export type ReconSuggestionGroup = {
+  bank_transaction_id: string;
+  occurred_on: string;
+  description: string | null;
+  reference: string | null;
+  amount: number;
+  suggestions: ReconSuggestion[];
+};
+
+type ScoreArgs = {
+  amountTolerance: number;
+  dateToleranceDays: number;
+};
+
+/** Puntaje 0..1 de un emparejamiento tx ↔ asiento, por valor, fecha y referencia. */
+function scoreMatch(tx: any, entry: any, opts: ScoreArgs): ReconSuggestion | null {
+  const line = (entry.fin_journal_lines || []).find((l: any) => l.bank_account_id === tx.bank_account_id);
+  if (!line) return null;
+  const entryAmount = Number(line.debit || 0) - Number(line.credit || 0);
+  const txAmount = Number(tx.amount || 0);
+  const diff = Math.abs(entryAmount) - Math.abs(txAmount);
+  const absDiff = Math.abs(diff);
+  if (absDiff > Math.max(opts.amountTolerance, 1)) return null;
+
+  const days = Math.round(
+    Math.abs(new Date(entry.entry_date).getTime() - new Date(tx.occurred_on).getTime()) / 86400000,
+  );
+  if (days > opts.dateToleranceDays) return null;
+
+  const reasons: string[] = [];
+  const amountScore = absDiff <= 0.01 ? 1 : Math.max(0, 1 - absDiff / Math.max(opts.amountTolerance, 1));
+  reasons.push(absDiff <= 0.01 ? "Valor exacto" : `Valor con diferencia de ${absDiff.toFixed(2)}`);
+
+  const dateScore = 1 - days / Math.max(opts.dateToleranceDays + 1, 1);
+  reasons.push(days === 0 ? "Misma fecha" : `${days} día(s) de diferencia`);
+
+  const txRef = normalizeRef(tx.reference) || normalizeRef(tx.description);
+  const enRef = normalizeRef(entry.description);
+  const refScore = refSimilarity(txRef, enRef);
+  if (refScore >= 0.7) reasons.push("Referencia coincide");
+  else if (refScore > 0) reasons.push("Referencia parecida");
+
+  // Mismo sentido (ingreso/egreso) es requisito blando pero muy informativo.
+  const sameSign = Math.sign(entryAmount) === Math.sign(txAmount) || txAmount === 0;
+  if (sameSign) reasons.push("Mismo sentido (débito/crédito)");
+
+  const score = Math.min(
+    1,
+    amountScore * 0.5 + dateScore * 0.25 + refScore * 0.15 + (sameSign ? 0.1 : 0),
+  );
+
+  return {
+    journal_entry_id: String(entry.id),
+    entry_no: entry.entry_no ?? null,
+    entry_date: String(entry.entry_date),
+    description: entry.description ?? null,
+    entry_amount: entryAmount,
+    diff,
+    days_apart: days,
+    score,
+    reasons,
+  };
+}
+
+const SuggestInput = z.object({
+  amount_tolerance: z.number().nonnegative().default(500),
+  date_tolerance_days: z.number().int().nonnegative().default(3),
+  min_score: z.number().min(0).max(1).default(0.4),
+});
+
+/** Sugerencias puntuadas por movimiento pendiente (no concilia nada). */
+export const suggestReconciliationMatches = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SuggestInput.parse(d ?? {}))
+  .handler(async ({ context, data }): Promise<ReconSuggestionGroup[]> => {
+    const orgId = await resolveOrgWithModuleAccess(context.supabase, context.userId, "/finance", "member");
+    const { data: txs } = await context.supabase.from("bank_transactions" as never)
+      .select("*").eq("org_id", orgId).is("reconciled_entry_id", null)
+      .order("occurred_on", { ascending: false });
+    const { data: entries } = await context.supabase.from("fin_journal_entries" as never)
+      .select("id, entry_date, entry_no, description, fin_journal_lines(debit, credit, bank_account_id)")
+      .eq("org_id", orgId).eq("status", "posted");
+
+    const opts = { amountTolerance: data.amount_tolerance, dateToleranceDays: data.date_tolerance_days };
+    return ((txs ?? []) as any[]).map((tx) => {
+      const suggestions = ((entries ?? []) as any[])
+        .map((e) => scoreMatch(tx, e, opts))
+        .filter((s): s is ReconSuggestion => !!s && s.score >= data.min_score)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      return {
+        bank_transaction_id: String(tx.id),
+        occurred_on: String(tx.occurred_on),
+        description: tx.description ?? null,
+        reference: tx.reference ?? null,
+        amount: Number(tx.amount ?? 0),
+        suggestions,
+      };
+    }).filter((g) => g.suggestions.length > 0);
+  });
+
+// Auto-match: usa el mismo puntaje y solo empareja por encima del umbral de confianza.
 export const autoReconcile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       amount_tolerance: z.number().nonnegative().default(500),
       date_tolerance_days: z.number().int().nonnegative().default(3),
+      min_score: z.number().min(0).max(1).default(0.85),
     }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
@@ -573,44 +708,34 @@ export const autoReconcile = createServerFn({ method: "POST" })
       .select("id, entry_date, entry_no, description, fin_journal_lines(debit, credit, bank_account_id)")
       .eq("org_id", orgId).eq("status", "posted");
 
+    const opts = { amountTolerance: data.amount_tolerance, dateToleranceDays: data.date_tolerance_days };
     const usedEntries = new Set<string>();
     let matched = 0;
+    let skipped = 0;
     for (const tx of (txs ?? []) as any[]) {
-      const txAbs = Math.abs(Number(tx.amount));
-      const txDate = new Date(tx.occurred_on).getTime();
-      const candidate = ((entries ?? []) as any[]).find((e) => {
-        if (usedEntries.has(e.id)) return false;
-        const eDate = new Date(e.entry_date).getTime();
-        if (Math.abs(eDate - txDate) > data.date_tolerance_days * 86400000) return false;
-        const lineOnAcct = (e.fin_journal_lines || []).find(
-          (l: any) => l.bank_account_id === tx.bank_account_id,
-        );
-        if (!lineOnAcct) return false;
-        const amt = Math.abs(Number(lineOnAcct.debit || 0) - Number(lineOnAcct.credit || 0));
-        return Math.abs(amt - txAbs) <= data.amount_tolerance;
-      });
-      if (candidate) {
-        usedEntries.add(candidate.id);
-        const line = (candidate.fin_journal_lines || []).find(
-          (l: any) => l.bank_account_id === tx.bank_account_id,
-        );
-        const amt = Math.abs(Number(line.debit || 0) - Number(line.credit || 0));
-        const diff = amt - txAbs;
-        await context.supabase.from("reconciliation_matches" as never).insert({
-          org_id: orgId,
-          bank_transaction_id: tx.id,
-          journal_entry_id: candidate.id,
-          auto: true,
-          diff,
-          matched_by: context.userId,
-        } as never);
-        await context.supabase.from("bank_transactions" as never)
-          .update({ reconciled_entry_id: candidate.id } as never).eq("id", tx.id);
-        matched++;
-      }
+      const best = ((entries ?? []) as any[])
+        .filter((e) => !usedEntries.has(String(e.id)))
+        .map((e) => scoreMatch(tx, e, opts))
+        .filter((s): s is ReconSuggestion => !!s)
+        .sort((a, b) => b.score - a.score)[0];
+      if (!best || best.score < data.min_score) { if (best) skipped++; continue; }
+      usedEntries.add(best.journal_entry_id);
+      await context.supabase.from("reconciliation_matches" as never).insert({
+        org_id: orgId,
+        bank_transaction_id: tx.id,
+        journal_entry_id: best.journal_entry_id,
+        auto: true,
+        diff: best.diff,
+        matched_by: context.userId,
+      } as never);
+      await context.supabase.from("bank_transactions" as never)
+        .update({ reconciled_entry_id: best.journal_entry_id } as never)
+        .eq("id", tx.id).eq("org_id", orgId);
+      matched++;
     }
-    return { matched };
+    return { matched, skipped };
   });
+
 
 export const manualReconcile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
