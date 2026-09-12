@@ -569,3 +569,340 @@ export const setAccountingPeriodStatus = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, status: data.status };
   });
+
+// -------------------- Period audit trail --------------------
+
+export type PeriodAuditRow = {
+  id: string;
+  year: number;
+  month: number | null;
+  action: string;
+  reason: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  created_at: string;
+};
+
+async function logPeriodAudit(
+  supabase: any,
+  orgId: string,
+  userId: string,
+  entry: { year: number; month?: number | null; action: string; reason?: string | null; meta?: Record<string, unknown> },
+) {
+  await supabase.from("accounting_period_audit" as never).insert({
+    org_id: orgId,
+    year: entry.year,
+    month: entry.month ?? null,
+    action: entry.action,
+    reason: entry.reason ?? null,
+    actor_id: userId,
+    meta: entry.meta ?? {},
+  } as never);
+}
+
+/** Historial de cierres/reaperturas de periodo (opcionalmente filtrado por año/mes). */
+export const listPeriodAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      year: z.number().int().min(2000).max(2200).optional(),
+      month: z.number().int().min(1).max(12).optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }): Promise<PeriodAuditRow[]> => {
+    const orgId = await resolveOrgWithModuleAccess(
+      context.supabase, context.userId, "/finance/reconciliation", "member",
+    );
+    let q = context.supabase.from("accounting_period_audit" as never)
+      .select("id, year, month, action, reason, actor_id, created_at")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 60);
+    if (data.year !== undefined) q = q.eq("year", data.year);
+    if (data.month !== undefined) q = q.eq("month", data.month);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const list = (rows ?? []) as any[];
+    const actorIds = [...new Set(list.map((r) => r.actor_id).filter(Boolean))] as string[];
+    const names = new Map<string, string>();
+    if (actorIds.length) {
+      const { data: profs } = await context.supabase
+        .from("profiles" as never).select("id, full_name").in("id", actorIds);
+      for (const p of (profs ?? []) as any[]) names.set(String(p.id), String(p.full_name ?? ""));
+    }
+    return list.map((r) => ({
+      id: String(r.id),
+      year: Number(r.year),
+      month: r.month === null || r.month === undefined ? null : Number(r.month),
+      action: String(r.action),
+      reason: r.reason ?? null,
+      actor_id: r.actor_id ?? null,
+      actor_name: r.actor_id ? (names.get(String(r.actor_id)) || null) : null,
+      created_at: String(r.created_at),
+    }));
+  });
+
+// -------------------- Year-end closing entry --------------------
+
+const RETAINED_CODE = "3705";
+const RETAINED_NAME = "Resultados de ejercicios anteriores";
+
+export type YearEndAccount = {
+  account_id: string;
+  code: string;
+  name: string;
+  type: string;
+  /** Saldo natural: ingresos positivo = ingreso, gastos positivo = gasto. */
+  balance: number;
+};
+
+export type YearEndPreview = {
+  year: number;
+  income_total: number;
+  expense_total: number;
+  result: number;
+  accounts: YearEndAccount[];
+  retained_account: { id: string | null; code: string; name: string };
+  existing_closing: { id: string; entry_no: number | null; entry_date: string; status: string } | null;
+  issues: string[];
+  ready: boolean;
+};
+
+async function yearEndData(supabase: any, orgId: string, year: number) {
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const [linesRes, accountsRes, entriesRes, periodsRes, closingRes] = await Promise.all([
+    supabase.from("fin_journal_lines")
+      .select("account_id, debit, credit, fin_journal_entries!inner(entry_date, status, is_closing)")
+      .eq("org_id", orgId)
+      .eq("fin_journal_entries.status", "posted")
+      .eq("fin_journal_entries.is_closing", false)
+      .gte("fin_journal_entries.entry_date", from)
+      .lte("fin_journal_entries.entry_date", to),
+    supabase.from("fin_accounts").select("id, code, name, type").eq("org_id", orgId),
+    supabase.from("fin_journal_entries").select("id, status, is_closing")
+      .eq("org_id", orgId).gte("entry_date", from).lte("entry_date", to),
+    supabase.from("accounting_periods").select("month, status").eq("org_id", orgId).eq("year", year),
+    supabase.from("fin_journal_entries").select("id, entry_no, entry_date, status")
+      .eq("org_id", orgId).eq("is_closing", true).eq("closing_year", year).maybeSingle(),
+  ]);
+
+  const accById = new Map(((accountsRes.data ?? []) as any[]).map((a) => [String(a.id), a]));
+  const byAccount = new Map<string, YearEndAccount>();
+  for (const l of (linesRes.data ?? []) as any[]) {
+    const acc = accById.get(String(l.account_id));
+    if (!acc || (acc.type !== "income" && acc.type !== "expense")) continue;
+    const id = String(l.account_id);
+    let row = byAccount.get(id);
+    if (!row) {
+      row = { account_id: id, code: String(acc.code), name: String(acc.name), type: String(acc.type), balance: 0 };
+      byAccount.set(id, row);
+    }
+    const signed = Number(l.debit ?? 0) - Number(l.credit ?? 0);
+    // Ingresos: saldo crédito. Gastos: saldo débito. Se guarda en positivo natural.
+    row.balance += acc.type === "income" ? -signed : signed;
+  }
+  const accounts = [...byAccount.values()]
+    .filter((a) => Math.abs(a.balance) > 0.005)
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  const income_total = accounts.filter((a) => a.type === "income").reduce((s, a) => s + a.balance, 0);
+  const expense_total = accounts.filter((a) => a.type === "expense").reduce((s, a) => s + a.balance, 0);
+
+  const retained = ((accountsRes.data ?? []) as any[]).find((a) => String(a.code) === RETAINED_CODE) ?? null;
+  const drafts = ((entriesRes.data ?? []) as any[]).filter((e) => e.status !== "posted" && !e.is_closing).length;
+  const openMonths = ((periodsRes.data ?? []) as any[]).filter((p) => p.status === "closed").map((p) => Number(p.month));
+  const decemberClosed = openMonths.includes(12);
+
+  const issues: string[] = [];
+  if (drafts > 0) issues.push(`${drafts} asiento(s) del ${year} siguen en borrador`);
+  if (!accounts.length) issues.push(`No hay movimientos de resultado publicados en ${year}`);
+  if (decemberClosed) issues.push(`Diciembre ${year} está cerrado; reábrelo para generar el cierre anual`);
+
+  return {
+    from, to, accounts, income_total, expense_total, retained, drafts, decemberClosed, issues,
+    existing: (closingRes.data ?? null) as any,
+  };
+}
+
+export const getYearEndPreview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ year: z.number().int().min(2000).max(2200) }).parse(d))
+  .handler(async ({ context, data }): Promise<YearEndPreview> => {
+    const orgId = await resolveOrgWithModuleAccess(
+      context.supabase, context.userId, "/finance/reconciliation", "member",
+    );
+    const r = await yearEndData(context.supabase, orgId, data.year);
+    const existing = r.existing
+      ? {
+          id: String(r.existing.id),
+          entry_no: r.existing.entry_no ?? null,
+          entry_date: String(r.existing.entry_date),
+          status: String(r.existing.status ?? "posted"),
+        }
+      : null;
+    const issues = [...r.issues];
+    if (existing) issues.push(`Ya existe un asiento de cierre para ${data.year}`);
+    return {
+      year: data.year,
+      income_total: r.income_total,
+      expense_total: r.expense_total,
+      result: r.income_total - r.expense_total,
+      accounts: r.accounts,
+      retained_account: {
+        id: r.retained ? String(r.retained.id) : null,
+        code: RETAINED_CODE,
+        name: r.retained ? String(r.retained.name) : RETAINED_NAME,
+      },
+      existing_closing: existing,
+      issues,
+      ready: issues.length === 0,
+    };
+  });
+
+/** Genera el asiento de cierre anual: cancela resultados contra utilidades acumuladas. */
+export const postYearEndClosing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      year: z.number().int().min(2000).max(2200),
+      reason: z.string().trim().max(400).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(
+      context.supabase, context.userId, "/finance/reconciliation", "admin",
+    );
+    const r = await yearEndData(context.supabase, orgId, data.year);
+    if (r.existing) throw new Error(`Ya existe un asiento de cierre para ${data.year}`);
+    if (r.issues.length) throw new Error(`No se puede cerrar el año: ${r.issues.join(" · ")}`);
+
+    // Cuenta de resultados acumulados (se crea si la organización no la tiene).
+    let retainedId = r.retained ? String(r.retained.id) : null;
+    if (!retainedId) {
+      const { data: parent } = await context.supabase
+        .from("fin_accounts" as never).select("id").eq("org_id", orgId).eq("code", "3").maybeSingle();
+      const { data: ins, error: insErr } = await context.supabase
+        .from("fin_accounts" as never)
+        .insert({
+          org_id: orgId,
+          code: RETAINED_CODE,
+          name: RETAINED_NAME,
+          type: "equity",
+          parent_id: parent ? (parent as any).id : null,
+          active: true,
+          requires_third_party: false,
+        } as never)
+        .select("id").single();
+      if (insErr) throw new Error(insErr.message);
+      retainedId = String((ins as any).id);
+    }
+
+    const result = r.income_total - r.expense_total;
+    const lines: Array<Record<string, unknown>> = [];
+    for (const a of r.accounts) {
+      // Se invierte el saldo natural de cada cuenta de resultado.
+      if (a.type === "income") {
+        lines.push({ account_id: a.account_id, debit: round2(a.balance), credit: 0 });
+      } else {
+        lines.push({ account_id: a.account_id, debit: 0, credit: round2(a.balance) });
+      }
+    }
+    if (Math.abs(result) > 0.005) {
+      lines.push(
+        result > 0
+          ? { account_id: retainedId, debit: 0, credit: round2(result) }
+          : { account_id: retainedId, debit: round2(-result), credit: 0 },
+      );
+    }
+    const totalD = lines.reduce((s, l) => s + Number(l["debit"] ?? 0), 0);
+    const totalC = lines.reduce((s, l) => s + Number(l["credit"] ?? 0), 0);
+    if (Math.abs(totalD - totalC) > 0.01) {
+      // Ajuste por redondeo contra resultados acumulados.
+      lines.push(
+        totalD > totalC
+          ? { account_id: retainedId, debit: 0, credit: round2(totalD - totalC) }
+          : { account_id: retainedId, debit: round2(totalC - totalD), credit: 0 },
+      );
+    }
+    if (lines.length < 2) throw new Error("No hay saldos de resultado por cancelar");
+
+    const { data: nRes, error: nErr } = await (context.supabase.rpc as any)("next_journal_entry_no", { _org_id: orgId });
+    if (nErr) throw new Error(nErr.message);
+    const { data: entry, error: eErr } = await context.supabase
+      .from("fin_journal_entries" as never)
+      .insert({
+        org_id: orgId,
+        entry_no: nRes as number,
+        entry_date: `${data.year}-12-31`,
+        description: `Cierre anual ${data.year} — traslado del resultado a resultados acumulados`,
+        status: "posted",
+        is_closing: true,
+        closing_year: data.year,
+        created_by: context.userId,
+      } as never)
+      .select("id, entry_no").single();
+    if (eErr) throw new Error(eErr.message);
+    const entryId = String((entry as any).id);
+
+    const { error: lErr } = await context.supabase.from("fin_journal_lines" as never).insert(
+      lines.map((l) => ({
+        entry_id: entryId,
+        org_id: orgId,
+        account_id: l["account_id"],
+        debit: l["debit"] ?? 0,
+        credit: l["credit"] ?? 0,
+        description: `Cierre anual ${data.year}`,
+      })) as never,
+    );
+    if (lErr) {
+      await context.supabase.from("fin_journal_entries" as never).delete().eq("id", entryId).eq("org_id", orgId);
+      throw new Error(lErr.message);
+    }
+
+    await logPeriodAudit(context.supabase, orgId, context.userId, {
+      year: data.year,
+      month: 12,
+      action: "year_end_closed",
+      reason: data.reason ?? null,
+      meta: { entry_id: entryId, result, income: r.income_total, expense: r.expense_total },
+    });
+
+    return { id: entryId, entry_no: (entry as any).entry_no ?? null, result, lines: lines.length };
+  });
+
+/** Anula el asiento de cierre anual (solo si diciembre sigue abierto). */
+export const revertYearEndClosing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      year: z.number().int().min(2000).max(2200),
+      reason: z.string().trim().min(3, "Indica el motivo").max(400),
+    }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const orgId = await resolveOrgWithModuleAccess(
+      context.supabase, context.userId, "/finance/reconciliation", "admin",
+    );
+    const { data: period } = await context.supabase
+      .from("accounting_periods" as never)
+      .select("status").eq("org_id", orgId).eq("year", data.year).eq("month", 12).maybeSingle();
+    if ((period as any)?.status === "closed") {
+      throw new Error(`Diciembre ${data.year} está cerrado; reábrelo antes de anular el cierre anual`);
+    }
+    const { data: entry } = await context.supabase
+      .from("fin_journal_entries" as never)
+      .select("id").eq("org_id", orgId).eq("is_closing", true).eq("closing_year", data.year).maybeSingle();
+    if (!entry) throw new Error(`No hay asiento de cierre para ${data.year}`);
+    const entryId = String((entry as any).id);
+    await context.supabase.from("fin_journal_lines" as never).delete().eq("entry_id", entryId).eq("org_id", orgId);
+    const { error } = await context.supabase
+      .from("fin_journal_entries" as never).delete().eq("id", entryId).eq("org_id", orgId);
+    if (error) throw new Error(error.message);
+    await logPeriodAudit(context.supabase, orgId, context.userId, {
+      year: data.year, month: 12, action: "year_end_reverted", reason: data.reason,
+      meta: { entry_id: entryId },
+    });
+    return { ok: true };
+  });
