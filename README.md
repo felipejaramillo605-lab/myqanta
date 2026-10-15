@@ -34,4 +34,4 @@ Variables esperadas (ver `.env.example`): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_
 ## Notas
 
 - El repositorio está conectado a Lovable: no reescribas el historial publicado.
-- No declara licencia; todos los derechos reservados salvo que su autor indique otra cosa.
+- No declara licencia.
